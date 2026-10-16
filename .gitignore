@@ -6,3 +6,7 @@ __pycache__/
 .env
 *.local.*
 .pgdata/
+.env.*
+!.env.example
+.neon
+node_modules/
