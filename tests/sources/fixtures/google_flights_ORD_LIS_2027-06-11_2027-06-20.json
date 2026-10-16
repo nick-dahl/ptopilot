@@ -1,0 +1,571 @@
+[
+ {
+  "type": "LX",
+  "price": 1340,
+  "airlines": [
+   "SWISS"
+  ],
+  "flights": [
+   {
+    "from_airport": {
+     "name": "Chicago O'Hare International Airport",
+     "code": "ORD"
+    },
+    "to_airport": {
+     "name": "Zurich Airport",
+     "code": "ZRH"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      11
+     ],
+     "time": [
+      14,
+      20
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      6,
+      10
+     ]
+    },
+    "duration": 530,
+    "plane_type": "Airbus A330"
+   },
+   {
+    "from_airport": {
+     "name": "Zurich Airport",
+     "code": "ZRH"
+    },
+    "to_airport": {
+     "name": "Humberto Delgado Airport",
+     "code": "LIS"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      12,
+      50
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      14,
+      45
+     ]
+    },
+    "duration": 175,
+    "plane_type": "Airbus A321neo"
+   }
+  ],
+  "carbon": {
+   "typical_on_route": 534000,
+   "emission": 480000
+  }
+ },
+ {
+  "type": "LX",
+  "price": 1346,
+  "airlines": [
+   "SWISS"
+  ],
+  "flights": [
+   {
+    "from_airport": {
+     "name": "Chicago O'Hare International Airport",
+     "code": "ORD"
+    },
+    "to_airport": {
+     "name": "Zurich Airport",
+     "code": "ZRH"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      11
+     ],
+     "time": [
+      19,
+      5
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      10,
+      50
+     ]
+    },
+    "duration": 525,
+    "plane_type": "Boeing 777"
+   },
+   {
+    "from_airport": {
+     "name": "Zurich Airport",
+     "code": "ZRH"
+    },
+    "to_airport": {
+     "name": "Humberto Delgado Airport",
+     "code": "LIS"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      12,
+      50
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      14,
+      45
+     ]
+    },
+    "duration": 175,
+    "plane_type": "Airbus A321neo"
+   }
+  ],
+  "carbon": {
+   "typical_on_route": 534000,
+   "emission": 521000
+  }
+ },
+ {
+  "type": "multi",
+  "price": 1351,
+  "airlines": [
+   "American",
+   "British Airways"
+  ],
+  "flights": [
+   {
+    "from_airport": {
+     "name": "Chicago O'Hare International Airport",
+     "code": "ORD"
+    },
+    "to_airport": {
+     "name": "Heathrow Airport",
+     "code": "LHR"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      11
+     ],
+     "time": [
+      23,
+      0
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      12,
+      50
+     ]
+    },
+    "duration": 470,
+    "plane_type": "Boeing 787"
+   },
+   {
+    "from_airport": {
+     "name": "Heathrow Airport",
+     "code": "LHR"
+    },
+    "to_airport": {
+     "name": "Humberto Delgado Airport",
+     "code": "LIS"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      15,
+      0
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      18,
+      0
+     ]
+    },
+    "duration": 180,
+    "plane_type": "Airbus A320"
+   }
+  ],
+  "carbon": {
+   "typical_on_route": 534000,
+   "emission": 423000
+  }
+ },
+ {
+  "type": "BA",
+  "price": 1364,
+  "airlines": [
+   "British Airways"
+  ],
+  "flights": [
+   {
+    "from_airport": {
+     "name": "Chicago O'Hare International Airport",
+     "code": "ORD"
+    },
+    "to_airport": {
+     "name": "Heathrow Airport",
+     "code": "LHR"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      11
+     ],
+     "time": [
+      22,
+      0
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      12,
+      0
+     ]
+    },
+    "duration": 480,
+    "plane_type": "Boeing 777"
+   },
+   {
+    "from_airport": {
+     "name": "Heathrow Airport",
+     "code": "LHR"
+    },
+    "to_airport": {
+     "name": "Humberto Delgado Airport",
+     "code": "LIS"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      15,
+      0
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      18,
+      0
+     ]
+    },
+    "duration": 180,
+    "plane_type": "Airbus A320"
+   }
+  ],
+  "carbon": {
+   "typical_on_route": 534000,
+   "emission": 525000
+  }
+ },
+ {
+  "type": "BA",
+  "price": 1370,
+  "airlines": [
+   "British Airways"
+  ],
+  "flights": [
+   {
+    "from_airport": {
+     "name": "Chicago O'Hare International Airport",
+     "code": "ORD"
+    },
+    "to_airport": {
+     "name": "Heathrow Airport",
+     "code": "LHR"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      11
+     ],
+     "time": [
+      19,
+      25
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      9,
+      35
+     ]
+    },
+    "duration": 490,
+    "plane_type": "Boeing 787-10"
+   },
+   {
+    "from_airport": {
+     "name": "Heathrow Airport",
+     "code": "LHR"
+    },
+    "to_airport": {
+     "name": "Humberto Delgado Airport",
+     "code": "LIS"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      12,
+      40
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      15,
+      35
+     ]
+    },
+    "duration": 175,
+    "plane_type": "Airbus A320neo"
+   }
+  ],
+  "carbon": {
+   "typical_on_route": 534000,
+   "emission": 390000
+  }
+ },
+ {
+  "type": "multi",
+  "price": 1531,
+  "airlines": [
+   "American",
+   "British Airways"
+  ],
+  "flights": [
+   {
+    "from_airport": {
+     "name": "Chicago O'Hare International Airport",
+     "code": "ORD"
+    },
+    "to_airport": {
+     "name": "Heathrow Airport",
+     "code": "LHR"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      11
+     ],
+     "time": [
+      20,
+      40
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      10,
+      30
+     ]
+    },
+    "duration": 470,
+    "plane_type": "Boeing 787"
+   },
+   {
+    "from_airport": {
+     "name": "Heathrow Airport",
+     "code": "LHR"
+    },
+    "to_airport": {
+     "name": "Humberto Delgado Airport",
+     "code": "LIS"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      12,
+      40
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      15,
+      35
+     ]
+    },
+    "duration": 175,
+    "plane_type": "Airbus A320neo"
+   }
+  ],
+  "carbon": {
+   "typical_on_route": 534000,
+   "emission": 403000
+  }
+ },
+ {
+  "type": "BA",
+  "price": 1531,
+  "airlines": [
+   "British Airways"
+  ],
+  "flights": [
+   {
+    "from_airport": {
+     "name": "Chicago O'Hare International Airport",
+     "code": "ORD"
+    },
+    "to_airport": {
+     "name": "Heathrow Airport",
+     "code": "LHR"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      11
+     ],
+     "time": [
+      21,
+      15
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      11,
+      15
+     ]
+    },
+    "duration": 480,
+    "plane_type": "Boeing 777"
+   },
+   {
+    "from_airport": {
+     "name": "Heathrow Airport",
+     "code": "LHR"
+    },
+    "to_airport": {
+     "name": "Humberto Delgado Airport",
+     "code": "LIS"
+    },
+    "departure": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      12,
+      40
+     ]
+    },
+    "arrival": {
+     "date": [
+      2027,
+      6,
+      12
+     ],
+     "time": [
+      15,
+      35
+     ]
+    },
+    "duration": 175,
+    "plane_type": "Airbus A320neo"
+   }
+  ],
+  "carbon": {
+   "typical_on_route": 534000,
+   "emission": 505000
+  }
+ }
+]
