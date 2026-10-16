@@ -1,0 +1,66 @@
+{
+  "search_metadata": {
+    "status": "Success",
+    "google_flights_url": "https://www.google.com/travel/flights?hl=en&gl=us&curr=USD&tfs=CBwQAhoeEgoyMDI3LTA2LTEx"
+  },
+  "best_flights": [
+    {
+      "flights": [
+        {
+          "departure_airport": {"name": "Chicago O'Hare International Airport", "id": "ORD", "time": "2027-06-11 18:15"},
+          "arrival_airport": {"name": "Newark Liberty International Airport", "id": "EWR", "time": "2027-06-11 21:30"},
+          "duration": 135,
+          "airline": "United",
+          "flight_number": "UA 1234",
+          "travel_class": "Economy"
+        },
+        {
+          "departure_airport": {"name": "Newark Liberty International Airport", "id": "EWR", "time": "2027-06-11 23:00"},
+          "arrival_airport": {"name": "Humberto Delgado Airport", "id": "LIS", "time": "2027-06-12 10:45"},
+          "duration": 405,
+          "airline": "TAP Air Portugal",
+          "flight_number": "TP 202",
+          "travel_class": "Economy"
+        }
+      ],
+      "layovers": [{"duration": 90, "name": "Newark Liberty International Airport", "id": "EWR"}],
+      "total_duration": 630,
+      "price": 905,
+      "type": "Round trip",
+      "departure_token": "WyJDalJJ"
+    }
+  ],
+  "other_flights": [
+    {
+      "flights": [
+        {
+          "departure_airport": {"name": "Chicago O'Hare International Airport", "id": "ORD", "time": "2027-06-11 16:00"},
+          "arrival_airport": {"name": "Toronto Pearson International Airport", "id": "YYZ", "time": "2027-06-11 18:40"},
+          "duration": 100,
+          "airline": "Air Canada",
+          "flight_number": "AC 512",
+          "travel_class": "Economy"
+        },
+        {
+          "departure_airport": {"name": "Toronto Pearson International Airport", "id": "YYZ", "time": "2027-06-12 07:30"},
+          "arrival_airport": {"name": "Humberto Delgado Airport", "id": "LIS", "time": "2027-06-12 19:10"},
+          "duration": 460,
+          "airline": "Air Canada",
+          "flight_number": "AC 830",
+          "travel_class": "Economy"
+        }
+      ],
+      "layovers": [{"duration": 770, "name": "Toronto Pearson International Airport", "id": "YYZ", "overnight": true}],
+      "total_duration": 1330,
+      "price": 840,
+      "type": "Round trip",
+      "departure_token": "WyJDalJK"
+    }
+  ],
+  "price_insights": {
+    "lowest_price": 840,
+    "price_level": "typical",
+    "typical_price_range": [780, 1150],
+    "price_history": [[1792800000, 980], [1792886400, 960]]
+  }
+}
