@@ -28,3 +28,10 @@ def test_reads_secrets_from_env():
 def test_database_url_gets_psycopg_driver(raw, expected):
     assert normalize_database_url(raw) == expected
     assert Settings.from_env({"DATABASE_URL": raw}).database_url == expected
+
+
+def test_email_settings_default_to_resend_shared_sender():
+    s = Settings.from_env({"RESEND_API_KEY": "re", "ADMIN_EMAIL": "me@example.com"})
+    assert (s.resend_api_key, s.admin_email) == ("re", "me@example.com")
+    assert s.email_from == "ptopilot <onboarding@resend.dev>"
+    assert Settings.from_env({"EMAIL_FROM": "deals@example.com"}).email_from == "deals@example.com"

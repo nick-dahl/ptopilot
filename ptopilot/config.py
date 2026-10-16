@@ -20,3 +20,19 @@ DEAL_Z_FOR_FULL_SCORE = 2.5
 WEATHER_SCORES = {"good": 1.0, "shoulder": 0.6, "avoid": 0.2}
 SWEET_SPOT_DAYS = {"international": (30, 120), "domestic": (21, 90)}
 OFF_SWEET_SPOT_TIMING = 0.5
+
+# Pipeline (spec §7)
+DEFAULT_CURRENCY = "USD"
+CACHE_LOOKBACK_DAYS = 7  # cached fares older than this are ignored
+BASELINE_WINDOW_DAYS = 60
+SHORTLIST_Z = -0.385  # z at the 35th percentile of a normal distribution
+LIVE_CHECK_CAP = 40
+EXPLORATION_QUOTA = 10  # slots reserved for routes with too little history or no cached price
+PRIORITY_WEIGHTS = {1: 1.0, 2: 0.8, 3: 0.6}
+MONTH_ESTIMATE_WEIGHT = 0.5  # a month's cheapest fare is a weaker signal than a fare for the exact dates
+URGENCY = {"soon": 0.7, "sweet": 1.0, "far": 0.5}  # <30 days, 30-120 days, >120 days out
+BREAKER_THRESHOLD = 3  # consecutive failures before a live source is skipped for the rest of the run
+LIVE_DELAY_S = (3.0, 8.0)  # random pause between live checks
+SOURCE_BUDGETS = {"serpapi": {"per_run": 8, "per_month": 250}}
+SHORT_HAUL_MAX_MIN = 600  # fastest option under 10 h -> short-haul stop limit applies
+MAX_DURATION_RATIO = 1.5
