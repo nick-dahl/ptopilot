@@ -242,6 +242,33 @@ For each user/tracker link that has a price today:
 
 All weights and thresholds live in `config.py`.
 
+### Implementation notes (Plan 3)
+
+- **Season filter:** there is no separate `season_filter` stage. `core.planner` applies the filter inside `expand`, before top-N pruning (§6.4).
+- **Exclusions:** `tracker_exclusions` are applied in `expand`, so excluded trips are never searched. `max_price` is still applied in `score`.
+- **What `expand` skips:**
+  - departures on or before the run date
+  - windows that have already ended (an in-progress window starts the day after the run date)
+  - snoozed trackers, while `snoozed_until >= run_date`
+- **Cached fares and broad_scan:**
+  - Cached fares count for 7 days (`CACHE_LOOKBACK_DAYS`).
+  - Without a Travelpayouts token, `broad_scan` is *skipped* (not failed) and the run continues.
+  - `broad_scan` fails only if every month scan fails.
+- **Shortlist:**
+  - 10 exploration slots are **reserved**: routes with fewer than 15 observations, or with no cached price at all, ordered by how long since they were last checked live.
+  - Deal entries fill the remaining slots up to 40 and are checked first.
+  - A deal whose estimate is the month's cheapest fare, rather than a fare for its exact dates, gets half weight (`MONTH_ESTIMATE_WEIGHT`).
+  - The shortlist is stored in a `shortlist_entries` table so `live_verify` can be re-run on its own.
+- **live_verify:**
+  - Stores **every** option a source returns as a verified observation. Users' filters are applied in `score`, because routes are shared across users.
+  - Google's typical range is stored on the observation (`typical_low`/`typical_high`) and copied into `route_baselines` by the `baselines` stage.
+  - Every attempted call counts against a budget.
+  - A re-run of the same day skips routes already checked.
+- **Score:** a candidate's price is a verified option that passes the user's filters, or failing that a cached fare for the **exact** dates. A month's cheapest fare never becomes a candidate price.
+- **observed_at:** rows written by a run are stamped with the current time when `run_date` is today, and with noon UTC on `run_date` when re-running a past day, so lookups by run date stay consistent.
+- **CLI:** exits with code 1 when any stage failed, so the Actions run shows red. Stage statuses are `ok`, `skipped`, `failed` and `not_run`.
+- **Health email sender:** sent through Resend. Without a verified domain, Resend's shared sender (`onboarding@resend.dev`) only delivers to the Resend account's own address. That is fine for the admin email; digests to friends (Plan 4) need a verified domain.
+
 ---
 
 ## 8. Digest (`digest/`)
