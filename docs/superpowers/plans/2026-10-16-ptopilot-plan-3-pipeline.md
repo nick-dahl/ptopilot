@@ -26,7 +26,7 @@
 - Logging: the CLI sets the `httpx` and `primp` loggers to WARNING, because SerpApi's `api_key` would otherwise appear in request-URL logs and the repo is public.
 - `ruff check .` and `ruff format --check .` must pass.
 - **Work directly on `main`; every task ends with a commit and a `git push`.** Every commit message ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- Commands run from `C:\\Users\\nickd\\dev\\ptopilot` using `.venv/Scripts/python`. The local Postgres must be running (`pg_isready -h localhost -p 5433`; see the README).
+- Commands run from `C:\Users\nickd\dev\ptopilot` using `.venv/Scripts/python`. The local Postgres must be running (`pg_isready -h localhost -p 5433`; see the README).
 
 ## Review Focus
 
