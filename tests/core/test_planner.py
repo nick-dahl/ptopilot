@@ -95,3 +95,8 @@ def test_invalid_inputs_are_rejected():
         TrackerSpec("TH", min_stay_days=10, max_stay_days=5)
     with pytest.raises(ValueError):
         Window(date(2027, 6, 30), date(2027, 6, 1))
+
+
+def test_inverted_trip_length_range_is_rejected():
+    with pytest.raises(ValueError, match="10"):
+        profile(min_trip_days=10, max_trip_days=5)

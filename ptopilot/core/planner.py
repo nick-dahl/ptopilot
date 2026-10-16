@@ -34,6 +34,12 @@ class TravelerProfile:
     weather_tolerance: Tolerance = "normal"
     friday_evening_departure: bool = False
 
+    def __post_init__(self) -> None:
+        if not 0 < self.min_trip_days <= self.max_trip_days:
+            raise ValueError(
+                f"Trip length must satisfy 0 < min <= max, got {self.min_trip_days}..{self.max_trip_days}"
+            )
+
 
 @dataclass(frozen=True)
 class TrackerSpec:

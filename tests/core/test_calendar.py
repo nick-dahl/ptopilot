@@ -72,6 +72,16 @@ def test_weekday_days_off_skips_weekend_holidays():
     )
 
 
+def test_ignored_holidays_match_case_insensitively():
+    cal = WorkCalendar.from_code("US", ignored_holidays=["columbus day"])
+    assert cal.is_workday(date(2027, 10, 11))
+
+
+def test_unknown_ignored_holiday_name_is_a_clear_error():
+    with pytest.raises(ValueError, match="Columbo Day"):
+        WorkCalendar.from_code("US", ignored_holidays=["Columbo Day"])
+
+
 def test_unknown_calendar_code_is_a_clear_error():
     with pytest.raises(ValueError, match="XX"):
         WorkCalendar.from_code("XX")

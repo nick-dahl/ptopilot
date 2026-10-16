@@ -19,7 +19,20 @@ def _holiday_names(country: str, subdiv: str | None, year: int) -> dict[date, st
 
 
 def _base_name(name: str) -> str:
-    return name.removesuffix(OBSERVED_SUFFIX)
+    """Holiday name without "(observed)", case-folded for matching."""
+    return name.removesuffix(OBSERVED_SUFFIX).casefold()
+
+
+@lru_cache(maxsize=64)
+def _known_names(country: str, subdiv: str | None) -> frozenset[str]:
+    """Base names of every holiday this calendar has from last year through two years ahead."""
+    this_year = date.today().year
+    return frozenset(
+        _base_name(n)
+        for year in range(this_year - 1, this_year + 3)
+        for raw in _holiday_names(country, subdiv, year).values()
+        for n in raw.split("; ")
+    )
 
 
 @dataclass(frozen=True)
@@ -27,7 +40,7 @@ class WorkCalendar:
     country: str
     subdiv: str | None = None
     extra_days_off: frozenset[date] = frozenset()
-    ignored_holidays: frozenset[str] = frozenset()
+    ignored_holidays: frozenset[str] = frozenset()  # case-folded base names; build via from_code
 
     @classmethod
     def from_code(
@@ -42,11 +55,15 @@ class WorkCalendar:
             holidays.country_holidays(country, subdiv=subdiv or None)
         except NotImplementedError as exc:
             raise ValueError(f"Unknown holiday calendar: {code!r}") from exc
+        ignored = {_base_name(n): n for n in ignored_holidays}
+        unknown = [n for key, n in ignored.items() if key not in _known_names(country, subdiv or None)]
+        if unknown:
+            raise ValueError(f"Unknown holiday name(s) for calendar {code!r}: {unknown}")
         return cls(
             country=country,
             subdiv=subdiv or None,
             extra_days_off=frozenset(extra_days_off),
-            ignored_holidays=frozenset(ignored_holidays),
+            ignored_holidays=frozenset(ignored),
         )
 
     def holiday_name(self, d: date) -> str | None:
