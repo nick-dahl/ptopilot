@@ -32,6 +32,24 @@ After a reboot, start it again with the `pg_ctl ... start` line. Apply migration
 .venv/Scripts/python -m pytest -m live  # hits real flight sources; run by hand
 ```
 
+## Daily scan
+
+```powershell
+.venv/Scripts/python -m ptopilot.pipeline run --dry-run            # whole pipeline, no health email
+.venv/Scripts/python -m ptopilot.pipeline run --stage expand       # one stage (repeatable)
+.venv/Scripts/python -m ptopilot.pipeline run --date 2026-10-20    # re-run a past day
+```
+
+Stages: `expand → broad_scan → shortlist → live_verify → baselines → score`. Each run is recorded in `pipeline_runs`. A failed `expand` or `broad_scan` stops the rest; a failed `live_verify` does not. In production, `.github/workflows/scan.yml` runs it daily at 06:00 UTC (and on demand from the Actions tab, with optional date/stage inputs); `keepalive.yml` stops GitHub from disabling the schedule.
+
 ## Configuration
 
-Environment variables (never committed): `DATABASE_URL` (defaults to the local dev database), `TRAVELPAYOUTS_TOKEN`, `SERPAPI_KEY`.
+Environment variables (never committed; GitHub Actions secrets in production):
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres URL (Neon in production); defaults to the local dev database |
+| `TRAVELPAYOUTS_TOKEN` | Cached fares for the broad scan; without it `broad_scan` is skipped |
+| `SERPAPI_KEY` | Live-check fallback (~8 searches/run, 250/month) |
+| `RESEND_API_KEY`, `ADMIN_EMAIL` | Health email after each scan |
+| `EMAIL_FROM` | Sender; defaults to Resend's shared `onboarding@resend.dev`, which only delivers to your own Resend account address |

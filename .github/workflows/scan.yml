@@ -1,0 +1,41 @@
+name: scan
+on:
+  schedule:
+    - cron: "0 6 * * *"  # daily, 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Run date YYYY-MM-DD (blank = today, UTC)"
+        required: false
+      stage:
+        description: "Run only this stage (blank = all)"
+        required: false
+        type: choice
+        options: ["", expand, broad_scan, shortlist, live_verify, baselines, score]
+concurrency:
+  group: scan
+  cancel-in-progress: false
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+      SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m alembic upgrade head
+      - name: Run pipeline
+        run: |
+          args=(run)
+          if [ -n "${{ inputs.date }}" ]; then args+=(--date "${{ inputs.date }}"); fi
+          if [ -n "${{ inputs.stage }}" ]; then args+=(--stage "${{ inputs.stage }}"); fi
+          python -m ptopilot.pipeline "${args[@]}"
