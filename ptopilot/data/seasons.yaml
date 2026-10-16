@@ -1,0 +1,25 @@
+# Hand-seeded season ratings, Jan..Dec. Keys: destination code or country code.
+# Plan 4 adds scripts/generate_seasons.py to draft more entries from Open-Meteo climate normals.
+TH:
+  months: [good, good, shoulder, shoulder, shoulder, shoulder, shoulder, shoulder, avoid, avoid, good, good]
+  notes:
+    1: "Cool, dry season; peak crowds"
+    4: "Hottest month, often 35°C+"
+    6: "Start of rainy season; short afternoon downpours"
+    9: "Wettest month; flooding possible"
+    10: "Heavy rain tapering late in the month"
+    11: "Dry season begins"
+LIS:
+  months: [shoulder, shoulder, shoulder, shoulder, good, good, good, good, good, good, shoulder, shoulder]
+  notes:
+    1: "Mild but rainy, ~15°C"
+    6: "Warm and dry, ~26°C; festival season"
+    8: "Hot, ~29°C; busiest month"
+TYO:
+  months: [shoulder, shoulder, good, good, good, shoulder, shoulder, shoulder, shoulder, good, good, shoulder]
+  notes:
+    4: "Cherry blossom season; book early"
+    6: "Rainy season (tsuyu)"
+    8: "Hot and humid, ~31°C"
+    9: "Typhoon season peaks"
+    11: "Autumn leaves, clear skies"

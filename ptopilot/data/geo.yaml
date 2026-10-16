@@ -1,0 +1,36 @@
+# Seed geography. Extend as friends add destinations.
+# zone: coarse region used for travel-time rules; country: ISO 3166 alpha-2.
+airports:
+  ORD: {country: US, zone: NA}
+  MDW: {country: US, zone: NA}
+  JFK: {country: US, zone: NA}
+  EWR: {country: US, zone: NA}
+  LGA: {country: US, zone: NA}
+  SFO: {country: US, zone: NA}
+  LAX: {country: US, zone: NA}
+  LHR: {country: GB, zone: EUROPE}
+  LGW: {country: GB, zone: EUROPE}
+  LIS: {country: PT, zone: EUROPE}
+  BKK: {country: TH, zone: SE_ASIA}
+  HKT: {country: TH, zone: SE_ASIA}
+  CNX: {country: TH, zone: SE_ASIA}
+  HND: {country: JP, zone: E_ASIA}
+  NRT: {country: JP, zone: E_ASIA}
+
+destinations:
+  TH: {name: Thailand, kind: region, airports: [BKK, HKT, CNX]}
+  LIS: {name: Lisbon, kind: city, airports: [LIS]}
+  TYO: {name: Tokyo, kind: city, airports: [HND, NRT]}
+
+# overhead_days: round-trip travel days subtracted from time on the ground.
+# min_trip_days: shortest trip worth taking between the two zones.
+travel:
+  default: {overhead_days: 1, min_trip_days: 2}
+  pairs:
+    - {zones: [NA, NA], overhead_days: 1, min_trip_days: 3}
+    - {zones: [NA, EUROPE], overhead_days: 2, min_trip_days: 5}
+    - {zones: [NA, SE_ASIA], overhead_days: 3, min_trip_days: 9}
+    - {zones: [NA, E_ASIA], overhead_days: 2.5, min_trip_days: 7}
+    - {zones: [EUROPE, EUROPE], overhead_days: 1, min_trip_days: 2}
+    - {zones: [EUROPE, SE_ASIA], overhead_days: 2.5, min_trip_days: 8}
+    - {zones: [EUROPE, E_ASIA], overhead_days: 2.5, min_trip_days: 7}
