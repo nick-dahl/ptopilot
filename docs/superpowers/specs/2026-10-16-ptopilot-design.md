@@ -262,8 +262,12 @@ All weights and thresholds live in `config.py`.
 - **live_verify:**
   - Stores **every** option a source returns as a verified observation. Users' filters are applied in `score`, because routes are shared across users.
   - Google's typical range is stored on the observation (`typical_low`/`typical_high`) and copied into `route_baselines` by the `baselines` stage.
-  - Every attempted call counts against a budget.
-  - A re-run of the same day skips routes already checked.
+  - Every attempt, whatever the outcome, is recorded in a `live_checks` table.
+  - A same-day re-run skips routes already checked successfully, including ones that returned no flights.
+  - SerpApi's cap is **8 per day**, counted from `live_checks` so retries can't exceed it. The monthly cap of 250 lives in `source_budget`.
+  - The shortlist orders exploration by checks made *before* the run date, so a re-run picks the same routes.
+- **broad_scan storage:** keeps only the cheapest fare for each date pair a tracker wants, plus the month's single cheapest fare (for the month-level estimate), and skips route-months already scanned that day. This keeps the append-only table well inside Neon's free tier.
+- **Score:** if live options exist for a trip but none fit the user's filters, there is no cached fallback. The cached fare is probably one of the same flights.
 - **Score:** a candidate's price is a verified option that passes the user's filters, or failing that a cached fare for the **exact** dates. A month's cheapest fare never becomes a candidate price.
 - **observed_at:** rows written by a run are stamped with the current time when `run_date` is today, and with noon UTC on `run_date` when re-running a past day, so lookups by run date stay consistent.
 - **CLI:** exits with code 1 when any stage failed, so the Actions run shows red. Stage statuses are `ok`, `skipped`, `failed` and `not_run`.
