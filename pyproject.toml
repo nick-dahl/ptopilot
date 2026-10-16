@@ -1,0 +1,38 @@
+[project]
+name = "ptopilot"
+version = "0.1.0"
+description = "PTO-aware flight deal tracker"
+requires-python = ">=3.12"
+dependencies = [
+    "holidays>=0.60",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ptopilot*"]
+
+[tool.setuptools.package-data]
+"ptopilot.data" = ["*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: hits real external APIs; run manually with -m live"]
+addopts = "-m 'not live'"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
