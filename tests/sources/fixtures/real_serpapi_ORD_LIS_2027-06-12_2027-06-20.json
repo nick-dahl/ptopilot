@@ -1,0 +1,1161 @@
+{
+ "search_metadata": {
+  "id": "6ad269f21f56fa487e2b61d7",
+  "status": "Success",
+  "json_endpoint": "https://serpapi.com/searches/ndqHE6E72uOMd7z4WRFPXrd-BYJh50NZhcYYBV3u0qY/6ad269f21f56fa487e2b61d7.json",
+  "markdown_endpoint": "https://serpapi.com/searches/ndqHE6E72uOMd7z4WRFPXrd-BYJh50NZhcYYBV3u0qY/6ad269f21f56fa487e2b61d7.md",
+  "created_at": "2026-10-16 18:16:18 UTC",
+  "processed_at": "2026-10-16 18:16:18 UTC",
+  "google_flights_url": "https://www.google.com/travel/flights?hl=en&gl=us&curr=USD&tfs=CBwQAhoeEgoyMDI3LTA2LTEyagcIARIDT1JEcgcIARIDTElTGh4SCjIwMjctMDYtMjBqBwgBEgNMSVNyBwgBEgNPUkRAAUgBcAGYAQE&tfu=EgIIAQ",
+  "raw_html_file": "https://serpapi.com/searches/ndqHE6E72uOMd7z4WRFPXrd-BYJh50NZhcYYBV3u0qY/6ad269f21f56fa487e2b61d7.html",
+  "prettify_html_file": "https://serpapi.com/searches/ndqHE6E72uOMd7z4WRFPXrd-BYJh50NZhcYYBV3u0qY/6ad269f21f56fa487e2b61d7.prettify",
+  "total_time_taken": 2.73
+ },
+ "search_parameters": {
+  "engine": "google_flights",
+  "hl": "en",
+  "gl": "us",
+  "type": "1",
+  "departure_id": "ORD",
+  "arrival_id": "LIS",
+  "outbound_date": "2027-06-12",
+  "return_date": "2027-06-20",
+  "currency": "USD"
+ },
+ "best_flights": [
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "Chicago O'Hare International Airport",
+      "id": "ORD",
+      "time": "2027-06-12 17:45"
+     },
+     "arrival_airport": {
+      "name": "Humberto Delgado Airport",
+      "id": "LIS",
+      "time": "2027-06-13 07:55"
+     },
+     "duration": 490,
+     "airplane": "Airbus A330-900neo",
+     "airline": "Tap Air Portugal",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/TP.png",
+     "travel_class": "Economy",
+     "flight_number": "TP 244",
+     "ticket_also_sold_by": [
+      "JetBlue"
+     ],
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat power & USB outlets",
+      "On-demand video",
+      "Carbon emissions estimate: 348 kg"
+     ],
+     "overnight": true
+    }
+   ],
+   "total_duration": 490,
+   "carbon_emissions": {
+    "this_flight": 348000,
+    "typical_for_this_route": 534000,
+    "difference_percent": -35
+   },
+   "price": 1098,
+   "type": "Round trip",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/TP.png",
+   "departure_token": "WyJDalJJTkdocWFVUlpWMEZOWmsxQlNEbDVPWGRDUnkwdExTMHRMUzB0TFc5clpXMHhNVUZCUVVGQlIzSlRZV1pSUXpoaU56aEJFZ1ZVVURJME5Cb0xDS0haQmhBQ0dnTlZVMFE0SEhDaDJRWT0iLFtbIk9SRCIsIjIwMjctMDYtMTIiLCJMSVMiLG51bGwsIlRQIiwiMjQ0Il1dXQ=="
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "Chicago O'Hare International Airport",
+      "id": "ORD",
+      "time": "2027-06-12 08:50"
+     },
+     "arrival_airport": {
+      "name": "Boston Logan International Airport",
+      "id": "BOS",
+      "time": "2027-06-12 12:20"
+     },
+     "duration": 150,
+     "airplane": "Airbus A220-300 Passenger",
+     "airline": "JetBlue",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/B6.png",
+     "travel_class": "Economy",
+     "flight_number": "B6 312",
+     "ticket_also_sold_by": [
+      "Tap Air Portugal"
+     ],
+     "legroom": "32 in",
+     "extensions": [
+      "Above average legroom (32 in)",
+      "Free Wi-Fi",
+      "In-seat power & USB outlets",
+      "Live TV",
+      "Carbon emissions estimate: 149 kg"
+     ],
+     "often_delayed_by_over_30_min": true
+    },
+    {
+     "departure_airport": {
+      "name": "Boston Logan International Airport",
+      "id": "BOS",
+      "time": "2027-06-12 17:45"
+     },
+     "arrival_airport": {
+      "name": "Humberto Delgado Airport",
+      "id": "LIS",
+      "time": "2027-06-13 05:20"
+     },
+     "duration": 395,
+     "airplane": "Airbus A321neo",
+     "airline": "Tap Air Portugal",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/TP.png",
+     "travel_class": "Economy",
+     "flight_number": "TP 218",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat power & USB outlets",
+      "On-demand video",
+      "Carbon emissions estimate: 389 kg"
+     ],
+     "overnight": true
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 325,
+     "name": "Boston Logan International Airport",
+     "id": "BOS"
+    }
+   ],
+   "total_duration": 870,
+   "carbon_emissions": {
+    "this_flight": 540000,
+    "typical_for_this_route": 534000,
+    "difference_percent": 1
+   },
+   "price": 1282,
+   "type": "Round trip",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/multi.png",
+   "departure_token": "WyJDalJJTkdocWFVUlpWMEZOWmsxQlNEbDVPWGRDUnkwdExTMHRMUzB0TFc5clpXMHhNVUZCUVVGQlIzSlRZV1pSUXpoaU56aEJFZ3RDTmpNeE1ueFVVREl4T0JvTENMUHBCeEFDR2dOVlUwUTRISEN6NlFjPSIsW1siT1JEIiwiMjAyNy0wNi0xMiIsIkJPUyIsbnVsbCwiQjYiLCIzMTIiXSxbIkJPUyIsIjIwMjctMDYtMTIiLCJMSVMiLG51bGwsIlRQIiwiMjE4Il1dXQ=="
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "Chicago O'Hare International Airport",
+      "id": "ORD",
+      "time": "2027-06-12 18:04"
+     },
+     "arrival_airport": {
+      "name": "Dulles International Airport",
+      "id": "IAD",
+      "time": "2027-06-12 21:05"
+     },
+     "duration": 121,
+     "airplane": "Boeing 737",
+     "airline": "United",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/UA.png",
+     "travel_class": "Economy",
+     "flight_number": "UA 2202",
+     "legroom": "30 in",
+     "extensions": [
+      "Average legroom (30 in)",
+      "Wi-Fi for a fee",
+      "In-seat power outlet",
+      "Stream media to your device",
+      "Carbon emissions estimate: 96 kg"
+     ],
+     "often_delayed_by_over_30_min": true
+    },
+    {
+     "departure_airport": {
+      "name": "Dulles International Airport",
+      "id": "IAD",
+      "time": "2027-06-12 22:30"
+     },
+     "arrival_airport": {
+      "name": "Humberto Delgado Airport",
+      "id": "LIS",
+      "time": "2027-06-13 10:35"
+     },
+     "duration": 425,
+     "airplane": "Boeing 777",
+     "airline": "United",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/UA.png",
+     "travel_class": "Economy",
+     "flight_number": "UA 942",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat power & USB outlets",
+      "On-demand video",
+      "Carbon emissions estimate: 493 kg"
+     ],
+     "overnight": true,
+     "often_delayed_by_over_30_min": true
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 85,
+     "name": "Dulles International Airport",
+     "id": "IAD"
+    }
+   ],
+   "total_duration": 631,
+   "carbon_emissions": {
+    "this_flight": 590000,
+    "typical_for_this_route": 534000,
+    "difference_percent": 10
+   },
+   "price": 1392,
+   "type": "Round trip",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/UA.png",
+   "departure_token": "WyJDalJJTkdocWFVUlpWMEZOWmsxQlNEbDVPWGRDUnkwdExTMHRMUzB0TFc5clpXMHhNVUZCUVVGQlIzSlRZV1pSUXpoaU56aEJFZ3hWUVRJeU1ESjhWVUU1TkRJYUN3amx2Z2dRQWhvRFZWTkVPQnh3NWI0SSIsW1siT1JEIiwiMjAyNy0wNi0xMiIsIklBRCIsbnVsbCwiVUEiLCIyMjAyIl0sWyJJQUQiLCIyMDI3LTA2LTEyIiwiTElTIixudWxsLCJVQSIsIjk0MiJdXV0="
+  }
+ ],
+ "other_flights": [
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "Chicago O'Hare International Airport",
+      "id": "ORD",
+      "time": "2027-06-12 14:20"
+     },
+     "arrival_airport": {
+      "name": "Zurich Airport",
+      "id": "ZRH",
+      "time": "2027-06-13 06:10"
+     },
+     "duration": 530,
+     "airplane": "Airbus A330",
+     "airline": "SWISS",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/LX.png",
+     "travel_class": "Economy",
+     "flight_number": "LX 7",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat USB outlet",
+      "On-demand video",
+      "Carbon emissions estimate: 352 kg"
+     ],
+     "overnight": true
+    },
+    {
+     "departure_airport": {
+      "name": "Zurich Airport",
+      "id": "ZRH",
+      "time": "2027-06-13 21:30"
+     },
+     "arrival_airport": {
+      "name": "Humberto Delgado Airport",
+      "id": "LIS",
+      "time": "2027-06-13 23:25"
+     },
+     "duration": 175,
+     "airplane": "Airbus A321neo",
+     "airline": "SWISS",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/LX.png",
+     "travel_class": "Economy",
+     "flight_number": "LX 2082",
+     "legroom": "29 in",
+     "extensions": [
+      "Below average legroom (29 in)",
+      "In-seat USB outlet",
+      "Carbon emissions estimate: 127 kg"
+     ]
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 920,
+     "name": "Zurich Airport",
+     "id": "ZRH"
+    }
+   ],
+   "total_duration": 1625,
+   "carbon_emissions": {
+    "this_flight": 480000,
+    "typical_for_this_route": 534000,
+    "difference_percent": -10
+   },
+   "price": 1282,
+   "type": "Round trip",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/LX.png",
+   "departure_token": "WyJDalJJTkdocWFVUlpWMEZOWmsxQlNEbDVPWGRDUnkwdExTMHRMUzB0TFc5clpXMHhNVUZCUVVGQlIzSlRZV1pSUXpoaU56aEJFZ3BNV0RkOFRGZ3lNRGd5R2dzSWkra0hFQUlhQTFWVFJEZ2NjSXZwQnc9PSIsW1siT1JEIiwiMjAyNy0wNi0xMiIsIlpSSCIsbnVsbCwiTFgiLCI3Il0sWyJaUkgiLCIyMDI3LTA2LTEzIiwiTElTIixudWxsLCJMWCIsIjIwODIiXV1d"
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "Chicago O'Hare International Airport",
+      "id": "ORD",
+      "time": "2027-06-12 19:05"
+     },
+     "arrival_airport": {
+      "name": "Zurich Airport",
+      "id": "ZRH",
+      "time": "2027-06-13 10:50"
+     },
+     "duration": 525,
+     "airplane": "Boeing 777",
+     "airline": "SWISS",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/LX.png",
+     "travel_class": "Economy",
+     "flight_number": "LX 9",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat USB outlet",
+      "On-demand video",
+      "Carbon emissions estimate: 392 kg"
+     ],
+     "overnight": true
+    },
+    {
+     "departure_airport": {
+      "name": "Zurich Airport",
+      "id": "ZRH",
+      "time": "2027-06-13 12:50"
+     },
+     "arrival_airport": {
+      "name": "Humberto Delgado Airport",
+      "id": "LIS",
+      "time": "2027-06-13 14:45"
+     },
+     "duration": 175,
+     "airplane": "Airbus A321neo",
+     "airline": "SWISS",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/LX.png",
+     "travel_class": "Economy",
+     "flight_number": "LX 2084",
+     "legroom": "29 in",
+     "extensions": [
+      "Below average legroom (29 in)",
+      "In-seat USB outlet",
+      "Carbon emissions estimate: 127 kg"
+     ],
+     "often_delayed_by_over_30_min": true
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 120,
+     "name": "Zurich Airport",
+     "id": "ZRH"
+    }
+   ],
+   "total_duration": 820,
+   "carbon_emissions": {
+    "this_flight": 521000,
+    "typical_for_this_route": 534000,
+    "difference_percent": -2
+   },
+   "price": 1332,
+   "type": "Round trip",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/LX.png",
+   "departure_token": "WyJDalJJTkdocWFVUlpWMEZOWmsxQlNEbDVPWGRDUnkwdExTMHRMUzB0TFc5clpXMHhNVUZCUVVGQlIzSlRZV1pSUXpoaU56aEJFZ3BNV0RsOFRGZ3lNRGcwR2dzSWs1QUlFQUlhQTFWVFJEZ2NjSk9RQ0E9PSIsW1siT1JEIiwiMjAyNy0wNi0xMiIsIlpSSCIsbnVsbCwiTFgiLCI5Il0sWyJaUkgiLCIyMDI3LTA2LTEzIiwiTElTIixudWxsLCJMWCIsIjIwODQiXV1d"
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "Chicago O'Hare International Airport",
+      "id": "ORD",
+      "time": "2027-06-12 15:15"
+     },
+     "arrival_airport": {
+      "name": "Montr\u00e9al-Pierre Elliott Trudeau International Airport",
+      "id": "YUL",
+      "time": "2027-06-12 18:30"
+     },
+     "duration": 135,
+     "airplane": "Embraer 175",
+     "airline": "Air Canada",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AC.png",
+     "travel_class": "Economy",
+     "flight_number": "AC 8482",
+     "ticket_also_sold_by": [
+      "United"
+     ],
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Free Wi-Fi",
+      "In-seat power outlet",
+      "Stream media to your device",
+      "Carbon emissions estimate: 163 kg"
+     ],
+     "plane_and_crew_by": "Air Canada Express - Jazz"
+    },
+    {
+     "departure_airport": {
+      "name": "Montr\u00e9al-Pierre Elliott Trudeau International Airport",
+      "id": "YUL",
+      "time": "2027-06-12 21:45"
+     },
+     "arrival_airport": {
+      "name": "Humberto Delgado Airport",
+      "id": "LIS",
+      "time": "2027-06-13 09:20"
+     },
+     "duration": 395,
+     "airplane": "Airbus A330",
+     "airline": "Air Canada",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AC.png",
+     "travel_class": "Economy",
+     "flight_number": "AC 812",
+     "ticket_also_sold_by": [
+      "United"
+     ],
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat power & USB outlets",
+      "On-demand video",
+      "Carbon emissions estimate: 308 kg"
+     ],
+     "overnight": true,
+     "often_delayed_by_over_30_min": true
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 195,
+     "name": "Montr\u00e9al-Pierre Elliott Trudeau International Airport",
+     "id": "YUL"
+    }
+   ],
+   "total_duration": 725,
+   "carbon_emissions": {
+    "this_flight": 471000,
+    "typical_for_this_route": 534000,
+    "difference_percent": -12
+   },
+   "price": 1333,
+   "type": "Round trip",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AC.png",
+   "departure_token": "WyJDalJJTkdocWFVUlpWMEZOWmsxQlNEbDVPWGRDUnkwdExTMHRMUzB0TFc5clpXMHhNVUZCUVVGQlIzSlRZV1pSUXpoaU56aEJFZ3hCUXpnME9ESjhRVU00TVRJYUN3aWZrUWdRQWhvRFZWTkVPQnh3bjVFSSIsW1siT1JEIiwiMjAyNy0wNi0xMiIsIllVTCIsbnVsbCwiQUMiLCI4NDgyIl0sWyJZVUwiLCIyMDI3LTA2LTEyIiwiTElTIixudWxsLCJBQyIsIjgxMiJdXV0="
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "Chicago O'Hare International Airport",
+      "id": "ORD",
+      "time": "2027-06-12 22:00"
+     },
+     "arrival_airport": {
+      "name": "Heathrow Airport",
+      "id": "LHR",
+      "time": "2027-06-13 12:00"
+     },
+     "duration": 480,
+     "airplane": "Boeing 777",
+     "airline": "British Airways",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/BA.png",
+     "travel_class": "Economy",
+     "flight_number": "BA 296",
+     "ticket_also_sold_by": [
+      "Finnair"
+     ],
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat USB outlet",
+      "On-demand video",
+      "Carbon emissions estimate: 388 kg"
+     ],
+     "overnight": true
+    },
+    {
+     "departure_airport": {
+      "name": "Heathrow Airport",
+      "id": "LHR",
+      "time": "2027-06-13 13:25"
+     },
+     "arrival_airport": {
+      "name": "Humberto Delgado Airport",
+      "id": "LIS",
+      "time": "2027-06-13 16:20"
+     },
+     "duration": 175,
+     "airplane": "Airbus A320neo",
+     "airline": "British Airways",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/BA.png",
+     "travel_class": "Economy",
+     "flight_number": "BA 504",
+     "ticket_also_sold_by": [
+      "Finnair"
+     ],
+     "legroom": "29 in",
+     "extensions": [
+      "Below average legroom (29 in)",
+      "Wi-Fi for a fee",
+      "In-seat USB outlet",
+      "Carbon emissions estimate: 116 kg"
+     ]
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 85,
+     "name": "Heathrow Airport",
+     "id": "LHR"
+    }
+   ],
+   "total_duration": 740,
+   "carbon_emissions": {
+    "this_flight": 505000,
+    "typical_for_this_route": 534000,
+    "difference_percent": -5
+   },
+   "price": 1364,
+   "type": "Round trip",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/BA.png",
+   "departure_token": "WyJDalJJTkdocWFVUlpWMEZOWmsxQlNEbDVPWGRDUnkwdExTMHRMUzB0TFc5clpXMHhNVUZCUVVGQlIzSlRZV1pSUXpoaU56aEJFZ3RDUVRJNU5ueENRVFV3TkJvTENQV29DQkFDR2dOVlUwUTRISEQxcUFnPSIsW1siT1JEIiwiMjAyNy0wNi0xMiIsIkxIUiIsbnVsbCwiQkEiLCIyOTYiXSxbIkxIUiIsIjIwMjctMDYtMTMiLCJMSVMiLG51bGwsIkJBIiwiNTA0Il1dXQ=="
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "Chicago O'Hare International Airport",
+      "id": "ORD",
+      "time": "2027-06-12 18:15"
+     },
+     "arrival_airport": {
+      "name": "Adolfo Su\u00e1rez Madrid-Barajas Airport",
+      "id": "MAD",
+      "time": "2027-06-13 09:30"
+     },
+     "duration": 495,
+     "airplane": "Boeing 787",
+     "airline": "American",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AA.png",
+     "travel_class": "Economy",
+     "flight_number": "AA 126",
+     "ticket_also_sold_by": [
+      "British Airways"
+     ],
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat power & USB outlets",
+      "On-demand video",
+      "Carbon emissions estimate: 431 kg"
+     ],
+     "overnight": true
+    },
+    {
+     "departure_airport": {
+      "name": "Adolfo Su\u00e1rez Madrid-Barajas Airport",
+      "id": "MAD",
+      "time": "2027-06-13 15:35"
+     },
+     "arrival_airport": {
+      "name": "Humberto Delgado Airport",
+      "id": "LIS",
+      "time": "2027-06-13 16:05"
+     },
+     "duration": 90,
+     "airplane": "Airbus A320",
+     "airline": "Iberia",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/IB.png",
+     "travel_class": "Economy",
+     "flight_number": "IB 533",
+     "legroom": "28 in",
+     "extensions": [
+      "Below average legroom (28 in)",
+      "Wi-Fi for a fee",
+      "In-seat USB outlet",
+      "Carbon emissions estimate: 65 kg"
+     ]
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 365,
+     "name": "Adolfo Su\u00e1rez Madrid-Barajas Airport",
+     "id": "MAD"
+    }
+   ],
+   "total_duration": 950,
+   "carbon_emissions": {
+    "this_flight": 497000,
+    "typical_for_this_route": 534000,
+    "difference_percent": -7
+   },
+   "price": 1379,
+   "type": "Round trip",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/multi.png",
+   "departure_token": "WyJDalJJTkdocWFVUlpWMEZOWmsxQlNEbDVPWGRDUnkwdExTMHRMUzB0TFc5clpXMHhNVUZCUVVGQlIzSlRZV1pSUXpoaU56aEJFZ3RCUVRFeU5ueEpRalV6TXhvTENPVzBDQkFDR2dOVlUwUTRISERsdEFnPSIsW1siT1JEIiwiMjAyNy0wNi0xMiIsIk1BRCIsbnVsbCwiQUEiLCIxMjYiXSxbIk1BRCIsIjIwMjctMDYtMTMiLCJMSVMiLG51bGwsIklCIiwiNTMzIl1dXQ=="
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "Chicago O'Hare International Airport",
+      "id": "ORD",
+      "time": "2027-06-12 16:59"
+     },
+     "arrival_airport": {
+      "name": "Philadelphia International Airport",
+      "id": "PHL",
+      "time": "2027-06-12 20:07"
+     },
+     "duration": 128,
+     "airplane": "Boeing 737",
+     "airline": "American",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AA.png",
+     "travel_class": "Economy",
+     "flight_number": "AA 471",
+     "ticket_also_sold_by": [
+      "British Airways"
+     ],
+     "legroom": "30 in",
+     "extensions": [
+      "Average legroom (30 in)",
+      "Free Wi-Fi",
+      "In-seat power & USB outlets",
+      "Stream media to your device",
+      "Carbon emissions estimate: 105 kg"
+     ]
+    },
+    {
+     "departure_airport": {
+      "name": "Philadelphia International Airport",
+      "id": "PHL",
+      "time": "2027-06-12 21:05"
+     },
+     "arrival_airport": {
+      "name": "Humberto Delgado Airport",
+      "id": "LIS",
+      "time": "2027-06-13 09:05"
+     },
+     "duration": 420,
+     "airplane": "Boeing 787",
+     "airline": "American",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AA.png",
+     "travel_class": "Economy",
+     "flight_number": "AA 258",
+     "ticket_also_sold_by": [
+      "British Airways"
+     ],
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat power & USB outlets",
+      "On-demand video",
+      "Carbon emissions estimate: 295 kg"
+     ],
+     "overnight": true
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 58,
+     "name": "Philadelphia International Airport",
+     "id": "PHL"
+    }
+   ],
+   "total_duration": 606,
+   "carbon_emissions": {
+    "this_flight": 401000,
+    "typical_for_this_route": 534000,
+    "difference_percent": -25
+   },
+   "price": 1463,
+   "type": "Round trip",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AA.png",
+   "departure_token": "WyJDalJJTkdocWFVUlpWMEZOWmsxQlNEbDVPWGRDUnkwdExTMHRMUzB0TFc5clpXMHhNVUZCUVVGQlIzSlRZV1pSUXpoaU56aEJFZ3RCUVRRM01YeEJRVEkxT0JvTENQSDJDQkFDR2dOVlUwUTRISER4OWdnPSIsW1siT1JEIiwiMjAyNy0wNi0xMiIsIlBITCIsbnVsbCwiQUEiLCI0NzEiXSxbIlBITCIsIjIwMjctMDYtMTIiLCJMSVMiLG51bGwsIkFBIiwiMjU4Il1dXQ=="
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "Chicago O'Hare International Airport",
+      "id": "ORD",
+      "time": "2027-06-12 23:00"
+     },
+     "arrival_airport": {
+      "name": "Heathrow Airport",
+      "id": "LHR",
+      "time": "2027-06-13 12:50"
+     },
+     "duration": 470,
+     "airplane": "Boeing 787",
+     "airline": "American",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AA.png",
+     "travel_class": "Economy",
+     "flight_number": "AA 98",
+     "ticket_also_sold_by": [
+      "Finnair",
+      "British Airways"
+     ],
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Free Wi-Fi",
+      "In-seat power & USB outlets",
+      "On-demand video",
+      "Carbon emissions estimate: 286 kg"
+     ],
+     "overnight": true
+    },
+    {
+     "departure_airport": {
+      "name": "Heathrow Airport",
+      "id": "LHR",
+      "time": "2027-06-13 15:10"
+     },
+     "arrival_airport": {
+      "name": "Humberto Delgado Airport",
+      "id": "LIS",
+      "time": "2027-06-13 18:05"
+     },
+     "duration": 175,
+     "airplane": "Airbus A320neo",
+     "airline": "British Airways",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/BA.png",
+     "travel_class": "Economy",
+     "flight_number": "BA 506",
+     "ticket_also_sold_by": [
+      "Finnair"
+     ],
+     "legroom": "29 in",
+     "extensions": [
+      "Below average legroom (29 in)",
+      "Wi-Fi for a fee",
+      "In-seat USB outlet",
+      "Carbon emissions estimate: 116 kg"
+     ]
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 140,
+     "name": "Heathrow Airport",
+     "id": "LHR"
+    }
+   ],
+   "total_duration": 785,
+   "carbon_emissions": {
+    "this_flight": 403000,
+    "typical_for_this_route": 534000,
+    "difference_percent": -25
+   },
+   "price": 1530,
+   "type": "Round trip",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/multi.png",
+   "departure_token": "WyJDalJJTkdocWFVUlpWMEZOWmsxQlNEbDVPWGRDUnkwdExTMHRMUzB0TFc5clpXMHhNVUZCUVVGQlIzSlRZV1pSUXpoaU56aEJFZ3BCUVRrNGZFSkJOVEEyR2dzSWs2c0pFQUlhQTFWVFJEZ2NjSk9yQ1E9PSIsW1siT1JEIiwiMjAyNy0wNi0xMiIsIkxIUiIsbnVsbCwiQUEiLCI5OCJdLFsiTEhSIiwiMjAyNy0wNi0xMyIsIkxJUyIsbnVsbCwiQkEiLCI1MDYiXV1d"
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "Chicago O'Hare International Airport",
+      "id": "ORD",
+      "time": "2027-06-12 20:40"
+     },
+     "arrival_airport": {
+      "name": "Heathrow Airport",
+      "id": "LHR",
+      "time": "2027-06-13 10:30"
+     },
+     "duration": 470,
+     "airplane": "Boeing 787",
+     "airline": "American",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AA.png",
+     "travel_class": "Economy",
+     "flight_number": "AA 54",
+     "ticket_also_sold_by": [
+      "British Airways",
+      "Finnair"
+     ],
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Free Wi-Fi",
+      "In-seat power & USB outlets",
+      "On-demand video",
+      "Carbon emissions estimate: 286 kg"
+     ],
+     "overnight": true
+    },
+    {
+     "departure_airport": {
+      "name": "Heathrow Airport",
+      "id": "LHR",
+      "time": "2027-06-13 13:25"
+     },
+     "arrival_airport": {
+      "name": "Humberto Delgado Airport",
+      "id": "LIS",
+      "time": "2027-06-13 16:20"
+     },
+     "duration": 175,
+     "airplane": "Airbus A320neo",
+     "airline": "British Airways",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/BA.png",
+     "travel_class": "Economy",
+     "flight_number": "BA 504",
+     "ticket_also_sold_by": [
+      "Finnair"
+     ],
+     "legroom": "29 in",
+     "extensions": [
+      "Below average legroom (29 in)",
+      "Wi-Fi for a fee",
+      "In-seat USB outlet",
+      "Carbon emissions estimate: 116 kg"
+     ]
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 175,
+     "name": "Heathrow Airport",
+     "id": "LHR"
+    }
+   ],
+   "total_duration": 820,
+   "carbon_emissions": {
+    "this_flight": 403000,
+    "typical_for_this_route": 534000,
+    "difference_percent": -25
+   },
+   "price": 1559,
+   "type": "Round trip",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/multi.png",
+   "departure_token": "WyJDalJJTkdocWFVUlpWMEZOWmsxQlNEbDVPWGRDUnkwdExTMHRMUzB0TFc5clpXMHhNVUZCUVVGQlIzSlRZV1pSUXpoaU56aEJFZ3BCUVRVMGZFSkJOVEEwR2dzSW9jRUpFQUlhQTFWVFJEZ2NjS0hCQ1E9PSIsW1siT1JEIiwiMjAyNy0wNi0xMiIsIkxIUiIsbnVsbCwiQUEiLCI1NCJdLFsiTEhSIiwiMjAyNy0wNi0xMyIsIkxJUyIsbnVsbCwiQkEiLCI1MDQiXV1d"
+  }
+ ],
+ "price_insights": {
+  "lowest_price": 1098,
+  "price_level": "low",
+  "typical_price_range": [
+   1100,
+   1400
+  ],
+  "price_history": [
+   [
+    1786942800,
+    956
+   ],
+   [
+    1787029200,
+    956
+   ],
+   [
+    1787115600,
+    956
+   ],
+   [
+    1787202000,
+    956
+   ],
+   [
+    1787288400,
+    956
+   ],
+   [
+    1787374800,
+    956
+   ],
+   [
+    1787461200,
+    956
+   ],
+   [
+    1787547600,
+    956
+   ],
+   [
+    1787634000,
+    956
+   ],
+   [
+    1787720400,
+    956
+   ],
+   [
+    1787806800,
+    956
+   ],
+   [
+    1787893200,
+    956
+   ],
+   [
+    1787979600,
+    956
+   ],
+   [
+    1788066000,
+    956
+   ],
+   [
+    1788152400,
+    956
+   ],
+   [
+    1788238800,
+    956
+   ],
+   [
+    1788325200,
+    956
+   ],
+   [
+    1788411600,
+    956
+   ],
+   [
+    1788498000,
+    956
+   ],
+   [
+    1788584400,
+    956
+   ],
+   [
+    1788670800,
+    956
+   ],
+   [
+    1788757200,
+    956
+   ],
+   [
+    1788843600,
+    956
+   ],
+   [
+    1788930000,
+    956
+   ],
+   [
+    1789016400,
+    956
+   ],
+   [
+    1789102800,
+    956
+   ],
+   [
+    1789189200,
+    956
+   ],
+   [
+    1789275600,
+    956
+   ],
+   [
+    1789362000,
+    956
+   ],
+   [
+    1789448400,
+    956
+   ],
+   [
+    1789534800,
+    956
+   ],
+   [
+    1789621200,
+    956
+   ],
+   [
+    1789707600,
+    956
+   ],
+   [
+    1789794000,
+    956
+   ],
+   [
+    1789880400,
+    956
+   ],
+   [
+    1789966800,
+    956
+   ],
+   [
+    1790053200,
+    1004
+   ],
+   [
+    1790139600,
+    1004
+   ],
+   [
+    1790226000,
+    1004
+   ],
+   [
+    1790312400,
+    1003
+   ],
+   [
+    1790398800,
+    1003
+   ],
+   [
+    1790485200,
+    1003
+   ],
+   [
+    1790571600,
+    1050
+   ],
+   [
+    1790658000,
+    1003
+   ],
+   [
+    1790744400,
+    1003
+   ],
+   [
+    1790830800,
+    1003
+   ],
+   [
+    1790917200,
+    1050
+   ],
+   [
+    1791003600,
+    1050
+   ],
+   [
+    1791090000,
+    1050
+   ],
+   [
+    1791176400,
+    1050
+   ],
+   [
+    1791262800,
+    1050
+   ],
+   [
+    1791349200,
+    1050
+   ],
+   [
+    1791435600,
+    1050
+   ],
+   [
+    1791522000,
+    1050
+   ],
+   [
+    1791608400,
+    1098
+   ],
+   [
+    1791694800,
+    1098
+   ],
+   [
+    1791781200,
+    1098
+   ],
+   [
+    1791867600,
+    1098
+   ],
+   [
+    1791954000,
+    1098
+   ],
+   [
+    1792040400,
+    1098
+   ],
+   [
+    1792126800,
+    1098
+   ]
+  ]
+ },
+ "airports": [
+  {
+   "departure": [
+    {
+     "airport": {
+      "id": "ORD",
+      "name": "Chicago O'Hare International Airport"
+     },
+     "city": "Chicago",
+     "country": "United States",
+     "country_code": "US",
+     "image": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcTDuw95ynLqGCkZRzt9XuWXGBs8qWhw_1UZkMrCRAQp3rojEZBpwitHM8GAMBXgKhSKFgJZcXZ3qmYs2g",
+     "thumbnail": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcR0CK6-eZWtnTJdtBk0BnPl1NeBcRul1YiurNp0AEgxFjNRleXR3vb2VV6vc5Uk51C0AhYN6AZAQKz6FJ-NQfbjVf8HQQ96ZH3WYIS-Rw0"
+    }
+   ],
+   "arrival": [
+    {
+     "airport": {
+      "id": "LIS",
+      "name": "Humberto Delgado Airport"
+     },
+     "city": "Lisbon",
+     "country": "Portugal",
+     "country_code": "PT",
+     "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQLxT3PIh1TwnGsLrG7G-JQRFMG0zIp4uiQ71FTwf1WQHKROUG_veOYAiGQTLGO36g5OCdu9DUrwHrzaA",
+     "thumbnail": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSG3-nF1u-sTIpnrbZ3a_ly_OcwqDxS9MCOGoiQTX3dJ3ZoIiUsVHqxHC-nmruwZ8aoJZJPM7O5YSmsHR6tp2L_EHV4CnsiNtatHuedKBE"
+    }
+   ]
+  },
+  {
+   "departure": [
+    {
+     "airport": {
+      "id": "LIS",
+      "name": "Humberto Delgado Airport"
+     },
+     "city": "Lisbon",
+     "country": "Portugal",
+     "country_code": "PT",
+     "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQLxT3PIh1TwnGsLrG7G-JQRFMG0zIp4uiQ71FTwf1WQHKROUG_veOYAiGQTLGO36g5OCdu9DUrwHrzaA",
+     "thumbnail": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSG3-nF1u-sTIpnrbZ3a_ly_OcwqDxS9MCOGoiQTX3dJ3ZoIiUsVHqxHC-nmruwZ8aoJZJPM7O5YSmsHR6tp2L_EHV4CnsiNtatHuedKBE"
+    }
+   ],
+   "arrival": [
+    {
+     "airport": {
+      "id": "ORD",
+      "name": "Chicago O'Hare International Airport"
+     },
+     "city": "Chicago",
+     "country": "United States",
+     "country_code": "US",
+     "image": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcTDuw95ynLqGCkZRzt9XuWXGBs8qWhw_1UZkMrCRAQp3rojEZBpwitHM8GAMBXgKhSKFgJZcXZ3qmYs2g",
+     "thumbnail": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcR0CK6-eZWtnTJdtBk0BnPl1NeBcRul1YiurNp0AEgxFjNRleXR3vb2VV6vc5Uk51C0AhYN6AZAQKz6FJ-NQfbjVf8HQQ96ZH3WYIS-Rw0"
+    }
+   ]
+  }
+ ]
+}
