@@ -50,19 +50,24 @@
 
 ## 3. Fare data sources
 
-All fare access goes through a single `FareSource` interface, so any source can be swapped for a paid one later without touching the pipeline.
+All fare access goes through two small interfaces in `ptopilot/sources/base.py`, one per job, so any source can be swapped for a paid one later without touching the pipeline:
 
 ```python
-class FareSource(Protocol):
+class MonthScanSource(Protocol):      # broad, cached
     name: str
-    def month_scan(self, origin: str, dest: str, month: date, market: str) -> list[FareQuote]: ...
-    def exact_search(self, q: ExactQuery) -> ExactResult: ...  # raises SourceUnavailable
+    def month_scan(self, origin, dest_airport, month: date, market, currency) -> list[FareQuote]: ...
+
+class ExactSearchSource(Protocol):    # live, exact dates
+    name: str
+    def exact_search(self, query: ExactQuery) -> ExactResult: ...
 ```
+
+Both raise `SourceUnavailable` on network, auth or quota errors and on unparseable responses. An `ExactResult` holds the round-trip options, the booking link, and Google's typical price range when the source provides one. Each option has the round-trip price plus outbound-leg details (carrier, stops, duration, departure time, flight numbers, overnight layover).
 
 | Role | Source | Notes |
 |---|---|---|
 | Broad scan | **Travelpayouts / Aviasales Data API** | Free, needs a token. Cached prices built from real searches, 2–7 days old. Queried by origin, destination, and month. `market` comes from the user's home country. Implements `month_scan` only. |
-| Live verification | **`fast-flights`** (Python library that scrapes Google Flights) | Free and real-time. Unofficial and fragile, and requests from GitHub Actions IPs may get blocked. Implements `exact_search`. |
+| Live verification | **`fast-flights`** 3.x (Python library that scrapes Google Flights), wrapped as `GoogleFlightsSource` | Free and real-time. Unofficial and fragile, and requests from GitHub Actions IPs may get blocked. Returns no flight numbers and no price-level label. Implements `exact_search`. |
 | Fallback + price insights | **SerpApi Google Flights** | Free tier of about 250 searches/month, so the daily budget is about 8. Returns Google's `price_insights` (typical range), which is used for cold-start baselines. Implements `exact_search`. |
 
 Amadeus Self-Service is not an option: Amadeus shut it down on 2026-07-17. Duffel and Kiwi require business onboarding, so they're deferred.
@@ -125,6 +130,14 @@ docker-compose.yml, Dockerfile, ROADMAP.md
 | `source_budget` | source, period (month), calls_used |
 
 Trip-length buckets: `short` (≤5 days away), `week` (6–10), `long` (11+).
+
+**Implementation notes (Plan 2):**
+- `users` also stores `currency` (default USD) and `pto_committed`.
+- `trackers` has no `destination_kind` column; whether a destination is a city or a region comes from `geo.yaml`.
+- `tracker_route_links` stores the shape's facts directly (`evening_departure`, `pto_cost`, `days_away`, `efficiency`, `month`, `season_rating`, `days_off`) instead of a `shape_id`.
+- `price_observations.month` is the first day of the departure month. It also stores `outbound_departure` and `overnight_layover`, which live checks need for filtering.
+- `candidates` stores `currency` and `evening_departure`.
+- `digest_sends.items` is a JSON list of `{candidate_id, price}`.
 
 ---
 
