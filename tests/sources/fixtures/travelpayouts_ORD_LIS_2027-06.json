@@ -1,0 +1,57 @@
+{
+  "success": true,
+  "currency": "usd",
+  "data": [
+    {
+      "origin": "CHI",
+      "destination": "LIS",
+      "origin_airport": "ORD",
+      "destination_airport": "LIS",
+      "price": 612,
+      "airline": "TP",
+      "flight_number": "246",
+      "departure_at": "2027-06-11T18:15:00-05:00",
+      "return_at": "2027-06-20T11:05:00+01:00",
+      "transfers": 1,
+      "return_transfers": 1,
+      "duration": 1490,
+      "duration_to": 760,
+      "duration_back": 730,
+      "link": "/search/CHI1106LIS20061?t=TP18153150001815321000000760ORDLIS"
+    },
+    {
+      "origin": "CHI",
+      "destination": "LIS",
+      "origin_airport": "ORD",
+      "destination_airport": "LIS",
+      "price": 688,
+      "airline": "UA",
+      "flight_number": "960",
+      "departure_at": "2027-06-04T16:40:00-05:00",
+      "return_at": "2027-06-13T10:30:00+01:00",
+      "transfers": 1,
+      "return_transfers": 2,
+      "duration": 1630,
+      "duration_to": 805,
+      "duration_back": 825,
+      "link": "/search/CHI0406LIS13061?t=UA16409200001640929000000805ORDLIS"
+    },
+    {
+      "origin": "CHI",
+      "destination": "LIS",
+      "origin_airport": "ORD",
+      "destination_airport": "LIS",
+      "price": 0,
+      "airline": "XX",
+      "flight_number": "1",
+      "departure_at": "2027-06-05T10:00:00-05:00",
+      "return_at": "2027-06-12T10:00:00+01:00",
+      "transfers": 0,
+      "return_transfers": 0,
+      "duration": 900,
+      "duration_to": 450,
+      "duration_back": 450,
+      "link": "/search/broken"
+    }
+  ]
+}
