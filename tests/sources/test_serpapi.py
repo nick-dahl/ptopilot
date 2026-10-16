@@ -88,3 +88,16 @@ def test_failures_raise_source_unavailable(kwargs, match):
 def test_empty_key_is_rejected():
     with pytest.raises(ValueError, match="SERPAPI_KEY"):
         SerpApiSource("")
+
+
+def test_no_results_is_an_empty_result_not_an_outage():
+    body = {"error": "Google Flights hasn't returned any results for this query."}
+    result = source_returning(body=body).exact_search(QUERY)
+    assert result.options == ()
+    assert result.cheapest() is None
+
+
+@pytest.mark.parametrize("body", [[1], "oops"])
+def test_non_object_json_is_source_unavailable(body):
+    with pytest.raises(SourceUnavailable, match="unexpected"):
+        source_returning(body=body).exact_search(QUERY)

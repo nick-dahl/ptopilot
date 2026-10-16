@@ -1,6 +1,7 @@
 """Fixture is a real fast-flights 3.1.0 response recorded 2026-10-16 for ORD<->LIS, Jun 11-20 2027."""
 
 import json
+import time
 from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -78,3 +79,14 @@ def test_live_google_flights_smoke():
         ExactQuery("ORD", "LIS", date(2027, 6, 11), date(2027, 6, 20))
     )
     assert result.options and result.cheapest().price > 0
+
+
+def test_hung_search_times_out_as_source_unavailable():
+    def hang(q):
+        time.sleep(5)
+        return [], "u"
+
+    start = time.monotonic()
+    with pytest.raises(SourceUnavailable, match="timed out"):
+        GoogleFlightsSource(search=hang, timeout_s=0.2).exact_search(QUERY)
+    assert time.monotonic() - start < 2

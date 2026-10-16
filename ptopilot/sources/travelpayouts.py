@@ -14,23 +14,27 @@ TIMEOUT_S = 20
 
 
 def parse_prices_for_dates(payload: dict, origin: str, dest_airport: str) -> list[FareQuote]:
-    """prices_for_dates response -> FareQuotes. Rows with a missing or non-positive price are skipped."""
+    """prices_for_dates response -> FareQuotes. Rows with a bad price or date are skipped, not fatal."""
+    if not isinstance(payload, dict):
+        raise SourceUnavailable(f"travelpayouts: unexpected payload: {snippet(str(payload))}")
     if not payload.get("success", False):
         raise SourceUnavailable(f"travelpayouts: success=false: {snippet(str(payload))}")
     currency = str(payload.get("currency", "")).upper()
     quotes: list[FareQuote] = []
     for row in payload.get("data") or []:
+        if not isinstance(row, dict):
+            continue
         price = row.get("price")
         if not isinstance(price, int | float) or price <= 0:
             continue
         try:
             depart = datetime.fromisoformat(row["departure_at"]).date()
             ret = datetime.fromisoformat(row["return_at"]).date() if row.get("return_at") else None
-        except (KeyError, ValueError) as exc:
-            raise SourceUnavailable(f"travelpayouts: bad date in row: {snippet(str(row))}") from exc
+        except (KeyError, TypeError, ValueError):
+            continue
         airline = row.get("airline") or None
         number = row.get("flight_number")
-        link = row.get("link") or None
+        link = row.get("link") if isinstance(row.get("link"), str) and row.get("link") else None
         quotes.append(
             FareQuote(
                 source="travelpayouts",

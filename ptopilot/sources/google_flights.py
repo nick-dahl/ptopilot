@@ -2,11 +2,35 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Sequence
 from datetime import datetime
 from typing import Any
 
 from ptopilot.sources.base import ExactQuery, ExactResult, FlightOption, SourceUnavailable
+
+SEARCH_TIMEOUT_S = 60
+
+
+def _call_with_timeout(fn: Callable[[ExactQuery], Any], query: ExactQuery, timeout_s: float) -> Any:
+    """fast-flights has no timeout of its own. Run it in a daemon thread so a stalled request can't
+    hang the pipeline or block interpreter exit."""
+    box: dict[str, Any] = {}
+
+    def run() -> None:
+        try:
+            box["value"] = fn(query)
+        except BaseException as exc:  # re-raised in the caller's thread
+            box["error"] = exc
+
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    worker.join(timeout_s)
+    if worker.is_alive():
+        raise TimeoutError(f"timed out after {timeout_s}s")
+    if "error" in box:
+        raise box["error"]
+    return box["value"]
 
 
 def _dt(simple: Any) -> datetime:
@@ -70,12 +94,17 @@ def _default_search(query: ExactQuery) -> tuple[Sequence[Any], str]:
 class GoogleFlightsSource:
     name = "google_flights"
 
-    def __init__(self, search: Callable[[ExactQuery], tuple[Sequence[Any], str]] = _default_search):
+    def __init__(
+        self,
+        search: Callable[[ExactQuery], tuple[Sequence[Any], str]] = _default_search,
+        timeout_s: float = SEARCH_TIMEOUT_S,
+    ):
         self._search = search
+        self._timeout_s = timeout_s
 
     def exact_search(self, query: ExactQuery) -> ExactResult:
         try:
-            results, url = self._search(query)
+            results, url = _call_with_timeout(self._search, query, self._timeout_s)
             options = parse_flights(results)
         except Exception as exc:  # the library scrapes HTML; any failure means "unavailable"
             raise SourceUnavailable(f"google_flights: {type(exc).__name__}: {exc}") from exc

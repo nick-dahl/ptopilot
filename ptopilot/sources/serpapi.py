@@ -32,8 +32,17 @@ def _option(item: dict) -> FlightOption | None:
     )
 
 
+NO_RESULTS_MARKER = "hasn't returned any results"
+
+
 def parse_google_flights(payload: dict, query: ExactQuery) -> ExactResult:
+    if not isinstance(payload, dict):
+        raise SourceUnavailable(f"serpapi: unexpected payload: {snippet(str(payload))}")
     if "error" in payload:
+        if NO_RESULTS_MARKER in str(payload["error"]):  # a valid search with no flights, not an outage
+            return ExactResult(
+                source="serpapi", query=query, currency=query.currency, options=(), deep_link=""
+            )
         raise SourceUnavailable(f"serpapi: {snippet(str(payload['error']))}")
     try:
         items = (payload.get("best_flights") or []) + (payload.get("other_flights") or [])

@@ -91,3 +91,22 @@ def test_network_error_raises_source_unavailable():
 def test_empty_token_is_rejected():
     with pytest.raises(ValueError, match="TRAVELPAYOUTS_TOKEN"):
         TravelpayoutsSource("")
+
+
+def test_malformed_rows_are_skipped_not_fatal():
+    good, other = FIXTURE["data"][0], FIXTURE["data"][1]
+    rows = [
+        {**good, "departure_at": None},
+        {**good, "departure_at": "not a date"},
+        {**good, "link": 123},
+        other,
+    ]
+    quotes = parse_prices_for_dates({"success": True, "currency": "usd", "data": rows}, "ORD", "LIS")
+    assert [q.price for q in quotes] == [612.0, 688.0]
+    assert quotes[0].deep_link is None
+
+
+@pytest.mark.parametrize("body", [[1, 2], "oops"])
+def test_non_object_json_is_source_unavailable(body):
+    with pytest.raises(SourceUnavailable, match="unexpected"):
+        source_returning(body=body).month_scan("ORD", "LIS", date(2027, 6, 1), "us", "usd")
