@@ -94,7 +94,7 @@ ptopilot/
   digest/      # select.py, render.py, send.py, templates/
   web/         # FastAPI app, routes, templates, auth, signed tokens
   db/          # models.py, session.py, alembic/
-  data/        # regions.yaml, seasons.yaml, travel_overhead.yaml, airports.csv
+  data/        # geo.yaml (airports, destinations, travel rules), seasons.yaml, airports.csv
   config.py    # scoring weights, thresholds, caps (one place to tune)
 scripts/       # generate_seasons.py (Open-Meteo → seasons.yaml draft)
 tests/
@@ -110,7 +110,7 @@ docker-compose.yml, Dockerfile, ROADMAP.md
 
 | Table | Key columns |
 |---|---|
-| `users` | id, email (unique), home_airport, nearby_airports[], country, holiday_calendar (e.g. `US`, `GB-ENG`), extra_days_off[], pto_days_total, max_trip_days, min_trip_days, weather_tolerance (`strict`/`normal`/`relaxed`), max_stops_short, max_stops_long, allow_overnight_layover, friday_evening_departure (bool), friday_evening_min_time, created_at |
+| `users` | id, email (unique), home_airport, nearby_airports[], country, holiday_calendar (e.g. `US`, `GB-ENG`), extra_days_off[], ignored_holidays[], pto_days_total, max_trip_days, min_trip_days, weather_tolerance (`strict`/`normal`/`relaxed`), max_stops_short, max_stops_long, allow_overnight_layover, friday_evening_departure (bool), friday_evening_min_time, created_at |
 | `invites` | email, invited_at |
 | `travel_windows` | id, user_id, start_date, end_date |
 | `trackers` | id, user_id, destination_code, destination_kind (`city`/`region`), min_stay_days, max_stay_days, priority (1–3), max_price (nullable), snoozed_until (nullable), active |
@@ -132,17 +132,18 @@ Trip-length buckets: `short` (≤5 days away), `week` (6–10), `long` (11+).
 
 ### 6.1 Work calendar
 - A day is a **workday** unless it is a weekend day (Sat/Sun), a public holiday in `holidays.country_holidays(...)` for the user's calendar/subdivision, or in the user's `extra_days_off`.
+- `ignored_holidays` lists holiday names the user's office does *not* observe (e.g. US `Columbus Day`, `Veterans Day`, which are federal but often worked). Those days and their "(observed)" stand-ins count as workdays.
 - PTO cost = the number of workdays in the trip's away span.
 
 ### 6.2 Trip shapes
-A shape is a contiguous run of PTO days `[p1, p2]` (all workdays) **expanded outward**:
-- `depart` = the first day of the run of non-workdays immediately before `p1`. If there is no such run (`p1` follows a workday), `depart = p1`.
-- `return` = the last day of the run of non-workdays immediately after `p2`. If there is none, `return = p2`.
+A shape is any `[depart, return]` where both ends sit next to an off-block (a run of weekend days, holidays, or company days off):
+- **Departure day:** the first day of an off-block (e.g. Saturday), or the last workday before one (e.g. Friday, or the Wednesday before Thanksgiving).
+- **Return day:** the last day of an off-block (e.g. Sunday), or the first workday after one (e.g. Monday).
 - A **zero-PTO shape** (a weekend or holiday block with no PTO) is also valid if it satisfies the length constraints.
 
-This rules out odd shapes like Wed→Thu by construction.
+This rules out odd shapes like Wed→Thu by construction, while still allowing Wednesday departures before a Thursday holiday.
 
-**Friday-evening variant** (if `friday_evening_departure`): for each shape, also emit a version where `depart` = the last workday before the shape's first non-workday run, with no extra PTO cost, tagged `requires_departure_after = friday_evening_min_time`. The live check enforces the time.
+**Friday-evening variant** (if `friday_evening_departure`): every shape that departs on a workday also gets a variant leaving after work that day. It costs one less PTO day and is tagged `evening_departure`. The live check enforces `friday_evening_min_time`.
 
 ### 6.3 Constraints
 For each tracker × window, keep a shape only if:
@@ -154,18 +155,23 @@ For each tracker × window, keep a shape only if:
 
 ### 6.4 Ranking and pruning
 - `efficiency = days_away / max(pto_cost, 0.5)`
-- Keep the **top 6 shapes per (tracker, window)** by efficiency, with diversity: at most 2 per distinct `days_away` value. Ties are broken by fewer PTO days, then earlier date.
+- Keep the **top 6 shapes per (tracker, window)** by efficiency, with diversity: at most 2 per distinct `days_away` value, and at most 1 per (depart, return) pair so an evening variant never takes a second slot for the same flights. Ties are broken by fewer PTO days, then earlier date.
+- The season filter (§6.5) runs **before** this pruning, so the top 6 are never spent on months that will be filtered out.
 
 ### 6.5 Season filter
-- `data/seasons.yaml`: `{destination_code: {1: good|shoulder|avoid, ..., 12: ...}, notes: {...}}`.
+- `data/seasons.yaml`: `{code: {months: [12 ratings Jan..Dec], notes: {month: text}}}`. The code is looked up as the destination code first, then its country code (so a `TH` entry covers a Bangkok city tracker).
 - `scripts/generate_seasons.py` writes a first draft from Open-Meteo climate normals (precipitation days, mean max temperature, humidity). The author then corrects it by hand for monsoon, hurricane, and similar seasons. The file is committed.
 - A trip's month is the calendar month containing the majority of its days.
 - Tolerance: `strict` allows {good}, `normal` allows {good, shoulder}, `relaxed` allows all months. Avoid-month trips get the low weather score (§7 `score`) and an "off-season" label in the digest.
 - A destination missing from `seasons.yaml` counts as `good`, and a warning is logged.
 
 ### 6.6 Destination expansion
-- `data/regions.yaml` maps region codes to airports (e.g. `TH: [BKK, HKT, CNX]`) and to a `home_region` grouping for travel overhead.
-- City trackers map to their metro airport codes.
+- `data/geo.yaml` holds three things:
+  - **airports**, each with a country and a coarse zone (`NA`, `EUROPE`, `SE_ASIA`, …)
+  - **destinations**: a region or city code mapped to its airports (e.g. `TH: [BKK, HKT, CNX]`, `TYO: [HND, NRT]`). A destination takes its country and zone from its first airport.
+  - **travel rules** per zone pair: `overhead_days` and `min_trip_days`, with a default rule for unlisted pairs
+- A trip is international when the origin airport's country differs from the destination's.
+- Overlapping travel windows never produce duplicate itineraries.
 - Origins = `home_airport` + `nearby_airports`.
 
 ---
