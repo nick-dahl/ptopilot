@@ -180,7 +180,28 @@ class PriceObservation(Base):
     overnight_layover: Mapped[bool | None]
     deep_link: Mapped[str | None] = mapped_column(Text)
     verified: Mapped[bool] = mapped_column(server_default="false")
+    typical_low: Mapped[Decimal | None] = mapped_column(
+        Money
+    )  # Google's typical range, when the source has it
+    typical_high: Mapped[Decimal | None] = mapped_column(Money)
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ShortlistEntry(Base):
+    """Route queries picked for a live check on a run, in check order."""
+
+    __tablename__ = "shortlist_entries"
+    __table_args__ = (
+        UniqueConstraint("run_date", "route_query_id"),
+        CheckConstraint("reason IN ('deal', 'explore')", name="reason"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_date: Mapped[date] = mapped_column(index=True)
+    route_query_id: Mapped[int] = mapped_column(ForeignKey("route_queries.id", ondelete="CASCADE"))
+    rank: Mapped[int] = mapped_column(SmallInteger)
+    reason: Mapped[str] = mapped_column(String(8))
+    est_price: Mapped[Decimal | None] = mapped_column(Money)
 
 
 class RouteBaseline(Base):

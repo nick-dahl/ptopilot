@@ -9,16 +9,18 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from ptopilot.db.models import Base
 from ptopilot.db.session import make_engine
 from ptopilot.settings import normalize_database_url
 
 TEST_URL = normalize_database_url(
     os.environ.get("PTOPILOT_TEST_DATABASE_URL", "postgresql://ptopilot@localhost:5433/ptopilot_test")
 )
-ALEMBIC_INI = Path(__file__).resolve().parents[2] / "alembic.ini"
+ALEMBIC_INI = Path(__file__).resolve().parents[1] / "alembic.ini"
 
 
 def alembic_config(url: str) -> Config:
@@ -58,3 +60,12 @@ def session(engine):
         finally:
             s.close()
             outer.rollback()
+
+
+@pytest.fixture
+def clean_engine(engine):
+    """The migrated engine with every table emptied first. For code that commits its own transactions."""
+    tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
+    with engine.begin() as conn:
+        conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+    return engine
