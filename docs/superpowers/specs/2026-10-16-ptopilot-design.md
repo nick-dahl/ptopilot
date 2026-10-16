@@ -168,8 +168,12 @@ For each tracker × window, keep a shape only if:
 
 ### 6.4 Ranking and pruning
 - `efficiency = days_away / max(pto_cost, 0.5)`
-- Keep the **top 6 shapes per (tracker, window)** by efficiency, with diversity: at most 2 per distinct `days_away` value, and at most 1 per (depart, return) pair so an evening variant never takes a second slot for the same flights. Ties are broken by fewer PTO days, then earlier date.
-- The season filter (§6.5) runs **before** this pruning, so the top 6 are never spent on months that will be filtered out.
+- Keep the **top 8 shapes per (tracker, window, origin)** by efficiency, with diversity:
+  - at most 3 per distinct `days_away` value
+  - **at most 2 per departure week (ISO week)**; without this, windows with no holidays, where every week ties, only ever got trips from their first weeks
+  - at most 1 per (depart, return) pair, so an evening variant never takes a second slot for the same flights
+- Ties are broken by fewer PTO days, then earlier date. (Plan 4 changed these from top 6, 2 per length, no weekly limit.)
+- The season filter (§6.5) runs **before** this pruning, so the top 8 are never spent on months that will be filtered out.
 
 ### 6.5 Season filter
 - `data/seasons.yaml`: `{code: {months: [12 ratings Jan..Dec], notes: {month: text}}}`. The code is looked up as the destination code first, then its country code (so a `TH` entry covers a Bangkok city tracker).
@@ -186,6 +190,24 @@ For each tracker × window, keep a shape only if:
 - A trip is international when the origin airport's country differs from the destination's.
 - Overlapping travel windows never produce duplicate itineraries.
 - Origins = `home_airport` + `nearby_airports`.
+
+### 6.7 Open-jaw routes (Plan 4)
+- A destination may list `return_airports`, e.g. `CAMINO_PORTUGUES: {airports: [OPO], return_airports: [SCQ]}`: fly into Porto, home from Santiago de Compostela. Its itineraries fan out over every arrival × return pair. Ordinary destinations fly home from the airport they arrived at.
+- `route_queries`, `price_observations` and `route_baselines` carry `return_airport`, equal to `dest_airport` except on open-jaw trips. Every lookup key (exact dates, month estimate, baseline) includes it, so open-jaw and round-trip prices never mix.
+- **Pricing open-jaw:**
+  - Only SerpApi can price it (`type=3` multi-city). Each live source declares `supports_open_jaw`, and open-jaw queries skip sources without it. Skipping never counts toward a source's circuit breaker.
+  - fast-flights 3.1's multi-city parser crashes (verified 2026-10-16), and Travelpayouts' cache holds only round trips, so `broad_scan` skips open-jaw routes.
+  - Google returns no `price_insights` for multi-city, so open-jaw baselines come from their own history only.
+- `trackers.destination_code` widened from 8 to 32 characters.
+
+### 6.8 Search horizon (Plan 4)
+Google Flights returns nothing for departures about 10–11 months out (verified 2026-10-16: March 2027 priced; September and October 2027 empty). The shortlist skips departures more than `LIVE_HORIZON_DAYS = 300` days out; they become eligible automatically as the date approaches.
+
+### 6.9 Traveler profiles (Plan 4)
+Until the web app's onboarding exists, travelers are loaded from YAML: `python -m ptopilot.profiles load <file> [--dry-run]`.
+- The loader validates the whole file and reports every problem at once.
+- It upserts the user by email, replaces travel windows, adds the email to `invites`, and matches trackers by destination code. Trackers are updated in place, so their history and snoozes survive; trackers missing from the file are deactivated, not deleted.
+- `profiles/*` is git-ignored except `profiles/example.yaml`, because profiles hold personal email addresses.
 
 ---
 
@@ -268,6 +290,9 @@ All weights and thresholds live in `config.py`.
   - The shortlist orders exploration by checks made *before* the run date, so a re-run picks the same routes.
 - **broad_scan storage:** keeps only the cheapest fare for each date pair a tracker wants, plus the month's single cheapest fare (for the month-level estimate), and skips route-months already scanned that day. This keeps the append-only table well inside Neon's free tier.
 - **Score:** if live options exist for a trip but none fit the user's filters, there is no cached fallback. The cached fare is probably one of the same flights.
+- **Exploration, revised in Plan 4:**
+  - Ordered by the most recent `live_checks` row before the run date, whatever its outcome, so a "no flights" result counts as checked and doesn't monopolise the slots.
+  - Exploration keeps its 10 reserved slots **and** takes any of the 40 that deals leave unused. Travelpayouts' cache is thin for US routes, so most routes depend on exploration.
 - **Score:** a candidate's price is a verified option that passes the user's filters, or failing that a cached fare for the **exact** dates. A month's cheapest fare never becomes a candidate price.
 - **observed_at:** rows written by a run are stamped with the current time when `run_date` is today, and with noon UTC on `run_date` when re-running a past day, so lookups by run date stay consistent.
 - **CLI:** exits with code 1 when any stage failed, so the Actions run shows red. Stage statuses are `ok`, `skipped`, `failed` and `not_run`.
