@@ -1,4 +1,4 @@
-"""Real API responses recorded 2026-10-16, checked for secrets before saving. Guards against provider format drift."""
+"""Real API responses recorded 2026-10-16 (checked for secrets). Guards against provider format drift."""
 
 import json
 from datetime import date, datetime

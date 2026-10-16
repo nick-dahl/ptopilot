@@ -13,6 +13,11 @@ V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](do
 - [ ] **Per-user digest timezone and send-day preferences.**
 - [ ] **Digest visual polish.** Iterate on the design once real MVP emails exist.
 
+## Data quality: findings from real API calls (2026-10-16)
+
+- [ ] **Broad scan by city, "to anywhere".** Travelpayouts' cache is thin for exact US routes (CHI→LIS: 0 fares; NYC→LON: 10), but `CHI → anywhere` returns ~300 fares in one call. Scan once per departure city and month, then pick out tracked destinations: fewer calls, far better coverage.
+- [ ] **Check fast-flights for completeness.** For ORD⇄LIS Jun 12–20, 2027, SerpApi found a $1,098 TAP nonstop that fast-flights didn't return; fast-flights' cheapest for similar dates was $1,332. Compare both sources on the same trips; if fast-flights systematically misses options, swap the source order or blend the two.
+
 ## Later and unsorted ideas
 
 - [ ] Travel companions: alert only on the overlap between a partner's PTO windows and your own.
