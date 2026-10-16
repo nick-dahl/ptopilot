@@ -105,3 +105,14 @@ def test_rerun_replaces_the_days_shortlist(make_ctx):
     shortlist.run(ctx)
     shortlist.run(ctx)
     assert [rank for rank, *_ in entries(ctx.engine)] == [1, 2, 3, 4, 5, 6]
+
+
+def test_same_day_rerun_keeps_the_same_exploration_picks(make_ctx, monkeypatch):
+    monkeypatch.setattr(config, "EXPLORATION_QUOTA", 2)
+    ctx = setup(make_ctx)
+    shortlist.run(ctx)
+    first = [dates for _, _, dates, _ in entries(ctx.engine)]
+    for dep, ret in first:  # live_verify checked them earlier today
+        add_observation(ctx.engine, dep, ret, 900, observed=RUN, verified=True)
+    shortlist.run(ctx)
+    assert [dates for _, _, dates, _ in entries(ctx.engine)] == first

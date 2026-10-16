@@ -161,6 +161,7 @@ class PriceObservation(Base):
     __table_args__ = (
         Index("ix_price_observations_route_month", "origin", "dest_airport", "month"),
         Index("ix_price_observations_route_dates", "origin", "dest_airport", "depart_date", "return_date"),
+        Index("ix_price_observations_verified_observed_at", "verified", "observed_at"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -202,6 +203,21 @@ class ShortlistEntry(Base):
     rank: Mapped[int] = mapped_column(SmallInteger)
     reason: Mapped[str] = mapped_column(String(8))
     est_price: Mapped[Decimal | None] = mapped_column(Money)
+
+
+class LiveCheck(Base):
+    """One attempted live check, whatever the outcome. Drives same-day re-run skips and daily budgets."""
+
+    __tablename__ = "live_checks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_date: Mapped[date] = mapped_column(index=True)
+    route_query_id: Mapped[int] = mapped_column(ForeignKey("route_queries.id", ondelete="CASCADE"))
+    source: Mapped[str] = mapped_column(String(32))
+    ok: Mapped[bool]
+    options: Mapped[int] = mapped_column(server_default="0")
+    error: Mapped[str | None] = mapped_column(Text)
+    checked_at: Mapped[datetime] = created_at()
 
 
 class RouteBaseline(Base):

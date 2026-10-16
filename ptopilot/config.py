@@ -33,6 +33,6 @@ MONTH_ESTIMATE_WEIGHT = 0.5  # a month's cheapest fare is a weaker signal than a
 URGENCY = {"soon": 0.7, "sweet": 1.0, "far": 0.5}  # <30 days, 30-120 days, >120 days out
 BREAKER_THRESHOLD = 3  # consecutive failures before a live source is skipped for the rest of the run
 LIVE_DELAY_S = (3.0, 8.0)  # random pause between live checks
-SOURCE_BUDGETS = {"serpapi": {"per_run": 8, "per_month": 250}}
+SOURCE_BUDGETS = {"serpapi": {"per_day": 8, "per_month": 250}}  # every attempted call counts
 SHORT_HAUL_MAX_MIN = 600  # fastest option under 10 h -> short-haul stop limit applies
 MAX_DURATION_RATIO = 1.5

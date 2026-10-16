@@ -27,6 +27,7 @@ from ptopilot.pipeline.queries import (
     date_key,
     estimate,
     load_baselines,
+    start_of,
     todays_route_queries,
 )
 
@@ -66,7 +67,10 @@ def run(ctx: RunContext) -> dict[str, int]:
                     PriceObservation.return_date,
                     func.max(PriceObservation.observed_at),
                 )
-                .where(PriceObservation.verified.is_(True))
+                # Only checks from before today: a same-day re-run must pick the same routes again.
+                .where(
+                    PriceObservation.verified.is_(True), PriceObservation.observed_at < start_of(ctx.run_date)
+                )
                 .group_by(
                     PriceObservation.origin,
                     PriceObservation.dest_airport,

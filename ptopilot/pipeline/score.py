@@ -84,7 +84,12 @@ def run(ctx: RunContext) -> dict[str, int]:
             .order_by(TrackerRouteLink.id)
         ).all()
         for link, rq, tracker, user in rows:
-            chosen = pick_option(verified[date_key(rq)], user, link.evening_departure)
+            live_options = verified[date_key(rq)]
+            chosen = pick_option(live_options, user, link.evening_departure)
+            if chosen is None and live_options:
+                # Live prices exist but none fit this user; the cached fare is likely one of the same flights.
+                counts["rejected_by_filters"] += 1
+                continue
             if chosen is not None:
                 price, obs_id, is_verified, currency = chosen.price, chosen.id, True, chosen.currency
             elif (est := exact.get(date_key(rq))) is not None:  # exact dates only, never a month minimum

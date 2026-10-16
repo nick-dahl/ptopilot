@@ -56,7 +56,7 @@ def test_breaker_trips_after_three_failures_and_fallback_takes_over(make_ctx):
 
 
 def test_fallback_budget_caps_calls_per_run_and_is_persisted(make_ctx, monkeypatch):
-    monkeypatch.setitem(config.SOURCE_BUDGETS, "serpapi", {"per_run": 2, "per_month": 250})
+    monkeypatch.setitem(config.SOURCE_BUDGETS, "serpapi", {"per_day": 2, "per_month": 250})
     primary = FakeLiveSource("google_flights", failing())
     fallback = FakeLiveSource("serpapi", answering(option(700), source="serpapi"))
     ctx = shortlisted(make_ctx, live_sources=[primary, fallback])
@@ -68,7 +68,7 @@ def test_fallback_budget_caps_calls_per_run_and_is_persisted(make_ctx, monkeypat
 
 
 def test_monthly_budget_already_spent_blocks_the_source(make_ctx, monkeypatch):
-    monkeypatch.setitem(config.SOURCE_BUDGETS, "serpapi", {"per_run": 8, "per_month": 250})
+    monkeypatch.setitem(config.SOURCE_BUDGETS, "serpapi", {"per_day": 8, "per_month": 250})
     fallback = FakeLiveSource("serpapi", answering(option(700), source="serpapi"))
     ctx = shortlisted(make_ctx, live_sources=[fallback])
     with session_scope(ctx.engine) as s:
@@ -106,3 +106,22 @@ def test_pauses_between_checks(make_ctx):
     live_verify.run(ctx)
     assert len(pauses) == 5
     assert all(config.LIVE_DELAY_S[0] <= p <= config.LIVE_DELAY_S[1] for p in pauses)
+
+
+def test_rerun_does_not_recheck_routes_that_had_no_flights(make_ctx):
+    src = FakeLiveSource("google_flights", answering())
+    ctx = shortlisted(make_ctx, live_sources=[src])
+    live_verify.run(ctx)
+    live_verify.run(ctx)
+    assert len(src.calls) == 6
+
+
+def test_daily_budget_holds_across_reruns(make_ctx, monkeypatch):
+    monkeypatch.setitem(config.SOURCE_BUDGETS, "serpapi", {"per_day": 2, "per_month": 250})
+    fallback = FakeLiveSource("serpapi", answering(option(700), source="serpapi"))
+    ctx = shortlisted(make_ctx, live_sources=[FakeLiveSource("google_flights", failing()), fallback])
+    live_verify.run(ctx)
+    with pytest.raises(StageFailed):
+        live_verify.run(ctx)  # retry the same day: the remaining routes find no budget left
+    assert len(fallback.calls) == 2
+    assert budget_used(ctx.engine, "serpapi") == 2

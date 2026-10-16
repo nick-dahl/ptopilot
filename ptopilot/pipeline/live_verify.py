@@ -1,8 +1,9 @@
 """Stage `live_verify`: live exact-date checks for the shortlist, with circuit breaker and budgets (§7).
 
 Sources are tried in order (Google Flights first, SerpApi as fallback). A source that fails
-BREAKER_THRESHOLD times in a row is skipped for the rest of the run. Budgeted sources (SerpApi) are
-capped per run and per calendar month via `source_budget`; every attempted call counts.
+BREAKER_THRESHOLD times in a row is skipped for the rest of the run. Every attempt is recorded in
+`live_checks`, which lets a same-day re-run skip routes already checked (even ones with no flights) and
+caps budgeted sources (SerpApi) per day; the monthly cap lives in `source_budget`.
 Every option a source returns is stored as a verified observation; per-user filtering happens in `score`.
 """
 
@@ -10,37 +11,43 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
-from datetime import timedelta
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from ptopilot import config
-from ptopilot.db.models import PriceObservation, RouteQuery, ShortlistEntry, SourceBudget
+from ptopilot.db.models import LiveCheck, PriceObservation, RouteQuery, ShortlistEntry, SourceBudget
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext, StageFailed, StageSkipped
-from ptopilot.pipeline.queries import month_of, start_of
+from ptopilot.pipeline.queries import month_of
 from ptopilot.sources.base import ExactQuery, ExactResult, ExactSearchSource, SourceUnavailable
 
 log = logging.getLogger(__name__)
 
 
 class Budget:
-    """Per-run and per-month call caps for budgeted sources, persisted in source_budget."""
+    """Per-day caps (counted from live_checks, so they survive re-runs) and per-month caps (source_budget)."""
 
     def __init__(self, ctx: RunContext):
         self._ctx = ctx
         self._period = month_of(ctx.run_date)
-        self._run_calls: Counter[str] = Counter()
 
     def allows(self, source: str) -> bool:
         caps = config.SOURCE_BUDGETS.get(source)
         if caps is None:
             return True
-        if self._run_calls[source] >= caps["per_run"]:
+        if self.used_today(source) >= caps["per_day"]:
             return False
         return self.used_this_month(source) < caps["per_month"]
+
+    def used_today(self, source: str) -> int:
+        with session_scope(self._ctx.engine) as s:
+            return s.scalar(
+                select(func.count()).where(
+                    LiveCheck.source == source, LiveCheck.run_date == self._ctx.run_date
+                )
+            )
 
     def used_this_month(self, source: str) -> int:
         with session_scope(self._ctx.engine) as s:
@@ -49,7 +56,6 @@ class Budget:
             )
 
     def charge(self, source: str) -> None:
-        self._run_calls[source] += 1
         if source not in config.SOURCE_BUDGETS:
             return
         stmt = insert(SourceBudget).values(source=source, period=self._period, calls_used=1)
@@ -91,6 +97,23 @@ def _store(ctx: RunContext, rq: RouteQuery, result: ExactResult) -> int:
     return len(result.options)
 
 
+def _record(
+    ctx: RunContext, rq: RouteQuery, source: str, ok: bool, options: int = 0, error: str | None = None
+):
+    with session_scope(ctx.engine) as s:
+        s.add(
+            LiveCheck(
+                run_date=ctx.run_date,
+                route_query_id=rq.id,
+                source=source,
+                ok=ok,
+                options=options,
+                error=error,
+                checked_at=ctx.stamp(),
+            )
+        )
+
+
 def run(ctx: RunContext) -> dict[str, int]:
     if not ctx.live_sources:
         raise StageSkipped("no live sources configured")
@@ -106,27 +129,20 @@ def run(ctx: RunContext) -> dict[str, int]:
             .scalars()
             .all()
         )
-        # A re-run of the same day skips routes already checked for this run date.
+        # A re-run of the same day skips routes already checked successfully for this run date.
         checked = set(
-            s.execute(
-                select(
-                    PriceObservation.origin,
-                    PriceObservation.dest_airport,
-                    PriceObservation.depart_date,
-                    PriceObservation.return_date,
-                ).where(
-                    PriceObservation.verified.is_(True),
-                    PriceObservation.observed_at >= start_of(ctx.run_date),
-                    PriceObservation.observed_at < start_of(ctx.run_date + timedelta(days=1)),
+            s.scalars(
+                select(LiveCheck.route_query_id).where(
+                    LiveCheck.run_date == ctx.run_date, LiveCheck.ok.is_(True)
                 )
-            ).all()
+            )
         )
 
     budget = Budget(ctx)
     consecutive_failures: Counter[str] = Counter()
     disabled: set[str] = set()
     for i, rq in enumerate(entries):
-        if (rq.origin, rq.dest_airport, rq.depart_date, rq.return_date) in checked:
+        if rq.id in checked:
             counts["already_checked"] += 1
             continue
         usable: list[ExactSearchSource] = [src for src in ctx.live_sources if src.name not in disabled]
@@ -145,6 +161,7 @@ def run(ctx: RunContext) -> dict[str, int]:
             try:
                 result = src.exact_search(query)
             except SourceUnavailable as exc:
+                _record(ctx, rq, src.name, ok=False, error=str(exc))
                 counts[f"{src.name}_failed"] += 1
                 consecutive_failures[src.name] += 1
                 log.warning("%s failed for %s: %s", src.name, query, exc)
@@ -155,6 +172,7 @@ def run(ctx: RunContext) -> dict[str, int]:
             consecutive_failures[src.name] = 0
             counts[f"{src.name}_ok"] += 1
             counts["options_stored"] += _store(ctx, rq, result)
+            _record(ctx, rq, src.name, ok=True, options=len(result.options))
             if not result.options:
                 counts["no_flights"] += 1
             break

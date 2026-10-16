@@ -69,3 +69,36 @@ def test_all_scans_failing_fails_the_stage(make_ctx):
     expand.run(ctx)
     with pytest.raises(StageFailed, match="401"):
         broad_scan.run(ctx)
+
+
+def test_stores_only_tracked_date_pairs_plus_the_months_cheapest(make_ctx):
+    source = FakeMonthSource(
+        {
+            ("ORD", "LIS", JUNE): [
+                quote("ORD", "LIS", date(2027, 6, 12), date(2027, 6, 20), 700),  # tracked
+                quote(
+                    "ORD", "LIS", date(2027, 6, 12), date(2027, 6, 20), 640
+                ),  # tracked, cheaper: kept instead
+                quote("ORD", "LIS", date(2027, 6, 2), date(2027, 6, 9), 300),  # untracked but June's cheapest
+                quote("ORD", "LIS", date(2027, 6, 3), date(2027, 6, 10), 500),  # untracked: dropped
+            ]
+        }
+    )
+    ctx = make_ctx(month_source=source)
+    add_tracker(ctx.engine, add_user(ctx.engine))
+    expand.run(ctx)
+    assert broad_scan.run(ctx)["quotes"] == 2
+    assert sorted(o.price for o in observations(ctx.engine)) == [300, 640]
+
+
+def test_same_day_rerun_does_not_rescan(make_ctx):
+    source = FakeMonthSource(
+        {("ORD", "LIS", JUNE): [quote("ORD", "LIS", date(2027, 6, 12), date(2027, 6, 20), 640)]}
+    )
+    ctx = make_ctx(month_source=source)
+    add_tracker(ctx.engine, add_user(ctx.engine))
+    expand.run(ctx)
+    broad_scan.run(ctx)
+    assert broad_scan.run(ctx) == {"already_scanned": 1}
+    assert len(source.calls) == 1
+    assert len(observations(ctx.engine)) == 1

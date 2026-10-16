@@ -126,3 +126,12 @@ def test_rerun_replaces_the_days_candidates(make_ctx):
     score.run(ctx)
     with session_scope(ctx.engine) as s:
         assert len(list(s.scalars(select(Candidate)))) == 1
+
+
+def test_no_cached_fallback_when_live_options_were_all_rejected(make_ctx):
+    ctx = setup(make_ctx)
+    add_observation(ctx.engine, *TRIP, 650, observed=RUN, verified=True, stops=3, duration_min=780)
+    add_observation(ctx.engine, *TRIP, 600, observed=RUN)  # cached fare, probably the same 3-stop flight
+    counts = score.run(ctx)
+    assert counts["rejected_by_filters"] == 1
+    assert TRIP not in candidates(ctx.engine)
