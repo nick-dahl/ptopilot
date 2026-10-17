@@ -6,11 +6,17 @@ airports:
   JFK: {country: US, zone: NA}
   EWR: {country: US, zone: NA}
   LGA: {country: US, zone: NA}
+  PHL: {country: US, zone: NA}
   SFO: {country: US, zone: NA}
   LAX: {country: US, zone: NA}
   LHR: {country: GB, zone: EUROPE}
   LGW: {country: GB, zone: EUROPE}
   LIS: {country: PT, zone: EUROPE}
+  OPO: {country: PT, zone: EUROPE}
+  PDL: {country: PT, zone: EUROPE}  # Ponta Delgada, Azores
+  FNC: {country: PT, zone: EUROPE}  # Funchal, Madeira
+  SCQ: {country: ES, zone: EUROPE}  # Santiago de Compostela
+  PUQ: {country: CL, zone: S_AMERICA}  # Punta Arenas (gateway to Torres del Paine)
   BKK: {country: TH, zone: SE_ASIA}
   HKT: {country: TH, zone: SE_ASIA}
   CNX: {country: TH, zone: SE_ASIA}
@@ -21,6 +27,11 @@ destinations:
   TH: {name: Thailand, kind: region, airports: [BKK, HKT, CNX]}
   LIS: {name: Lisbon, kind: city, airports: [LIS]}
   TYO: {name: Tokyo, kind: city, airports: [HND, NRT]}
+  PATAGONIA: {name: "Patagonia (W Trek)", kind: region, airports: [PUQ]}
+  AZORES: {name: Azores, kind: region, airports: [PDL]}
+  MADEIRA: {name: Madeira, kind: region, airports: [FNC]}
+  # Open-jaw: fly into the first list, home from the second.
+  CAMINO_PORTUGUES: {name: "Camino Portugués (Porto → Santiago)", kind: route, airports: [OPO], return_airports: [SCQ]}
 
 # overhead_days: round-trip travel days subtracted from time on the ground.
 # min_trip_days: shortest trip worth taking between the two zones.
@@ -34,3 +45,5 @@ travel:
     - {zones: [EUROPE, EUROPE], overhead_days: 1, min_trip_days: 2}
     - {zones: [EUROPE, SE_ASIA], overhead_days: 2.5, min_trip_days: 8}
     - {zones: [EUROPE, E_ASIA], overhead_days: 2.5, min_trip_days: 7}
+    - {zones: [NA, S_AMERICA], overhead_days: 3, min_trip_days: 9}
+    - {zones: [EUROPE, S_AMERICA], overhead_days: 3, min_trip_days: 9}

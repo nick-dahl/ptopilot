@@ -23,3 +23,25 @@ TYO:
     8: "Hot and humid, ~31°C"
     9: "Typhoon season peaks"
     11: "Autumn leaves, clear skies"
+PATAGONIA:  # Torres del Paine; southern-hemisphere seasons, refugios mostly open Oct-Apr
+  months: [good, good, good, shoulder, avoid, avoid, avoid, avoid, avoid, shoulder, good, good]
+  notes:
+    3: "Autumn: fewer crowds, colors turning, ~5-14°C"
+    10: "Early spring: windy and cold (~0-12°C), some services just reopening"
+    12: "Peak summer: long days, busiest, book refugios early"
+AZORES:  # mild all year; winters wet and windy rather than cold
+  months: [shoulder, shoulder, shoulder, shoulder, good, good, good, good, good, good, shoulder, shoulder]
+  notes:
+    3: "Mild (~16°C) but rainy and changeable"
+    10: "Warm sea, ~20°C, rain starting to pick up"
+MADEIRA:  # 'island of eternal spring'
+  months: [shoulder, shoulder, good, good, good, good, good, good, good, good, shoulder, shoulder]
+  notes:
+    3: "Spring flowers, ~19°C; some showers in the north"
+    10: "~23°C, warm sea; levada walks in good shape"
+CAMINO_PORTUGUES:  # walking Porto -> Santiago
+  months: [avoid, avoid, shoulder, good, good, good, shoulder, shoulder, good, good, avoid, avoid]
+  notes:
+    3: "Cool (~14°C) and often rainy in Galicia; quiet albergues"
+    10: "Pleasant walking (~18°C), rain more likely late in the month"
+    7: "Hot inland and the busiest month"

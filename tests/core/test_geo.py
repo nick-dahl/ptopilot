@@ -51,3 +51,36 @@ def test_destination_with_unknown_airport_is_rejected():
     bad = {**DATA, "destinations": {"X": {"name": "X", "kind": "city", "airports": ["NOPE"]}}}
     with pytest.raises(ValueError, match="NOPE"):
         Geo.from_dict(bad)
+
+
+def test_open_jaw_destination_has_separate_return_airports():
+    data = {
+        **DATA,
+        "airports": {
+            **DATA["airports"],
+            "OPO": {"country": "PT", "zone": "EUROPE"},
+            "SCQ": {"country": "ES", "zone": "EUROPE"},
+        },
+        "destinations": {
+            "CAMINO": {"name": "Camino", "kind": "route", "airports": ["OPO"], "return_airports": ["SCQ"]}
+        },
+    }
+    camino = Geo.from_dict(data).destination("CAMINO")
+    assert (camino.airports, camino.home_from, camino.open_jaw) == (("OPO",), ("SCQ",), True)
+    assert (camino.country, camino.zone) == ("PT", "EUROPE")
+
+
+def test_ordinary_destination_flies_home_from_where_it_arrived():
+    th = GEO.destination("TH")
+    assert th.home_from == ("BKK", "HKT") and th.open_jaw is False
+
+
+def test_unknown_return_airport_is_rejected():
+    bad = {
+        **DATA,
+        "destinations": {
+            "X": {"name": "X", "kind": "route", "airports": ["BKK"], "return_airports": ["NOPE"]}
+        },
+    }
+    with pytest.raises(ValueError, match="NOPE"):
+        Geo.from_dict(bad)

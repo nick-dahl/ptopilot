@@ -23,10 +23,19 @@ class Airport:
 class Destination:
     code: str
     name: str
-    kind: str  # "city" or "region"
-    airports: tuple[str, ...]
+    kind: str  # "city", "region", or "route"
+    airports: tuple[str, ...]  # where you fly in
     country: str
     zone: str
+    return_airports: tuple[str, ...] = ()  # where you fly home from; empty means the same as `airports`
+
+    @property
+    def home_from(self) -> tuple[str, ...]:
+        return self.return_airports or self.airports
+
+    @property
+    def open_jaw(self) -> bool:
+        return bool(self.return_airports) and self.return_airports != self.airports
 
 
 @dataclass(frozen=True)
@@ -54,11 +63,14 @@ class Geo:
         destinations: dict[str, Destination] = {}
         for code, d in data["destinations"].items():
             codes = tuple(d["airports"])
-            missing = [c for c in codes if c not in airports]
+            returns = tuple(d.get("return_airports") or ())
+            missing = [c for c in codes + returns if c not in airports]
             if missing:
                 raise ValueError(f"Destination {code!r} uses unknown airports {missing}")
             first = airports[codes[0]]
-            destinations[code] = Destination(code, d["name"], d["kind"], codes, first.country, first.zone)
+            destinations[code] = Destination(
+                code, d["name"], d["kind"], codes, first.country, first.zone, returns
+            )
         travel = data["travel"]
         rules = {
             frozenset(p["zones"]): TravelRule(float(p["overhead_days"]), int(p["min_trip_days"]))
