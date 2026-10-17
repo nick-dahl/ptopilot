@@ -1,0 +1,33 @@
+name: digest
+on:
+  schedule:
+    - cron: "0 12 * * 1,4"  # Mondays and Thursdays, 12:00 UTC (~8am US Eastern), after the 06:00 scan
+  workflow_dispatch:
+    inputs:
+      min_level:
+        description: "Lowest deal level to include (none = every priced trip, for tuning)"
+        required: false
+        default: good
+        type: choice
+        options: [good, great, none]
+concurrency:
+  group: digest
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      MIN_LEVEL: ${{ inputs.min_level || 'good' }}  # passed via env, never spliced into the shell script
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m ptopilot.digest send --min-level "$MIN_LEVEL"

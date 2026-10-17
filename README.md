@@ -58,6 +58,16 @@ Stages: `expand → broad_scan → shortlist → live_verify → baselines → s
 
 The repo is linked to Neon project `green-feather-91450838`, branch `production` (`.neon`, git-ignored; `neon.ts` declares the services: Postgres only). After `neon login`, `neon env pull` writes `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct) to `.env.local` (git-ignored). Use the direct URL for migrations. The `DATABASE_URL` GitHub secret holds the direct URL, because the scan job runs migrations before the pipeline.
 
+## Digest
+
+```powershell
+.venv/Scripts/python -m ptopilot.digest send --preview out/                 # write each digest to out/*.html + .txt
+.venv/Scripts/python -m ptopilot.digest send --preview out/ --min-level none # include trips that aren't deals yet (tuning)
+.venv/Scripts/python -m ptopilot.digest send                                 # email them (needs RESEND_API_KEY)
+```
+
+`.github/workflows/digest.yml` sends on Mondays and Thursdays at 12:00 UTC, after the morning scan. A digest with no deals ("quiet week") only goes out on Mondays. Run it by hand from the Actions tab with `min_level: none` to get a tuning email built from every priced trip. Without a verified sending domain, Resend only delivers to the Resend account's own address; a send to anyone else fails, is logged, and the run exits red while the other digests still go out.
+
 ## Configuration
 
 Environment variables (never committed; GitHub Actions secrets in production):
