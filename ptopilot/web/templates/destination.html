@@ -20,18 +20,17 @@
   <section class="panel">
     <h2>Date options</h2>
     {% if options %}
-    <p class="muted small">From the {{ run_date | day }} scan, cheapest first. Prices are per person, economy, and change fast.</p>
+    <p class="muted small">From the {{ run_date | day }} scan, cheapest first · {{ season(options[0]) }}. Prices are per person, economy, and change fast.</p>
     <table class="trips">
       <thead><tr><th>Dates</th><th>Price</th><th>vs typical</th><th>PTO</th><th>Flights</th></tr></thead>
       <tbody>
       {% for o in options %}
       <tr{% if o.dimmed %} class="dimmed"{% endif %}>
         <td><b>{{ o.depart_date | day }} → {{ o.return_date | day }}</b>
-          <div class="meta">{{ o.origin }} → {% if o.open_jaw %}into {{ o.dest_airport }} · home from {{ o.return_airport }}{% else %}{{ o.dest_airport }}{% endif %}{% if o.evening_departure %} · leave after work{% endif %}</div>
-          <div class="meta">{{ season(o) }}</div></td>
-        <td><span class="price" style="font-size:18px;">{{ o.price | money(o.currency) }}</span><div>{{ vs_typical(o) }}</div></td>
+          <div class="meta">{{ o.origin }} → {% if o.open_jaw %}into {{ o.dest_airport }} · home from {{ o.return_airport }}{% else %}{{ o.dest_airport }}{% endif %}{% if o.evening_departure %} · leave after work{% endif %}</div></td>
+        <td class="nowrap"><span class="price" style="font-size:18px;">{{ o.price | money(o.currency) }}</span><div>{{ vs_typical(o) }}</div></td>
         <td class="bar-cell">{{ price_bar(o.bar) }}</td>
-        <td class="num"><b>{{ o.pto_cost }}</b> <span class="meta">for {{ o.days_away }} days</span></td>
+        <td class="num nowrap"><b>{{ o.pto_cost }}</b> <span class="meta">for {{ o.days_away }} days</span></td>
         <td class="flights">
           {% if o.carrier %}<div class="meta">{{ o.carrier }} · {{ o.stops | stops }}{% if o.overnight %} · overnight{% endif %}</div>{% endif %}
           {% if o.deep_link %}<a class="btn btn-sm" href="{{ o.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}

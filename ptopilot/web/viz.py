@@ -17,7 +17,7 @@ from ptopilot.core.geo import Palette
 
 BAR_SIGMAS = 3  # the bar spans median +/- 3 sigma; the typical band is median +/- 1 sigma
 BAR_MIN, BAR_MAX = 2.0, 98.0  # keep the dot on the track
-CHART_W, CHART_H, CHART_PAD = 300, 80, 6
+CHART_W, CHART_H, CHART_PAD = 800, 160, 10
 
 
 @dataclass(frozen=True)
@@ -95,16 +95,14 @@ def trend_chart(
             # A lone point: a one-vertex polyline draws nothing. The latest point gets its own circle below.
             if seg[0] is not points[-1]:
                 cx, cy = xy(seg[0])
-                parts.append(f'<circle cx="{cx}" cy="{cy}" r="3.5" fill="{palette.color}"/>')
+                parts.append(f'<circle cx="{cx}" cy="{cy}" r="4.5" fill="{palette.color}"/>')
             continue
         coords = " ".join(f"{x},{y}" for x, y in map(xy, seg))
         parts.append(
-            f'<polyline points="{coords}" fill="none" stroke="{palette.color}" stroke-width="2.5" '
-            'stroke-linejoin="round" stroke-linecap="round"/>'
+            f'<polyline points="{coords}" fill="none" stroke="{palette.color}" stroke-width="3" '
+            'stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'
         )
     cx, cy = xy(points[-1])
-    parts.append(
-        f'<circle cx="{cx}" cy="{cy}" r="4.5" fill="{palette.color}" stroke="#fff" stroke-width="2"/>'
-    )
+    parts.append(f'<circle cx="{cx}" cy="{cy}" r="6" fill="{palette.color}" stroke="#fff" stroke-width="2"/>')
     parts.append("</svg>")
     return TrendChart(Markup("".join(parts)), low, high, first, last)

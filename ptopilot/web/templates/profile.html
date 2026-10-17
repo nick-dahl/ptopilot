@@ -41,7 +41,7 @@
   <section class="panel">
     <h2>Travel windows</h2>
     {% for i in range(windows) %}
-    <div class="fields">
+    <div class="fields-2">
       {{ field("window_start_%d" % i, "From", form["window_start_%d" % i], type="date") }}
       {{ field("window_end_%d" % i, "To", form["window_end_%d" % i], type="date") }}
     </div>

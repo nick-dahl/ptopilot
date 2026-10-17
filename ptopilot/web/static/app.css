@@ -75,6 +75,7 @@ input:focus, select:focus { outline: 2px solid var(--dest, #111827); outline-off
 input[type="checkbox"] { width: auto; margin: 0 8px 0 0; }
 .check { display: flex; align-items: center; font-size: 14px; margin: 6px 0; }
 .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0 14px; }
+.fields-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; max-width: 480px; }
 .row-fields { display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 0 10px; align-items: end; }
 @media (max-width: 640px) { .row-fields { grid-template-columns: 1fr 1fr; } .row-fields > :first-child { grid-column: 1 / -1; } }
 .form-actions { display: flex; gap: 10px; align-items: center; margin-top: 18px; }
@@ -95,6 +96,8 @@ input[type="checkbox"] { width: auto; margin: 0 8px 0 0; }
 
 /* Destination cards */
 .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+.grid > div { display: flex; flex-direction: column; }
+.grid .dest-card { flex: 1; }
 @media (min-width: 640px) { .grid { grid-template-columns: 1fr 1fr; } }
 .dest-card { display: block; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; text-decoration: none; transition: box-shadow .15s, transform .15s; }
 a.dest-card:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, .1); transform: translateY(-1px); }
@@ -127,7 +130,8 @@ a.dest-card:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, .1); transform: transla
   .trips td.bar-cell { grid-column: 1 / -1; width: auto; padding: 6px 0; }
   .trips td.flights { grid-column: 1 / -1; }
 }
-.trend-panel .trend { display: block; width: 100%; height: auto; margin: 8px 0 4px; }
+.trend-panel .trend { display: block; width: 100%; height: auto; max-height: 220px; margin: 8px 0 4px; }
+.nowrap { white-space: nowrap; }
 .trend-axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
 
 /* Landing */
