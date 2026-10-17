@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ label }} · ptopilot{% endblock %}
 {% block content %}
-<h1>{{ destination }}: {{ label | replace("…", "a price") }}?</h1>
-<div class="card">
+<div class="panel panel-narrow">
+  <h1>{{ destination }}: {{ label | replace("…", "a price") }}?</h1>
+  <div style="margin-top:10px;">
   {% if action.kind == "trip" %}
   <p>Stop suggesting <b>{{ action.depart | day }} → {{ action.ret | day }}</b> for {{ destination }}. Other dates keep being tracked.</p>
   {% elif action.kind == "snooze30" %}
@@ -12,13 +13,14 @@
   {% else %}
   <p>Only tell me about {{ destination }} trips under this price (round trip, per person):</p>
   {% endif %}
+  </div>
   <form method="post">
     {% if action.kind == "under" %}
-    <label for="price">Maximum price (USD)</label>
-    <input id="price" name="price" inputmode="numeric" placeholder="e.g. 750" required>
+    <label class="field"><span>Maximum price (USD)</span>
+      <input id="price" name="price" inputmode="numeric" placeholder="e.g. 750" required></label>
     {% endif %}
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
-    <p><button type="submit">Confirm</button></p>
+    <div class="form-actions"><button class="btn" type="submit">Confirm</button></div>
   </form>
 </div>
 {% endblock %}

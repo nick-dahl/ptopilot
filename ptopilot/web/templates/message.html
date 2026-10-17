@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ title }} · ptopilot{% endblock %}
 {% block content %}
-<h1>{{ title }}</h1>
-<div class="card">
-  <p>{{ message }}</p>
-  {% if login %}<p><a class="button" href="/login">Get a new link</a></p>{% endif %}
-  {% if signed_in %}<p><a href="/">Back to your dashboard</a></p>{% endif %}
+<div class="panel panel-narrow">
+  <h1>{{ title }}</h1>
+  <p style="margin-top:10px;">{{ message }}</p>
+  {% if login %}<p><a class="btn" href="/#sign-in">Get a new link</a></p>{% endif %}
+  {% if signed_in %}<p class="small"><a href="/">Back to your dashboard</a></p>{% endif %}
 </div>
 {% endblock %}

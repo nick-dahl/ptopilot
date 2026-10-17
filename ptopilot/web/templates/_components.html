@@ -1,0 +1,65 @@
+{# Shared building blocks (V2 spec §3.3). Pages compose these instead of styling things themselves. #}
+
+{% macro dest_style(palette) -%}
+--dest:{{ palette.color }};--dest-tint:{{ palette.tint }}
+{%- endmacro %}
+
+{% macro price_bar(bar) -%}
+{% if bar %}<div class="pbar" role="img" aria-label="Price compared with the typical range">
+  <span class="band" style="left:{{ bar.band_start }}%;width:{{ (bar.band_end - bar.band_start) | round(1) }}%"></span>
+  <span class="dot" style="left:{{ bar.dot }}%"></span>
+</div>{% endif %}
+{%- endmacro %}
+
+{% macro vs_typical(option) -%}
+{% set pct = option.pct_below %}
+{% if pct is none %}<span class="vs">typical price still being learned</span>
+{% elif pct >= 2 %}<span class="vs vs-below">{{ pct }}% below typical</span>
+{% elif pct <= -2 %}<span class="vs">{{ -pct }}% above typical</span>
+{% else %}<span class="vs">about typical</span>{% endif %}
+{%- endmacro %}
+
+{% macro season(option) -%}
+{% if option.season_rating == "good" %}Good season{% elif option.season_rating == "shoulder" %}Shoulder season{% else %}Off-season{% endif %}{% if option.weather_note %} · {{ option.weather_note }}{% endif %}
+{%- endmacro %}
+
+{% macro pto_bar(total, committed) -%}
+{% set left = total - committed %}
+<div class="panel pto">
+  <span><b class="num">{{ left }}</b> PTO day{{ "s" if left != 1 }} left</span>
+  <div class="pto-track" aria-hidden="true">
+    {% if committed %}<span class="pto-used" style="flex:{{ committed }}"></span>{% endif %}
+    {% if left > 0 %}<span class="pto-left" style="flex:{{ left }}"></span>{% endif %}
+  </div>
+  <span class="muted small">{{ committed }} of {{ total }} committed</span>
+</div>
+{%- endmacro %}
+
+{% macro dest_card(s, href=None, sample=False) -%}
+<{{ "a" if href else "div" }} class="dest-card{{ ' dimmed' if s.snoozed_until }}" style="{{ dest_style(s.palette) }}"{% if href %} href="{{ href }}"{% endif %}>
+  <div class="dest-head">
+    {% if sample %}<span class="tag sample-label">Example</span>{% endif %}
+    <div class="eyebrow">{{ s.stay[0] }}–{{ s.stay[1] }} days on the ground</div>
+    <h2>{{ s.name }}</h2>
+  </div>
+  <div class="dest-body">
+    {% if s.best %}
+    {% set o = s.best %}
+    <div class="price-line"><span class="price">{{ o.price | money(o.currency) }}</span>{{ vs_typical(o) }}</div>
+    {{ price_bar(o.bar) }}
+    <div class="meta">{{ o.depart_date | dates(o.return_date) }} · {{ o.pto_cost }} PTO for {{ o.days_away }} days{% if o.open_jaw %} · open-jaw{% endif %}</div>
+    <div class="meta">{{ season(o) }}</div>
+    {% else %}
+    <div class="meta">First prices after the next daily scan.</div>
+    {% endif %}
+    {% if s.snoozed_until %}<div class="meta">Snoozed until {{ s.snoozed_until | day }}</div>{% endif %}
+  </div>
+</{{ "a" if href else "div" }}>
+{%- endmacro %}
+
+{% macro field(name, label, value="", type="text", hint=None, attrs="") -%}
+<label class="field"><span>{{ label }}</span>
+  <input id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}" {{ attrs | safe }}>
+  {% if hint %}<small>{{ hint }}</small>{% endif %}
+</label>
+{%- endmacro %}

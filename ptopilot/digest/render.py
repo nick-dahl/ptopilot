@@ -27,6 +27,15 @@ def day(d) -> str:
     return f"{d:%a} {d:%b} {d.day}"
 
 
+def date_range(start, end) -> str:
+    """Mar 5–15, Feb 27–Mar 14, or Dec 28, 2027–Jan 4, 2028."""
+    if start.year != end.year:
+        return f"{start:%b} {start.day}, {start.year}–{end:%b} {end.day}, {end.year}"
+    if start.month != end.month:
+        return f"{start:%b} {start.day}–{end:%b} {end.day}"
+    return f"{start:%b} {start.day}–{end.day}"
+
+
 def duration(minutes: int | None) -> str:
     if not minutes:
         return ""
@@ -64,7 +73,7 @@ _env = Environment(
     trim_blocks=True,
     lstrip_blocks=True,
 )
-_env.filters.update(money=money, day=day, duration=duration, clock=clock, stops=stops)
+_env.filters.update(money=money, day=day, dates=date_range, duration=duration, clock=clock, stops=stops)
 
 
 def subject(digest: Digest) -> str:

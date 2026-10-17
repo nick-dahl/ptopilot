@@ -4,52 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}ptopilot{% endblock %}</title>
-<style>
-  :root { --bg:#f6f7f9; --card:#fff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --accent:#111827; --ok:#15803d; --bad:#b91c1c; --soft:#f3f4f6; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#0f1115; --card:#171a21; --ink:#e5e7eb; --muted:#9ca3af; --line:#2a2f3a; --accent:#e5e7eb; --ok:#4ade80; --bad:#f87171; --soft:#1f2430; } }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
-  header { display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:760px; margin:0 auto; padding:16px; }
-  header a.brand { font-weight:700; color:var(--ink); text-decoration:none; letter-spacing:.02em; }
-  nav { display:flex; gap:14px; align-items:center; font-size:14px; }
-  nav a { color:var(--muted); text-decoration:none; }
-  main { max-width:760px; margin:0 auto; padding:0 16px 48px; }
-  h1 { font-size:22px; margin:8px 0 12px; } h2 { font-size:16px; margin:24px 0 8px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:0 0 12px; }
-  .muted { color:var(--muted); } .small { font-size:13px; }
-  .ok { color:var(--ok); } .error { color:var(--bad); }
-  .price { font-size:22px; font-weight:700; }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th, td { text-align:left; padding:8px 6px; border-top:1px solid var(--line); vertical-align:middle; }
-  th { color:var(--muted); font-weight:500; border-top:none; }
-  .scroll { overflow-x:auto; }
-  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
-  input, select { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; }
-  input[type=checkbox] { width:auto; margin-right:6px; }
-  .check { display:flex; align-items:center; color:var(--ink); font-size:14px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:0 12px; }
-  .row { display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr; gap:8px; align-items:end; }
-  @media (max-width:560px) { .row { grid-template-columns:1fr 1fr; } .row > div:first-child { grid-column:1 / -1; } }
-  button, .button { display:inline-block; padding:9px 14px; border-radius:8px; border:1px solid var(--accent); background:var(--accent); color:var(--bg); font:inherit; font-weight:600; cursor:pointer; text-decoration:none; }
-  button.link { background:none; border:none; color:var(--muted); padding:0; font-weight:400; text-decoration:underline; }
-  form.inline { display:inline; }
-  .bar { height:10px; border-radius:999px; background:var(--soft); overflow:hidden; } .bar > span { display:block; height:100%; background:var(--accent); }
-  .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:var(--soft); font-size:12px; }
-</style>
+<meta name="description" content="ptopilot watches flight prices for the trips your PTO can actually take, and emails you when one is genuinely cheap.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-<header>
-  <a class="brand" href="/">ptopilot</a>
-  {% if signed_in %}
-  <nav>
-    <a href="/">Dashboard</a>
-    <a href="/profile">Profile</a>
-    <form class="inline" method="post" action="/logout"><button class="link" type="submit">Sign out</button></form>
-  </nav>
-  {% endif %}
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo" href="/">ptopilot</a>
+    <nav class="nav" aria-label="Main">
+      {% if signed_in %}
+      <a href="/" {% if active == "dashboard" %}aria-current="page"{% endif %}>Dashboard</a>
+      <a href="/profile" {% if active == "profile" %}aria-current="page"{% endif %}>Profile</a>
+      <form class="inline" method="post" action="/logout"><button class="link-btn" type="submit">Sign out</button></form>
+      {% else %}
+      <a class="btn btn-ghost btn-sm" href="/#sign-in">Sign in</a>
+      {% endif %}
+    </nav>
+  </div>
 </header>
-<main>
+<main class="wrap">
 {% block content %}{% endblock %}
 </main>
+<footer class="site-footer wrap">ptopilot · flight prices for the PTO you actually have · invite-only for now</footer>
 </body>
 </html>

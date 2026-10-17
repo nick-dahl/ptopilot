@@ -16,7 +16,9 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, Form, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine, select
 from starlette.middleware.sessions import SessionMiddleware
@@ -26,7 +28,7 @@ from ptopilot.core.seasons import SeasonTable
 from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import Invite, Tracker, User
 from ptopilot.db.session import make_engine, session_scope
-from ptopilot.digest.render import day, money
+from ptopilot.digest.render import date_range, day, money
 from ptopilot.digest.select import TrackerRow, build_digests
 from ptopilot.links import ACTION_LABELS, TokenError, login_token, read_action_token, read_login_token
 from ptopilot.notify.email import Emailer, EmailError, ResendEmailer
@@ -36,8 +38,9 @@ from ptopilot.trackers import apply_action, snooze, unsnooze
 from ptopilot.web.forms import form_to_profile, profile_to_form, row_count
 
 log = logging.getLogger(__name__)
-TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
-TEMPLATES.env.filters.update(money=money, day=day)
+WEB_DIR = Path(__file__).parent
+TEMPLATES = Jinja2Templates(directory=str(WEB_DIR / "templates"))
+TEMPLATES.env.filters.update(money=money, day=day, dates=date_range)
 SESSION_MAX_AGE_S = 30 * 24 * 3600
 LOGIN_COOLDOWN_S = 120  # at most one sign-in email per address per 2 minutes
 
@@ -63,6 +66,7 @@ def create_app(
         emailer = ResendEmailer(settings.resend_api_key, settings.email_from)
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.secret_key,
@@ -99,6 +103,12 @@ def create_app(
         user = signed_in_user(s, request)
         tracker = s.get(Tracker, tracker_id)
         return tracker if user and tracker and tracker.user_id == user.id else None
+
+    @app.exception_handler(RequestValidationError)
+    def bad_request(request: Request, exc: RequestValidationError):
+        """Malformed form fields or URLs (e.g. a non-numeric id) get a page, not FastAPI's JSON."""
+        message = "Something in that request didn't look right. Go back and try again."
+        return page(request, "message.html", 400, title="That didn't work", message=message)
 
     @app.get("/healthz")
     def healthz():
