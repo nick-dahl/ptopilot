@@ -90,3 +90,10 @@ def test_hung_search_times_out_as_source_unavailable():
     with pytest.raises(SourceUnavailable, match="timed out"):
         GoogleFlightsSource(search=hang, timeout_s=0.2).exact_search(QUERY)
     assert time.monotonic() - start < 2
+
+
+def test_refuses_open_jaw_queries():
+    assert GoogleFlightsSource.supports_open_jaw is False
+    open_jaw = ExactQuery("JFK", "OPO", date(2027, 3, 6), date(2027, 3, 21), return_from="SCQ")
+    with pytest.raises(ValueError, match="open-jaw"):
+        GoogleFlightsSource(search=lambda q: ([], "u")).exact_search(open_jaw)

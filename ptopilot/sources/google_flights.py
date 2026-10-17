@@ -93,6 +93,7 @@ def _default_search(query: ExactQuery) -> tuple[Sequence[Any], str]:
 
 class GoogleFlightsSource:
     name = "google_flights"
+    supports_open_jaw = False  # fast-flights 3.1's multi-city parser crashes (verified 2026-10-16)
 
     def __init__(
         self,
@@ -103,6 +104,8 @@ class GoogleFlightsSource:
         self._timeout_s = timeout_s
 
     def exact_search(self, query: ExactQuery) -> ExactResult:
+        if query.open_jaw:
+            raise ValueError("google_flights cannot price open-jaw trips; check supports_open_jaw first")
         try:
             results, url = _call_with_timeout(self._search, query, self._timeout_s)
             options = parse_flights(results)

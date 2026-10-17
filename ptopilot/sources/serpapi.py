@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 
 import httpx
@@ -64,6 +65,7 @@ def parse_google_flights(payload: dict, query: ExactQuery) -> ExactResult:
 
 class SerpApiSource:
     name = "serpapi"
+    supports_open_jaw = True  # via type=3 multi-city searches
 
     def __init__(self, api_key: str, client: httpx.Client | None = None):
         if not api_key:
@@ -72,17 +74,34 @@ class SerpApiSource:
         self._client = client or httpx.Client(timeout=TIMEOUT_S)
 
     def exact_search(self, query: ExactQuery) -> ExactResult:
-        params = {
+        params: dict[str, str | int] = {
             "engine": "google_flights",
-            "departure_id": query.origin,
-            "arrival_id": query.dest_airport,
-            "outbound_date": query.depart_date.isoformat(),
-            "return_date": query.return_date.isoformat(),
-            "type": 1,
             "currency": query.currency,
             "hl": "en",
             "api_key": self._key,
         }
+        if query.open_jaw:
+            legs = [
+                {
+                    "departure_id": query.origin,
+                    "arrival_id": query.dest_airport,
+                    "date": query.depart_date.isoformat(),
+                },
+                {
+                    "departure_id": query.return_from,
+                    "arrival_id": query.origin,
+                    "date": query.return_date.isoformat(),
+                },
+            ]
+            params |= {"type": 3, "multi_city_json": json.dumps(legs)}
+        else:
+            params |= {
+                "type": 1,
+                "departure_id": query.origin,
+                "arrival_id": query.dest_airport,
+                "outbound_date": query.depart_date.isoformat(),
+                "return_date": query.return_date.isoformat(),
+            }
         try:
             resp = self._client.get(API_URL, params=params)
         except httpx.HTTPError as exc:

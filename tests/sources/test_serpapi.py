@@ -101,3 +101,22 @@ def test_no_results_is_an_empty_result_not_an_outage():
 def test_non_object_json_is_source_unavailable(body):
     with pytest.raises(SourceUnavailable, match="unexpected"):
         source_returning(body=body).exact_search(QUERY)
+
+
+OPEN_JAW = ExactQuery("JFK", "OPO", date(2027, 3, 6), date(2027, 3, 21), return_from="SCQ")
+
+
+def test_open_jaw_is_sent_as_a_multi_city_search():
+    seen = []
+    source_returning(body=FIXTURE, seen=seen).exact_search(OPEN_JAW)
+    params = dict(seen[0].url.params)
+    assert params["type"] == "3"
+    assert json.loads(params["multi_city_json"]) == [
+        {"departure_id": "JFK", "arrival_id": "OPO", "date": "2027-03-06"},
+        {"departure_id": "SCQ", "arrival_id": "JFK", "date": "2027-03-21"},
+    ]
+    assert "outbound_date" not in params and "departure_id" not in params
+
+
+def test_declares_open_jaw_support():
+    assert SerpApiSource.supports_open_jaw is True

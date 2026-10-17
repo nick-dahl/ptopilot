@@ -33,10 +33,15 @@ class FareQuote:
 @dataclass(frozen=True)
 class ExactQuery:
     origin: str
-    dest_airport: str
+    dest_airport: str  # fly into
     depart_date: date
     return_date: date
     currency: str = "USD"
+    return_from: str | None = None  # fly home from; None means dest_airport (a plain round trip)
+
+    @property
+    def open_jaw(self) -> bool:
+        return self.return_from not in (None, self.dest_airport)
 
 
 @dataclass(frozen=True)
@@ -75,6 +80,7 @@ class MonthScanSource(Protocol):
 
 class ExactSearchSource(Protocol):
     name: str
+    supports_open_jaw: bool  # can price "into A, home from B" itineraries
 
     def exact_search(self, query: ExactQuery) -> ExactResult: ...
 

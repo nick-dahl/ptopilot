@@ -1,0 +1,690 @@
+{
+ "search_metadata": {
+  "id": "6ad26cb1d0a88f9cc95d4710",
+  "status": "Success",
+  "json_endpoint": "https://serpapi.com/searches/9iSbdSl90r4JHXJu24WJNF1e2kvl5Nyx3hR_KEDOTLQ/6ad26cb1d0a88f9cc95d4710.json",
+  "markdown_endpoint": "https://serpapi.com/searches/9iSbdSl90r4JHXJu24WJNF1e2kvl5Nyx3hR_KEDOTLQ/6ad26cb1d0a88f9cc95d4710.md",
+  "created_at": "2026-10-16 18:28:01 UTC",
+  "processed_at": "2026-10-16 18:28:01 UTC",
+  "google_flights_url": "https://www.google.com/travel/flights?hl=en&gl=us&curr=USD&tfs=CBwQAhoeEgoyMDI3LTAzLTA2agcIARIDSkZLcgcIARIDT1BPGh4SCjIwMjctMDMtMjFqBwgBEgNTQ1FyBwgBEgNKRktAAUgBcAGYAQM&tfu=EgIIAQ",
+  "raw_html_file": "https://serpapi.com/searches/9iSbdSl90r4JHXJu24WJNF1e2kvl5Nyx3hR_KEDOTLQ/6ad26cb1d0a88f9cc95d4710.html",
+  "prettify_html_file": "https://serpapi.com/searches/9iSbdSl90r4JHXJu24WJNF1e2kvl5Nyx3hR_KEDOTLQ/6ad26cb1d0a88f9cc95d4710.prettify",
+  "total_time_taken": 4.21
+ },
+ "search_parameters": {
+  "engine": "google_flights",
+  "hl": "en",
+  "gl": "us",
+  "type": "3",
+  "currency": "USD",
+  "multi_city_json": "[{\"departure_id\": \"JFK\", \"arrival_id\": \"OPO\", \"date\": \"2027-03-06\"}, {\"departure_id\": \"SCQ\", \"arrival_id\": \"JFK\", \"date\": \"2027-03-21\"}]"
+ },
+ "best_flights": [
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "John F. Kennedy International Airport",
+      "id": "JFK",
+      "time": "2027-03-06 17:05"
+     },
+     "arrival_airport": {
+      "name": "Adolfo Su\u00e1rez Madrid-Barajas Airport",
+      "id": "MAD",
+      "time": "2027-03-07 06:20"
+     },
+     "duration": 435,
+     "airplane": "Airbus A321neo",
+     "airline": "Iberia",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/IB.png",
+     "travel_class": "Economy",
+     "flight_number": "IB 212",
+     "ticket_also_sold_by": [
+      "American",
+      "Finnair"
+     ],
+     "legroom": "30 in",
+     "extensions": [
+      "Average legroom (30 in)",
+      "Wi-Fi for a fee",
+      "In-seat USB outlet",
+      "On-demand video",
+      "Carbon emissions estimate: 405 kg"
+     ],
+     "overnight": true
+    },
+    {
+     "departure_airport": {
+      "name": "Adolfo Su\u00e1rez Madrid-Barajas Airport",
+      "id": "MAD",
+      "time": "2027-03-07 07:20"
+     },
+     "arrival_airport": {
+      "name": "Francisco S\u00e1 Carneiro Airport",
+      "id": "OPO",
+      "time": "2027-03-07 07:40"
+     },
+     "duration": 80,
+     "airplane": "Airbus A320",
+     "airline": "Iberia",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/IB.png",
+     "travel_class": "Economy",
+     "flight_number": "IB 543",
+     "ticket_also_sold_by": [
+      "American",
+      "Finnair"
+     ],
+     "legroom": "28 in",
+     "extensions": [
+      "Below average legroom (28 in)",
+      "Wi-Fi for a fee",
+      "In-seat USB outlet",
+      "Carbon emissions estimate: 57 kg"
+     ]
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 60,
+     "name": "Adolfo Su\u00e1rez Madrid-Barajas Airport",
+     "id": "MAD"
+    }
+   ],
+   "total_duration": 575,
+   "carbon_emissions": {
+    "this_flight": 463000,
+    "typical_for_this_route": 477000,
+    "difference_percent": -3
+   },
+   "price": 959,
+   "type": "Multi-city",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/IB.png",
+   "departure_token": "WyJDalJJY1RWaFJGVkZhMFpTYVRSQlJscENOVkZDUnkwdExTMHRMWFozYUdreE5pMXVNa0ZCUVVGQlIzSlRZa3hGVGtGMFFqWkJFZ3RKUWpJeE1ueEpRalUwTXhvTENKSHRCUkFDR2dOVlUwUTRISENSN1FVPSIsW1siSkZLIiwiMjAyNy0wMy0wNiIsIk1BRCIsbnVsbCwiSUIiLCIyMTIiXSxbIk1BRCIsIjIwMjctMDMtMDciLCJPUE8iLG51bGwsIklCIiwiNTQzIl1dXQ=="
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "John F. Kennedy International Airport",
+      "id": "JFK",
+      "time": "2027-03-06 21:00"
+     },
+     "arrival_airport": {
+      "name": "Adolfo Su\u00e1rez Madrid-Barajas Airport",
+      "id": "MAD",
+      "time": "2027-03-07 10:10"
+     },
+     "duration": 430,
+     "airplane": "Airbus A330",
+     "airline": "Iberia",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/IB.png",
+     "travel_class": "Economy",
+     "flight_number": "IB 326",
+     "ticket_also_sold_by": [
+      "American",
+      "Finnair"
+     ],
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat power & USB outlets",
+      "On-demand video",
+      "Carbon emissions estimate: 407 kg"
+     ],
+     "overnight": true
+    },
+    {
+     "departure_airport": {
+      "name": "Adolfo Su\u00e1rez Madrid-Barajas Airport",
+      "id": "MAD",
+      "time": "2027-03-07 11:25"
+     },
+     "arrival_airport": {
+      "name": "Francisco S\u00e1 Carneiro Airport",
+      "id": "OPO",
+      "time": "2027-03-07 11:45"
+     },
+     "duration": 80,
+     "airplane": "Canadair RJ 1000",
+     "airline": "Iberia",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/IB.png",
+     "travel_class": "Economy",
+     "flight_number": "IB 1149",
+     "ticket_also_sold_by": [
+      "American",
+      "Finnair"
+     ],
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Stream media to your device",
+      "Carbon emissions estimate: 68 kg"
+     ],
+     "plane_and_crew_by": "Air Nostrum for Iberia"
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 75,
+     "name": "Adolfo Su\u00e1rez Madrid-Barajas Airport",
+     "id": "MAD"
+    }
+   ],
+   "total_duration": 585,
+   "carbon_emissions": {
+    "this_flight": 476000,
+    "typical_for_this_route": 477000,
+    "difference_percent": 0
+   },
+   "price": 959,
+   "type": "Multi-city",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/IB.png",
+   "departure_token": "WyJDalJJY1RWaFJGVkZhMFpTYVRSQlJscENOVkZDUnkwdExTMHRMWFozYUdreE5pMXVNa0ZCUVVGQlIzSlRZa3hGVGtGMFFqWkJFZ3hKUWpNeU5ueEpRakV4TkRrYUN3aVI3UVVRQWhvRFZWTkVPQnh3a2UwRiIsW1siSkZLIiwiMjAyNy0wMy0wNiIsIk1BRCIsbnVsbCwiSUIiLCIzMjYiXSxbIk1BRCIsIjIwMjctMDMtMDciLCJPUE8iLG51bGwsIklCIiwiMTE0OSJdXV0="
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "John F. Kennedy International Airport",
+      "id": "JFK",
+      "time": "2027-03-06 23:20"
+     },
+     "arrival_airport": {
+      "name": "Heathrow Airport",
+      "id": "LHR",
+      "time": "2027-03-07 11:10"
+     },
+     "duration": 410,
+     "airplane": "Boeing 777",
+     "airline": "British Airways",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/BA.png",
+     "travel_class": "Economy",
+     "flight_number": "BA 182",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat USB outlet",
+      "On-demand video",
+      "Carbon emissions estimate: 416 kg"
+     ],
+     "overnight": true,
+     "often_delayed_by_over_30_min": true
+    },
+    {
+     "departure_airport": {
+      "name": "London Gatwick Airport",
+      "id": "LGW",
+      "time": "2027-03-07 16:50"
+     },
+     "arrival_airport": {
+      "name": "Francisco S\u00e1 Carneiro Airport",
+      "id": "OPO",
+      "time": "2027-03-07 19:15"
+     },
+     "duration": 145,
+     "airplane": "Airbus A321",
+     "airline": "British Airways",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/BA.png",
+     "travel_class": "Economy",
+     "flight_number": "BA 2666",
+     "legroom": "30 in",
+     "extensions": [
+      "Average legroom (30 in)",
+      "Wi-Fi for a fee",
+      "In-seat USB outlet",
+      "Carbon emissions estimate: 127 kg"
+     ],
+     "plane_and_crew_by": "BA Euroflyer"
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 340,
+     "name": "London Gatwick Airport",
+     "id": "LHR"
+    }
+   ],
+   "total_duration": 895,
+   "carbon_emissions": {
+    "this_flight": 544000,
+    "typical_for_this_route": 477000,
+    "difference_percent": 14
+   },
+   "price": 973,
+   "type": "Multi-city",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/BA.png",
+   "departure_token": "WyJDalJJY1RWaFJGVkZhMFpTYVRSQlJscENOVkZDUnkwdExTMHRMWFozYUdreE5pMXVNa0ZCUVVGQlIzSlRZa3hGVGtGMFFqWkJFZ3hDUVRFNE1ueENRVEkyTmpZYUN3akQ5d1VRQWhvRFZWTkVPQnh3dy9jRiIsW1siSkZLIiwiMjAyNy0wMy0wNiIsIkxIUiIsbnVsbCwiQkEiLCIxODIiXSxbIkxHVyIsIjIwMjctMDMtMDciLCJPUE8iLG51bGwsIkJBIiwiMjY2NiJdXV0="
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "John F. Kennedy International Airport",
+      "id": "JFK",
+      "time": "2027-03-06 19:50"
+     },
+     "arrival_airport": {
+      "name": "Adolfo Su\u00e1rez Madrid-Barajas Airport",
+      "id": "MAD",
+      "time": "2027-03-07 08:50"
+     },
+     "duration": 420,
+     "airplane": "Boeing 787",
+     "airline": "American",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/AA.png",
+     "travel_class": "Economy",
+     "flight_number": "AA 94",
+     "ticket_also_sold_by": [
+      "Finnair",
+      "Iberia"
+     ],
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat power & USB outlets",
+      "On-demand video",
+      "Carbon emissions estimate: 370 kg"
+     ],
+     "overnight": true
+    },
+    {
+     "departure_airport": {
+      "name": "Adolfo Su\u00e1rez Madrid-Barajas Airport",
+      "id": "MAD",
+      "time": "2027-03-07 11:25"
+     },
+     "arrival_airport": {
+      "name": "Francisco S\u00e1 Carneiro Airport",
+      "id": "OPO",
+      "time": "2027-03-07 11:45"
+     },
+     "duration": 80,
+     "airplane": "Canadair RJ 1000",
+     "airline": "Iberia",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/IB.png",
+     "travel_class": "Economy",
+     "flight_number": "IB 1149",
+     "ticket_also_sold_by": [
+      "Finnair",
+      "American"
+     ],
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Stream media to your device",
+      "Carbon emissions estimate: 68 kg"
+     ],
+     "plane_and_crew_by": "Air Nostrum for Iberia"
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 155,
+     "name": "Adolfo Su\u00e1rez Madrid-Barajas Airport",
+     "id": "MAD"
+    }
+   ],
+   "total_duration": 655,
+   "carbon_emissions": {
+    "this_flight": 439000,
+    "typical_for_this_route": 477000,
+    "difference_percent": -8
+   },
+   "price": 999,
+   "type": "Multi-city",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/multi.png",
+   "departure_token": "WyJDalJJY1RWaFJGVkZhMFpTYVRSQlJscENOVkZDUnkwdExTMHRMWFozYUdreE5pMXVNa0ZCUVVGQlIzSlRZa3hGVGtGMFFqWkJFZ3RCUVRrMGZFbENNVEUwT1JvTENMR01CaEFDR2dOVlUwUTRISEN4akFZPSIsW1siSkZLIiwiMjAyNy0wMy0wNiIsIk1BRCIsbnVsbCwiQUEiLCI5NCJdLFsiTUFEIiwiMjAyNy0wMy0wNyIsIk9QTyIsbnVsbCwiSUIiLCIxMTQ5Il1dXQ=="
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "John F. Kennedy International Airport",
+      "id": "JFK",
+      "time": "2027-03-06 21:20"
+     },
+     "arrival_airport": {
+      "name": "Aeroporto Jo\u00e3o Paulo II",
+      "id": "PDL",
+      "time": "2027-03-07 06:55"
+     },
+     "duration": 335,
+     "airplane": "Airbus A321neo",
+     "airline": "Azores Airlines",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/S4.png",
+     "travel_class": "Economy",
+     "flight_number": "S4 246",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "In-seat power & USB outlets",
+      "Stream media to your device",
+      "Carbon emissions estimate: 373 kg"
+     ],
+     "overnight": true,
+     "often_delayed_by_over_30_min": true
+    },
+    {
+     "departure_airport": {
+      "name": "Aeroporto Jo\u00e3o Paulo II",
+      "id": "PDL",
+      "time": "2027-03-07 08:30"
+     },
+     "arrival_airport": {
+      "name": "Francisco S\u00e1 Carneiro Airport",
+      "id": "OPO",
+      "time": "2027-03-07 11:50"
+     },
+     "duration": 140,
+     "airplane": "Airbus A321neo",
+     "airline": "Azores Airlines",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/S4.png",
+     "travel_class": "Economy",
+     "flight_number": "S4 172",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "In-seat power & USB outlets",
+      "Stream media to your device",
+      "Carbon emissions estimate: 129 kg"
+     ],
+     "often_delayed_by_over_30_min": true
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 95,
+     "name": "Aeroporto Jo\u00e3o Paulo II",
+     "id": "PDL"
+    }
+   ],
+   "total_duration": 570,
+   "carbon_emissions": {
+    "this_flight": 503000,
+    "typical_for_this_route": 477000,
+    "difference_percent": 5
+   },
+   "price": 1085,
+   "type": "Multi-city",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/S4.png",
+   "departure_token": "WyJDalJJY1RWaFJGVkZhMFpTYVRSQlJscENOVkZDUnkwdExTMHRMWFozYUdreE5pMXVNa0ZCUVVGQlIzSlRZa3hGVGtGMFFqWkJFZ3RUTkRJME5ueFROREUzTWhvTENOVFBCaEFDR2dOVlUwUTRISERVendZPSIsW1siSkZLIiwiMjAyNy0wMy0wNiIsIlBETCIsbnVsbCwiUzQiLCIyNDYiXSxbIlBETCIsIjIwMjctMDMtMDciLCJPUE8iLG51bGwsIlM0IiwiMTcyIl1dXQ=="
+  }
+ ],
+ "other_flights": [
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "John F. Kennedy International Airport",
+      "id": "JFK",
+      "time": "2027-03-06 15:55"
+     },
+     "arrival_airport": {
+      "name": "Frankfurt Airport",
+      "id": "FRA",
+      "time": "2027-03-07 05:15"
+     },
+     "duration": 440,
+     "airplane": "Airbus A350",
+     "airline": "Lufthansa",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/LH.png",
+     "travel_class": "Economy",
+     "flight_number": "LH 401",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat power & USB outlets",
+      "On-demand video",
+      "Carbon emissions estimate: 406 kg"
+     ],
+     "overnight": true
+    },
+    {
+     "departure_airport": {
+      "name": "Frankfurt Airport",
+      "id": "FRA",
+      "time": "2027-03-07 09:50"
+     },
+     "arrival_airport": {
+      "name": "Francisco S\u00e1 Carneiro Airport",
+      "id": "OPO",
+      "time": "2027-03-07 11:40"
+     },
+     "duration": 170,
+     "airplane": "Airbus A321",
+     "airline": "Lufthansa",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/LH.png",
+     "travel_class": "Business Class",
+     "flight_number": "LH 1174",
+     "legroom": "30 in",
+     "extensions": [
+      "Average legroom (30 in)",
+      "Wi-Fi for a fee",
+      "Carbon emissions estimate: 251 kg"
+     ]
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 275,
+     "name": "Frankfurt Airport",
+     "id": "FRA"
+    }
+   ],
+   "total_duration": 885,
+   "carbon_emissions": {
+    "this_flight": 657000,
+    "typical_for_this_route": 477000,
+    "difference_percent": 38
+   },
+   "price": 6482,
+   "type": "Multi-city",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/LH.png",
+   "departure_token": "WyJDalJJY1RWaFJGVkZhMFpTYVRSQlJscENOVkZDUnkwdExTMHRMWFozYUdreE5pMXVNa0ZCUVVGQlIzSlRZa3hGVGtGMFFqWkJFZ3hNU0RRd01YeE1TREV4TnpRYUN3aUh5Q2NRQWhvRFZWTkVPQnh3aDhnbiIsW1siSkZLIiwiMjAyNy0wMy0wNiIsIkZSQSIsbnVsbCwiTEgiLCI0MDEiXSxbIkZSQSIsIjIwMjctMDMtMDciLCJPUE8iLG51bGwsIkxIIiwiMTE3NCJdXV0="
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "John F. Kennedy International Airport",
+      "id": "JFK",
+      "time": "2027-03-06 17:30"
+     },
+     "arrival_airport": {
+      "name": "Munich International Airport",
+      "id": "MUC",
+      "time": "2027-03-07 07:05"
+     },
+     "duration": 455,
+     "airplane": "Airbus A350",
+     "airline": "Lufthansa",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/LH.png",
+     "travel_class": "Economy",
+     "flight_number": "LH 411",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "Wi-Fi for a fee",
+      "In-seat USB outlet",
+      "On-demand video",
+      "Carbon emissions estimate: 427 kg"
+     ],
+     "overnight": true
+    },
+    {
+     "departure_airport": {
+      "name": "Munich International Airport",
+      "id": "MUC",
+      "time": "2027-03-07 10:50"
+     },
+     "arrival_airport": {
+      "name": "Francisco S\u00e1 Carneiro Airport",
+      "id": "OPO",
+      "time": "2027-03-07 12:50"
+     },
+     "duration": 180,
+     "airplane": "Airbus A321neo",
+     "airline": "Lufthansa",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/LH.png",
+     "travel_class": "Business Class",
+     "flight_number": "LH 1782",
+     "legroom": "30 in",
+     "extensions": [
+      "Average legroom (30 in)",
+      "In-seat USB outlet",
+      "Carbon emissions estimate: 220 kg"
+     ]
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 225,
+     "name": "Munich International Airport",
+     "id": "MUC"
+    }
+   ],
+   "total_duration": 860,
+   "carbon_emissions": {
+    "this_flight": 648000,
+    "typical_for_this_route": 477000,
+    "difference_percent": 36
+   },
+   "price": 6586,
+   "type": "Multi-city",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/LH.png",
+   "departure_token": "WyJDalJJY1RWaFJGVkZhMFpTYVRSQlJscENOVkZDUnkwdExTMHRMWFozYUdreE5pMXVNa0ZCUVVGQlIzSlRZa3hGVGtGMFFqWkJFZ3hNU0RReE1YeE1TREUzT0RJYUN3alhtQ2dRQWhvRFZWTkVPQnh3MTVnbyIsW1siSkZLIiwiMjAyNy0wMy0wNiIsIk1VQyIsbnVsbCwiTEgiLCI0MTEiXSxbIk1VQyIsIjIwMjctMDMtMDciLCJPUE8iLG51bGwsIkxIIiwiMTc4MiJdXV0="
+  },
+  {
+   "flights": [
+    {
+     "departure_airport": {
+      "name": "John F. Kennedy International Airport",
+      "id": "JFK",
+      "time": "2027-03-06 18:25"
+     },
+     "arrival_airport": {
+      "name": "Brussels Airport",
+      "id": "BRU",
+      "time": "2027-03-07 07:40"
+     },
+     "duration": 435,
+     "airplane": "Airbus A330",
+     "airline": "Brussels Airlines",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/SN.png",
+     "travel_class": "Economy",
+     "flight_number": "SN 502",
+     "legroom": "31 in",
+     "extensions": [
+      "Average legroom (31 in)",
+      "In-seat USB outlet",
+      "On-demand video",
+      "Carbon emissions estimate: 510 kg"
+     ],
+     "overnight": true
+    },
+    {
+     "departure_airport": {
+      "name": "Brussels Airport",
+      "id": "BRU",
+      "time": "2027-03-08 10:30"
+     },
+     "arrival_airport": {
+      "name": "Francisco S\u00e1 Carneiro Airport",
+      "id": "OPO",
+      "time": "2027-03-08 12:05"
+     },
+     "duration": 155,
+     "airplane": "Airbus A320",
+     "airline": "Brussels Airlines",
+     "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/SN.png",
+     "travel_class": "Business Class",
+     "flight_number": "SN 3811",
+     "legroom": "30 in",
+     "extensions": [
+      "Average legroom (30 in)",
+      "Carbon emissions estimate: 216 kg"
+     ]
+    }
+   ],
+   "layovers": [
+    {
+     "duration": 1610,
+     "name": "Brussels Airport",
+     "id": "BRU"
+    }
+   ],
+   "total_duration": 2200,
+   "carbon_emissions": {
+    "this_flight": 727000,
+    "typical_for_this_route": 477000,
+    "difference_percent": 52
+   },
+   "price": 6738,
+   "type": "Multi-city",
+   "airline_logo": "https://www.gstatic.com/flights/airline_logos/70px/SN.png",
+   "departure_token": "WyJDalJJY1RWaFJGVkZhMFpTYVRSQlJscENOVkZDUnkwdExTMHRMWFozYUdreE5pMXVNa0ZCUVVGQlIzSlRZa3hGVGtGMFFqWkJFZ3hUVGpVd01ueFRUak00TVRFYUN3anpqeWtRQWhvRFZWTkVPQnh3ODQ4cCIsW1siSkZLIiwiMjAyNy0wMy0wNiIsIkJSVSIsbnVsbCwiU04iLCI1MDIiXSxbIkJSVSIsIjIwMjctMDMtMDgiLCJPUE8iLG51bGwsIlNOIiwiMzgxMSJdXV0="
+  }
+ ],
+ "airports": [
+  {
+   "departure": [
+    {
+     "airport": {
+      "id": "JFK",
+      "name": "John F. Kennedy International Airport"
+     },
+     "city": "New York",
+     "country": "United States",
+     "country_code": "US",
+     "image": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRa1dwH1NZQk4dsbPiyA9Vrq2RX75jXSZ-OkHn7NkLHl-11HercqDXoZ4p2cDxJkH6vca2degawrCzHEQ",
+     "thumbnail": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcQEaUa9NsdPWGpAUGkTApkZDT_4M6_6V8wTcC0v1b1wJAJX-BuMSiipXbsoznGgcI1xLOc5QiTcR_xovexgjdOz0gqQe0tRQ9h0bUkZ07Q"
+    }
+   ],
+   "arrival": [
+    {
+     "airport": {
+      "id": "OPO",
+      "name": "Francisco S\u00e1 Carneiro Airport"
+     },
+     "city": "Porto",
+     "country": "Portugal",
+     "country_code": "PT",
+     "image": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcQe3ktu7ZoHP8OfUAkMcfjveYOPwl7KjwYirPxPmwaMfnIShX6xEtRsoiHB7mGzKBqOQvHAofB3wPXjWQ",
+     "thumbnail": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcQGsol-RlKZg6h32HdvWLng51BqL4OzbQG8zhYnEALk8mJ8HMWkOIp-q3VuQMeT5R5Z02gC-I3jcQ85OxPhHK4g8lsD1FhaxTJJiSP0SRU"
+    }
+   ]
+  },
+  {
+   "departure": [
+    {
+     "airport": {
+      "id": "SCQ",
+      "name": "Santiago-Rosal\u00eda de Castro Airport"
+     },
+     "city": "Santiago de Compostela",
+     "country": "Spain",
+     "country_code": "ES",
+     "image": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcSo5JD0ZYGfbh31JEW5mMJQ-Yo3ohtwtlftQKPbFS7Ch8A5q1foKv13LY9La2yhjWQORGED-znEQECY_A",
+     "thumbnail": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcRcQtztrUpPelcB-6Kcm-A6iPXvP6E-wRxpngvOlrnaiP_BQTuCm7jgY7RRK9AHY03fpplbKkU3Ak-NteA5lkGpUuEat_X2KcbLhmZuS_4"
+    }
+   ],
+   "arrival": [
+    {
+     "airport": {
+      "id": "JFK",
+      "name": "John F. Kennedy International Airport"
+     },
+     "city": "New York",
+     "country": "United States",
+     "country_code": "US",
+     "image": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRa1dwH1NZQk4dsbPiyA9Vrq2RX75jXSZ-OkHn7NkLHl-11HercqDXoZ4p2cDxJkH6vca2degawrCzHEQ",
+     "thumbnail": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcQEaUa9NsdPWGpAUGkTApkZDT_4M6_6V8wTcC0v1b1wJAJX-BuMSiipXbsoznGgcI1xLOc5QiTcR_xovexgjdOz0gqQe0tRQ9h0bUkZ07Q"
+    }
+   ]
+  }
+ ]
+}

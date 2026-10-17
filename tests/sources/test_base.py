@@ -27,3 +27,9 @@ def test_query_defaults_to_usd():
 def test_snippet_flattens_and_truncates():
     assert snippet("a\n  b\tc") == "a b c"
     assert snippet("x" * 400, limit=10) == "x" * 10 + "…"
+
+
+def test_open_jaw_query():
+    assert QUERY.open_jaw is False
+    assert ExactQuery("ORD", "LIS", date(2027, 6, 11), date(2027, 6, 20), return_from="LIS").open_jaw is False
+    assert ExactQuery("JFK", "OPO", date(2027, 3, 6), date(2027, 3, 21), return_from="SCQ").open_jaw is True

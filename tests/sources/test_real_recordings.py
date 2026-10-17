@@ -36,3 +36,14 @@ def test_real_serpapi_round_trip_response():
     assert (best.price, best.carrier, best.stops, best.duration_min) == (1098.0, "Tap Air Portugal", 0, 490)
     assert best.flight_numbers == ("TP 244",)
     assert best.outbound_departure == datetime(2027, 6, 12, 17, 45)
+
+
+def test_real_serpapi_multi_city_response():
+    query = ExactQuery("JFK", "OPO", date(2027, 3, 6), date(2027, 3, 21), return_from="SCQ")
+    result = parse_google_flights(load("real_serpapi_multicity_JFK-OPO_SCQ-JFK_2027-03.json"), query)
+    assert len(result.options) == 8
+    assert result.typical_range is None  # Google gives no price insights for multi-city
+    best = result.cheapest()
+    assert (best.price, best.carrier, best.stops) == (959.0, "Iberia", 1)
+    assert best.flight_numbers == ("IB 212", "IB 543")
+    assert best.outbound_departure == datetime(2027, 3, 6, 17, 5)
