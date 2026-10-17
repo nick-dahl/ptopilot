@@ -1,7 +1,7 @@
 # ptopilot — V2 "Look and Feel" Design Spec
 
 **Date:** 2026-10-17
-**Status:** Draft, awaiting review
+**Status:** Approved 2026-10-17; implemented by Plan 7
 **Builds on:** [V1 spec](2026-10-16-ptopilot-design.md) · **Backlog:** [`ROADMAP.md`](../../../ROADMAP.md)
 **Mockups:** chosen in the brainstorming visual companion (`.superpowers/brainstorm/`, git-ignored)
 
@@ -114,7 +114,7 @@ Jinja macros in `ptopilot/web/templates/_components.html`. Every page composes t
 
 - **Hero:** destination color gradient, eyebrow ("Atlantic islands · 7–10 days on the ground"), Fraunces name.
 - **Trip table:** every candidate for this tracker on the latest run date (the latest run date ≤ today, as in the digest).
-  - Columns: dates, price, vs-typical bar, PTO cost, days away, airline · stops (· "overnight" when there's an overnight layover), and "View flights" (the observation's deep link, or the Google Flights link from `ptopilot/links.py`).
+  - Columns: dates, price, vs-typical bar, PTO cost, days away, airline · stops (· "overnight" when there's an overnight layover), and "View flights" (the observation's deep link; omitted when the observation has none).
   - Sorted by price ascending.
   - Rows whose candidate state is `snoozed` or `excluded` are dimmed, not hidden.
   - Open-jaw trips show "into OPO · home from SCQ".
@@ -126,7 +126,8 @@ Jinja macros in `ptopilot/web/templates/_components.html`. Every page composes t
 
 - `profile.html` is restyled into grouped panels: Home & calendar, PTO & trip length, Travel windows, Destinations.
   - It gains an **Ideal trip length (days)** field, which is optional.
-  - Validation errors re-render the form with inline messages and status 400, instead of a raw 422 page.
+  - Validation errors re-render the form with the problems listed on the page and status 400.
+  - Any other malformed request (a non-numeric id, a bad form field) gets a styled 400 page instead of FastAPI's raw 422 JSON.
 - `message.html`, `login_sent.html` and `action_confirm.html` use a single centered panel with the same components.
 
 ---
@@ -178,7 +179,7 @@ Jinja macros in `ptopilot/web/templates/_components.html`. Every page composes t
   - Each row links to `/trackers/{id}` when `APP_BASE_URL` is set, and to the flights link otherwise.
   - The order is go-now descending.
 - **Quiet digest (Mondays only, as in V1):** a single friendly card.
-  - If deals exist but were all sent before: "No new deals since Thursday — your earlier ones are still on the dashboard."
+  - If deals exist but were all sent before (`Digest.held_back > 0`): "No new deals since your last digest. The ones we sent are still on your dashboard while their prices hold."
   - Otherwise: "Nothing below typical yet."
   - Either way, it lists the next good month per tracker as in V1.
 - **Footer:** Manage trips (dashboard link, when configured) · "Why am I getting this?" (one line explaining the invite).
