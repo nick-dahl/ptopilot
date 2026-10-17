@@ -4,6 +4,8 @@ Sources are tried in order (Google Flights first, SerpApi as fallback). A source
 BREAKER_THRESHOLD times in a row is skipped for the rest of the run. Every attempt is recorded in
 `live_checks`, which lets a same-day re-run skip routes already checked (even ones with no flights) and
 caps budgeted sources (SerpApi) per day; the monthly cap lives in `source_budget`.
+Open-jaw queries go only to sources with `supports_open_jaw` (SerpApi); skipping a source that can't
+price them never counts toward its circuit breaker.
 Every option a source returns is stored as a verified observation; per-user filtering happens in `score`.
 """
 
@@ -75,6 +77,7 @@ def _store(ctx: RunContext, rq: RouteQuery, result: ExactResult) -> int:
                 PriceObservation(
                     origin=rq.origin,
                     dest_airport=rq.dest_airport,
+                    return_airport=rq.return_airport,
                     depart_date=rq.depart_date,
                     return_date=rq.return_date,
                     month=month_of(rq.depart_date),
@@ -150,9 +153,18 @@ def run(ctx: RunContext) -> dict[str, int]:
             counts["unchecked"] += len(entries) - i
             break
         query = ExactQuery(
-            rq.origin, rq.dest_airport, rq.depart_date, rq.return_date, config.DEFAULT_CURRENCY
+            rq.origin,
+            rq.dest_airport,
+            rq.depart_date,
+            rq.return_date,
+            config.DEFAULT_CURRENCY,
+            return_from=rq.return_airport,
         )
-        for src in usable:
+        capable = [src for src in usable if src.supports_open_jaw or not query.open_jaw]
+        if not capable:  # e.g. open-jaw with SerpApi unconfigured or out of budget for today
+            counts["no_open_jaw_source"] += 1
+            continue
+        for src in capable:
             if not budget.allows(src.name):
                 disabled.add(src.name)
                 counts[f"{src.name}_budget_exhausted"] += 1
@@ -182,7 +194,8 @@ def run(ctx: RunContext) -> dict[str, int]:
             ctx.sleep(ctx.rng.uniform(*config.LIVE_DELAY_S))
 
     successes = sum(v for k, v in counts.items() if k.endswith("_ok"))
-    pending = len(entries) - counts["already_checked"]
+    # Routes no configured source can price (open-jaw without SerpApi) were never attempted: not a failure.
+    pending = len(entries) - counts["already_checked"] - counts["no_open_jaw_source"]
     if pending and not successes:
         raise StageFailed(f"no live check succeeded for {pending} shortlisted routes: {dict(counts)}")
     return dict(counts)

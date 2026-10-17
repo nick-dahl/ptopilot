@@ -6,9 +6,10 @@ from datetime import UTC, date, datetime, time
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import select
 
 from ptopilot.data import load_geo, load_seasons
-from ptopilot.db.models import PriceObservation, Tracker, TravelWindow, User
+from ptopilot.db.models import LiveCheck, PriceObservation, RouteQuery, Tracker, TravelWindow, User
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext
 from ptopilot.sources.base import ExactQuery, ExactResult, FareQuote, FlightOption, SourceUnavailable
@@ -34,9 +35,12 @@ class FakeMonthSource:
 
 
 class FakeLiveSource:
-    def __init__(self, name: str, respond: Callable[[ExactQuery], ExactResult]):
+    def __init__(
+        self, name: str, respond: Callable[[ExactQuery], ExactResult], supports_open_jaw: bool = False
+    ):
         self.name = name
         self.respond = respond
+        self.supports_open_jaw = supports_open_jaw
         self.calls: list[ExactQuery] = []
 
     def exact_search(self, query):
@@ -107,13 +111,23 @@ def add_tracker(engine, user_id, code="LIS", min_stay=5, max_stay=9, **fields) -
 
 
 def add_observation(
-    engine, depart, ret, price, observed: date, verified=False, origin="ORD", dest="LIS", **fields
+    engine,
+    depart,
+    ret,
+    price,
+    observed: date,
+    verified=False,
+    origin="ORD",
+    dest="LIS",
+    return_airport=None,
+    **fields,
 ):
     with session_scope(engine) as s:
         s.add(
             PriceObservation(
                 origin=origin,
                 dest_airport=dest,
+                return_airport=return_airport or dest,
                 depart_date=depart,
                 return_date=ret,
                 month=depart.replace(day=1),
@@ -125,6 +139,19 @@ def add_observation(
                 **fields,
             )
         )
+
+
+def add_live_check(
+    engine, depart, ret, run_date: date, ok=True, origin="ORD", dest="LIS", source="google_flights"
+):
+    """Record that a route was live-checked on run_date (the route query must already exist)."""
+    with session_scope(engine) as s:
+        rq_id = s.scalar(
+            select(RouteQuery.id).filter_by(
+                origin=origin, dest_airport=dest, depart_date=depart, return_date=ret
+            )
+        )
+        s.add(LiveCheck(run_date=run_date, route_query_id=rq_id, source=source, ok=ok))
 
 
 @pytest.fixture

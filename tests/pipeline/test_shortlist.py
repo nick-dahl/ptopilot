@@ -7,7 +7,7 @@ from ptopilot import config
 from ptopilot.db.models import RouteBaseline, RouteQuery, ShortlistEntry
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline import expand, shortlist
-from tests.pipeline.conftest import RUN, add_observation, add_tracker, add_user
+from tests.pipeline.conftest import RUN, add_live_check, add_observation, add_tracker, add_user
 
 JUNE = date(2027, 6, 1)
 DEAL = (date(2027, 6, 12), date(2027, 6, 20))  # 9 days away -> "week" bucket
@@ -29,6 +29,7 @@ def confident_baseline(engine, bucket="week", median=1000, sigma=100):
             RouteBaseline(
                 origin="ORD",
                 dest_airport="LIS",
+                return_airport="LIS",
                 month=JUNE,
                 length_bucket=bucket,
                 median=Decimal(median),
@@ -86,18 +87,44 @@ def test_stale_cached_prices_are_ignored(make_ctx):
 
 def test_exploration_prefers_routes_never_checked_live(make_ctx):
     ctx = setup(make_ctx)
-    add_observation(ctx.engine, *DEAL, 900, observed=date(2027, 2, 1), verified=True)
+    add_live_check(ctx.engine, *DEAL, run_date=date(2027, 2, 1), ok=True)
     shortlist.run(ctx)
     assert entries(ctx.engine)[-1][2] == DEAL
 
 
-def test_caps_reserve_exploration_slots(make_ctx, monkeypatch):
+def test_a_no_flights_check_still_counts_as_checked(make_ctx):
+    ctx = setup(make_ctx)
+    add_live_check(ctx.engine, *DEAL, run_date=date(2027, 2, 1), ok=True)  # stored no price rows
+    shortlist.run(ctx)
+    assert entries(ctx.engine)[-1][2] == DEAL
+
+
+def test_departures_beyond_the_search_horizon_are_skipped(make_ctx, monkeypatch):
+    monkeypatch.setattr(config, "LIVE_HORIZON_DAYS", 100)  # run 2027-03-01 -> June trips are ~100+ days out
+    ctx = setup(make_ctx)
+    counts = shortlist.run(ctx)
+    assert counts["beyond_horizon"] >= 1
+    assert all((dep - RUN).days <= 100 for _, _, (dep, _), _ in entries(ctx.engine))
+
+
+def test_exploration_fills_check_slots_that_deals_leave_unused(make_ctx, monkeypatch):
     monkeypatch.setattr(config, "LIVE_CHECK_CAP", 3)
     monkeypatch.setattr(config, "EXPLORATION_QUOTA", 2)
     ctx = setup(make_ctx)
+    counts = shortlist.run(ctx)  # no history: 6 exploration candidates, no deals
+    assert (counts["explore"], counts["explore_overflow"]) == (3, 3)
+    assert len(entries(ctx.engine)) == 3
+
+
+def test_exploration_keeps_its_reserved_slots_when_deals_overflow(make_ctx, monkeypatch):
+    monkeypatch.setattr(config, "LIVE_CHECK_CAP", 3)
+    monkeypatch.setattr(config, "EXPLORATION_QUOTA", 1)
+    ctx = setup(make_ctx)
+    confident_baseline(ctx.engine)  # "week" trips only; the two 11-day trips stay exploration
+    add_observation(ctx.engine, *DEAL, 800, observed=RUN)  # June's cheapest: makes week trips look like deals
     counts = shortlist.run(ctx)
-    assert (counts["explore"], counts["explore_overflow"]) == (2, 4)
-    assert len(entries(ctx.engine)) == 2
+    assert (counts["deal"], counts["explore"]) == (2, 1)
+    assert [reason for _, reason, _, _ in entries(ctx.engine)] == ["deal", "deal", "explore"]
 
 
 def test_rerun_replaces_the_days_shortlist(make_ctx):
@@ -113,6 +140,6 @@ def test_same_day_rerun_keeps_the_same_exploration_picks(make_ctx, monkeypatch):
     shortlist.run(ctx)
     first = [dates for _, _, dates, _ in entries(ctx.engine)]
     for dep, ret in first:  # live_verify checked them earlier today
-        add_observation(ctx.engine, dep, ret, 900, observed=RUN, verified=True)
+        add_live_check(ctx.engine, dep, ret, run_date=RUN)
     shortlist.run(ctx)
     assert [dates for _, _, dates, _ in entries(ctx.engine)] == first

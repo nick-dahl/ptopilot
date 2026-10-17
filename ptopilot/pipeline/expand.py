@@ -37,9 +37,10 @@ def profile_for(user: User) -> TravelerProfile:
 
 
 def _route_query_id(s: Session, it: PlannedItinerary, cache: dict) -> int:
-    key = (it.origin, it.dest_airport, it.shape.depart_date, it.shape.return_date)
+    key = (it.origin, it.dest_airport, it.return_airport, it.shape.depart_date, it.shape.return_date)
     if key not in cache:
-        values = dict(zip(("origin", "dest_airport", "depart_date", "return_date"), key, strict=True))
+        names = ("origin", "dest_airport", "return_airport", "depart_date", "return_date")
+        values = dict(zip(names, key, strict=True))
         s.execute(insert(RouteQuery).values(**values).on_conflict_do_nothing())
         cache[key] = s.scalar(select(RouteQuery.id).filter_by(**values))
     return cache[key]

@@ -100,7 +100,7 @@ class Tracker(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    destination_code: Mapped[str] = mapped_column(String(8))
+    destination_code: Mapped[str] = mapped_column(String(32))
     min_stay_days: Mapped[int] = mapped_column(SmallInteger)
     max_stay_days: Mapped[int] = mapped_column(SmallInteger)
     priority: Mapped[int] = mapped_column(SmallInteger, server_default="2")
@@ -124,11 +124,21 @@ class RouteQuery(Base):
     """A shared, de-duplicated search unit (origin, airport, dates) used by any number of trackers."""
 
     __tablename__ = "route_queries"
-    __table_args__ = (UniqueConstraint("origin", "dest_airport", "depart_date", "return_date"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "origin",
+            "dest_airport",
+            "return_airport",
+            "depart_date",
+            "return_date",
+            name="uq_route_queries_trip",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     origin: Mapped[str] = mapped_column(String(3))
-    dest_airport: Mapped[str] = mapped_column(String(3))
+    dest_airport: Mapped[str] = mapped_column(String(3))  # fly into
+    return_airport: Mapped[str] = mapped_column(String(3))  # fly home from (differs only for open-jaw)
     depart_date: Mapped[date]
     return_date: Mapped[date]
 
@@ -167,6 +177,7 @@ class PriceObservation(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     origin: Mapped[str] = mapped_column(String(3))
     dest_airport: Mapped[str] = mapped_column(String(3))
+    return_airport: Mapped[str] = mapped_column(String(3))
     depart_date: Mapped[date | None]
     return_date: Mapped[date | None]
     month: Mapped[date]  # first day of the departure month
@@ -226,6 +237,7 @@ class RouteBaseline(Base):
 
     origin: Mapped[str] = mapped_column(String(3), primary_key=True)
     dest_airport: Mapped[str] = mapped_column(String(3), primary_key=True)
+    return_airport: Mapped[str] = mapped_column(String(3), primary_key=True)
     month: Mapped[date] = mapped_column(primary_key=True)
     length_bucket: Mapped[str] = mapped_column(String(5), primary_key=True)
     median: Mapped[Decimal] = mapped_column(Money)

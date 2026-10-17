@@ -9,7 +9,11 @@ from ptopilot.db.models import PriceObservation, RouteQuery, ShortlistEntry
 
 def route(session):
     rq = RouteQuery(
-        origin="ORD", dest_airport="LIS", depart_date=date(2027, 6, 12), return_date=date(2027, 6, 20)
+        origin="ORD",
+        dest_airport="LIS",
+        return_airport="LIS",
+        depart_date=date(2027, 6, 12),
+        return_date=date(2027, 6, 20),
     )
     session.add(rq)
     session.flush()
@@ -38,6 +42,7 @@ def test_observation_stores_google_typical_range(session):
     obs = PriceObservation(
         origin="ORD",
         dest_airport="LIS",
+        return_airport="LIS",
         month=date(2027, 6, 1),
         source="serpapi",
         price=Decimal("905.00"),

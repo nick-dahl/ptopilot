@@ -67,6 +67,7 @@ def baseline(engine, median=1000, sigma=100):
             RouteBaseline(
                 origin="ORD",
                 dest_airport="LIS",
+                return_airport="LIS",
                 month=JUNE,
                 length_bucket="week",
                 median=Decimal(median),

@@ -3,9 +3,12 @@
 Two kinds of entry, deals first in check order:
 - deal: the cached price is at or below ~p35 of a confident baseline, ranked by
   deal strength × urgency × tracker priority.
-- explore: routes with too little history (n < COLD_START_N) or no cached price at all, oldest
-  live check first. EXPLORATION_QUOTA slots are reserved for these so history keeps building even
-  on days full of deals.
+- explore: routes with too little history (n < COLD_START_N) or no cached price at all, least
+  recently live-checked first (any outcome, from `live_checks`, so "no flights" counts as checked).
+  EXPLORATION_QUOTA slots are reserved for these so history keeps building even on days full of deals,
+  and exploration also takes any of the LIVE_CHECK_CAP slots that deals leave unused.
+
+Departures more than LIVE_HORIZON_DAYS out are left alone: Google can't price them yet.
 """
 
 from __future__ import annotations
@@ -18,16 +21,15 @@ from sqlalchemy import delete, func, select
 
 from ptopilot import config
 from ptopilot.core.stats import z_score
-from ptopilot.db.models import PriceObservation, ShortlistEntry, Tracker, TrackerRouteLink
+from ptopilot.db.models import LiveCheck, ShortlistEntry, Tracker, TrackerRouteLink
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext
 from ptopilot.pipeline.queries import (
-    baseline_key,
     cached_prices,
     date_key,
     estimate,
     load_baselines,
-    start_of,
+    rq_baseline_key,
     todays_route_queries,
 )
 
@@ -57,36 +59,26 @@ def run(ctx: RunContext) -> dict[str, int]:
                 .group_by(TrackerRouteLink.route_query_id)
             ).all()
         )
-        last_live = {
-            (o, d, dep, ret): when.replace(tzinfo=None)
-            for o, d, dep, ret, when in s.execute(
-                select(
-                    PriceObservation.origin,
-                    PriceObservation.dest_airport,
-                    PriceObservation.depart_date,
-                    PriceObservation.return_date,
-                    func.max(PriceObservation.observed_at),
-                )
-                # Only checks from before today: a same-day re-run must pick the same routes again.
-                .where(
-                    PriceObservation.verified.is_(True), PriceObservation.observed_at < start_of(ctx.run_date)
-                )
-                .group_by(
-                    PriceObservation.origin,
-                    PriceObservation.dest_airport,
-                    PriceObservation.depart_date,
-                    PriceObservation.return_date,
-                )
+        # Only checks from before today: a same-day re-run must pick the same routes again.
+        last_checked = {
+            rq_id: when.replace(tzinfo=None)
+            for rq_id, when in s.execute(
+                select(LiveCheck.route_query_id, func.max(LiveCheck.checked_at))
+                .where(LiveCheck.run_date < ctx.run_date)
+                .group_by(LiveCheck.route_query_id)
             ).all()
         }
 
         deals: list[tuple[float, int, Decimal]] = []
         explore: list[tuple[datetime, date, int, Decimal | None]] = []
         for rq in rqs:
+            if (rq.depart_date - ctx.run_date).days > config.LIVE_HORIZON_DAYS:
+                counts["beyond_horizon"] += 1
+                continue
             est = estimate(rq, exact, monthly)
-            b = baselines.get(baseline_key(rq.origin, rq.dest_airport, rq.depart_date, rq.return_date))
+            b = baselines.get(rq_baseline_key(rq))
             if est is None or b is None or b.n < config.COLD_START_N:
-                seen = last_live.get(date_key(rq), NEVER)
+                seen = last_checked.get(rq.id, NEVER)
                 explore.append((seen, rq.depart_date, rq.id, est.price if est else None))
                 continue
             z = z_score(float(est.price), b)
@@ -100,9 +92,10 @@ def run(ctx: RunContext) -> dict[str, int]:
             deals.append((score, rq.id, est.price))
 
         explore.sort()
-        picked_explore = explore[: config.EXPLORATION_QUOTA]
         deals.sort(key=lambda d: (-d[0], d[1]))
-        picked_deals = deals[: config.LIVE_CHECK_CAP - len(picked_explore)]
+        reserved = min(config.EXPLORATION_QUOTA, len(explore))
+        picked_deals = deals[: config.LIVE_CHECK_CAP - reserved]
+        picked_explore = explore[: config.LIVE_CHECK_CAP - len(picked_deals)]  # reserved + unused deal slots
 
         rank = 0
         for _, rq_id, price in picked_deals:

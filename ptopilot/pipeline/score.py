@@ -20,10 +20,10 @@ from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext
 from ptopilot.pipeline.queries import (
     DateKey,
-    baseline_key,
     cached_prices,
     date_key,
     load_baselines,
+    rq_baseline_key,
     start_of,
     todays_route_queries,
 )
@@ -71,7 +71,7 @@ def run(ctx: RunContext) -> dict[str, int]:
                 PriceObservation.observed_at < start_of(ctx.run_date + timedelta(days=1)),
             )
         ):
-            key = (o.origin, o.dest_airport, o.depart_date, o.return_date)
+            key = date_key(o)
             if key in wanted:
                 verified[key].append(o)
 
@@ -105,7 +105,7 @@ def run(ctx: RunContext) -> dict[str, int]:
             if tracker.max_price is not None and price > tracker.max_price:
                 counts["over_max_price"] += 1
                 continue
-            b = baselines.get(baseline_key(rq.origin, rq.dest_airport, rq.depart_date, rq.return_date))
+            b = baselines.get(rq_baseline_key(rq))
             z = z_score(float(price), b) if b else None
             dest = ctx.geo.destination(tracker.destination_code)
             s.add(

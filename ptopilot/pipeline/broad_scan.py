@@ -3,6 +3,7 @@
 Only two kinds of quote are stored, to keep the append-only table small (Neon's free tier is 0.5 GB):
 the cheapest quote for each date pair some tracker wants today, and the month's single cheapest quote
 (which `shortlist` uses as the month-level estimate). Route-months already scanned today are skipped.
+Open-jaw routes are skipped entirely: the cache only holds plain round trips.
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ def _keep(quotes: list[FareQuote], tracked: set) -> list[FareQuote]:
     round_trips = [q for q in quotes if q.return_date is not None]
     best: dict[tuple, FareQuote] = {}
     for q in round_trips:
-        key = (q.origin, q.dest_airport, q.depart_date, q.return_date)
+        key = (q.origin, q.dest_airport, q.dest_airport, q.depart_date, q.return_date)
         if key in tracked and (key not in best or q.price < best[key].price):
             best[key] = q
     cheapest = min(round_trips, key=lambda q: q.price, default=None)
@@ -42,6 +43,7 @@ def _observation(ctx: RunContext, q: FareQuote) -> PriceObservation:
     return PriceObservation(
         origin=q.origin,
         dest_airport=q.dest_airport,
+        return_airport=q.dest_airport,
         depart_date=q.depart_date,
         return_date=q.return_date,
         month=month_of(q.depart_date),
@@ -63,7 +65,7 @@ def run(ctx: RunContext) -> dict[str, int]:
         raise StageSkipped("no month-scan source configured (set TRAVELPAYOUTS_TOKEN)")
     counts: Counter[str] = Counter()
     with session_scope(ctx.engine) as s:
-        rqs = todays_route_queries(s, ctx.run_date)
+        rqs = [rq for rq in todays_route_queries(s, ctx.run_date) if rq.return_airport == rq.dest_airport]
         tracked = {date_key(rq) for rq in rqs}
         keys = sorted({(rq.origin, rq.dest_airport, month_of(rq.depart_date)) for rq in rqs})
         scanned_today = set(

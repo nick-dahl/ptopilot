@@ -19,7 +19,13 @@ from ptopilot.core.stats import compute_baseline
 from ptopilot.db.models import PriceObservation, RouteBaseline
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext
-from ptopilot.pipeline.queries import BaselineKey, baseline_key, start_of, todays_route_queries
+from ptopilot.pipeline.queries import (
+    BaselineKey,
+    baseline_key,
+    rq_baseline_key,
+    start_of,
+    todays_route_queries,
+)
 
 
 def run(ctx: RunContext) -> dict[str, int]:
@@ -28,8 +34,8 @@ def run(ctx: RunContext) -> dict[str, int]:
     until = start_of(ctx.run_date + timedelta(days=1))
     with session_scope(ctx.engine) as s:
         rqs = todays_route_queries(s, ctx.run_date)
-        wanted = {baseline_key(rq.origin, rq.dest_airport, rq.depart_date, rq.return_date) for rq in rqs}
-        routes = {(k[0], k[1]) for k in wanted}
+        wanted = {rq_baseline_key(rq) for rq in rqs}
+        routes = {k[:3] for k in wanted}
         daily_min: dict[tuple, Decimal] = {}
         google: dict[BaselineKey, tuple[object, Decimal, Decimal]] = {}
         rows = s.scalars(
@@ -41,9 +47,9 @@ def run(ctx: RunContext) -> dict[str, int]:
             )
         )
         for o in rows:
-            if (o.origin, o.dest_airport) not in routes:
+            if (o.origin, o.dest_airport, o.return_airport) not in routes:
                 continue
-            key = baseline_key(o.origin, o.dest_airport, o.depart_date, o.return_date)
+            key = baseline_key(o.origin, o.dest_airport, o.return_airport, o.depart_date, o.return_date)
             if key not in wanted:
                 continue
             day_key = (key, o.depart_date, o.return_date, o.observed_at.date())
@@ -72,13 +78,19 @@ def run(ctx: RunContext) -> dict[str, int]:
                 "google_typical_high": g[2] if g else None,
                 "computed_at": ctx.stamp(),
             }
-            origin, dest, month, bucket = key
+            origin, dest, return_airport, month, bucket = key
             stmt = insert(RouteBaseline).values(
-                origin=origin, dest_airport=dest, month=month, length_bucket=bucket, **values
+                origin=origin,
+                dest_airport=dest,
+                return_airport=return_airport,
+                month=month,
+                length_bucket=bucket,
+                **values,
             )
             s.execute(
                 stmt.on_conflict_do_update(
-                    index_elements=["origin", "dest_airport", "month", "length_bucket"], set_=values
+                    index_elements=["origin", "dest_airport", "return_airport", "month", "length_bucket"],
+                    set_=values,
                 )
             )
             counts[f"confidence_{b.confidence}"] += 1
