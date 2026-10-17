@@ -1,0 +1,24 @@
+# Render Blueprint: Dashboard -> New -> Blueprint -> pick this repo. Free web service; sleeps when idle.
+services:
+  - type: web
+    name: ptopilot
+    runtime: python
+    plan: free
+    region: virginia
+    buildCommand: pip install -e .
+    startCommand: uvicorn ptopilot.web.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips '*'
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: DATABASE_URL       # Neon pooled URL (DATABASE_URL in .env.local)
+        sync: false
+      - key: SECRET_KEY         # the same value as the GitHub secret SECRET_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: APP_BASE_URL       # this service's own URL, e.g. https://ptopilot.onrender.com
+        sync: false

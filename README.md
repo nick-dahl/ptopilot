@@ -68,6 +68,24 @@ The repo is linked to Neon project `green-feather-91450838`, branch `production`
 
 `.github/workflows/digest.yml` sends on Mondays and Thursdays at 12:00 UTC, after the morning scan. A digest with no deals ("quiet week") only goes out on Mondays. Run it by hand from the Actions tab with `min_level: none` to get a tuning email built from every priced trip. Tuning emails go only to `ADMIN_EMAIL` and never count as "already sent". Without a verified sending domain, Resend only delivers to the Resend account's own address; a send to anyone else fails, is logged, and the run exits red while the other digests still go out.
 
+## Web app
+
+```powershell
+$env:SECRET_KEY = "local-dev-key"
+.venv/Scripts/python -m uvicorn ptopilot.web.main:app --reload --port 8000   # http://127.0.0.1:8000
+.venv/Scripts/python -m ptopilot.profiles invite you@example.com            # only invited emails can sign in
+```
+
+Sign-in is by emailed link (valid 15 minutes). Without `RESEND_API_KEY` the server logs the link instead, which is handy locally. Signed-in travelers get a dashboard (trackers, best current prices, snooze), and a profile page that validates exactly like `profiles load`. With `APP_BASE_URL` and `SECRET_KEY` set, digests get snooze buttons that open a confirmation page in the app. They only act when you press Confirm, because mail scanners pre-open links.
+
+### Deploying (Render, free tier)
+
+1. Render dashboard → **New → Blueprint** → connect this GitHub repo. `render.yaml` defines the service.
+2. Fill in the environment variables it asks for: `DATABASE_URL` (Neon **pooled** URL), `SECRET_KEY` (the same value as the GitHub secret), `RESEND_API_KEY`, `EMAIL_FROM` (optional), `APP_BASE_URL` (the service's own `https://….onrender.com` URL).
+3. Set the GitHub variable `APP_BASE_URL` to the same URL so the digest links to it: `gh variable set APP_BASE_URL`.
+
+The free service sleeps after ~15 idle minutes; the first request after that takes ~30–60 s.
+
 ## Configuration
 
 Environment variables (never committed; GitHub Actions secrets in production):
@@ -79,3 +97,5 @@ Environment variables (never committed; GitHub Actions secrets in production):
 | `SERPAPI_KEY` | Live-check fallback (~8 searches/run, 250/month) |
 | `RESEND_API_KEY`, `ADMIN_EMAIL` | Health email after each scan |
 | `EMAIL_FROM` | Sender; defaults to Resend's shared `onboarding@resend.dev`, which only delivers to your own Resend account address |
+| `SECRET_KEY` | Signs sign-in links, sessions and snooze links; must be identical for the web app and the digest job |
+| `APP_BASE_URL` | Public URL of the web app; turns on snooze buttons in the digest (a GitHub *variable* for the workflow) |
