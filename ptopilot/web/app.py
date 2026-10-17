@@ -23,12 +23,12 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine, select
 from starlette.middleware.sessions import SessionMiddleware
 
-from ptopilot.core.geo import Geo
+from ptopilot.core.geo import Geo, palette
 from ptopilot.core.seasons import SeasonTable
 from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import Invite, Tracker, User
 from ptopilot.db.session import make_engine, session_scope
-from ptopilot.digest.render import date_range, day, money
+from ptopilot.digest.render import date_range, day, money, stops
 from ptopilot.digest.select import latest_run_date
 from ptopilot.links import ACTION_LABELS, TokenError, login_token, read_action_token, read_login_token
 from ptopilot.notify.email import Emailer, EmailError, ResendEmailer
@@ -36,13 +36,14 @@ from ptopilot.profiles import apply_profile, parse_profile
 from ptopilot.settings import Settings
 from ptopilot.trackers import apply_action, snooze, unsnooze
 from ptopilot.web.forms import form_to_profile, profile_to_form, row_count
-from ptopilot.web.history import destination_summaries
+from ptopilot.web.history import destination_summaries, trend, trip_options, typical_band
 from ptopilot.web.samples import sample_cards
+from ptopilot.web.viz import trend_chart
 
 log = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).parent
 TEMPLATES = Jinja2Templates(directory=str(WEB_DIR / "templates"))
-TEMPLATES.env.filters.update(money=money, day=day, dates=date_range)
+TEMPLATES.env.filters.update(money=money, day=day, dates=date_range, stops=stops)
 SESSION_MAX_AGE_S = 30 * 24 * 3600
 LOGIN_COOLDOWN_S = 120  # at most one sign-in email per address per 2 minutes
 
@@ -194,6 +195,35 @@ def create_app(
             pto_total=pto_total,
             pto_committed=pto_committed,
             saved=bool(saved),
+        )
+
+    @app.get("/trackers/{tracker_id}")
+    def destination_page(request: Request, tracker_id: int):
+        if not current_email(request):
+            return redirect("/")
+        with session_scope(engine) as s:
+            tracker = owned_tracker(s, request, tracker_id)
+            if tracker is None:  # someone else's or missing: same answer, so ids reveal nothing
+                return page(request, "message.html", 404, title="Not found", message="No such destination.")
+            code, stay = tracker.destination_code, (tracker.min_stay_days, tracker.max_stay_days)
+            snoozed = tracker.snoozed_until
+        if snoozed is not None and snoozed < today():
+            snoozed = None
+        dest = geo.destination(code)
+        options = trip_options(engine, geo, seasons, tracker_id, today())
+        band = typical_band(options)
+        return page(
+            request,
+            "destination.html",
+            tracker_id=tracker_id,
+            dest=dest,
+            palette=palette(dest),
+            stay=stay,
+            snoozed_until=snoozed,
+            options=options,
+            run_date=latest_run_date(engine, today()),
+            band=band,
+            chart=trend_chart(trend(engine, tracker_id, today()), band, palette(dest)),
         )
 
     @app.post("/trackers/{tracker_id}/snooze")

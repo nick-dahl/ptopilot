@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "_components.html" import dest_style, price_bar, vs_typical, season %}
+{% block title %}{{ dest.name }} · ptopilot{% endblock %}
+{% block content %}
+<div class="hero dest-head" style="{{ dest_style(palette) }}">
+  <div class="eyebrow">{{ stay[0] }}–{{ stay[1] }} days on the ground</div>
+  <h1>{{ dest.name }}</h1>
+  <div class="hero-actions">
+    {% if snoozed_until %}
+    <span class="tag">Snoozed until {{ snoozed_until | day }}</span>
+    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/unsnooze"><button class="btn btn-ghost btn-sm" type="submit">Unsnooze</button></form>
+    {% else %}
+    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/snooze"><input type="hidden" name="days" value="30"><button class="btn btn-ghost btn-sm" type="submit">Snooze 30 days</button></form>
+    {% endif %}
+    <a class="btn btn-ghost btn-sm" href="/">All trips</a>
+  </div>
+</div>
+
+<div class="stack" style="{{ dest_style(palette) }}">
+  <section class="panel">
+    <h2>Date options</h2>
+    {% if options %}
+    <p class="muted small">From the {{ run_date | day }} scan, cheapest first. Prices are per person, economy, and change fast.</p>
+    <table class="trips">
+      <thead><tr><th>Dates</th><th>Price</th><th>vs typical</th><th>PTO</th><th>Flights</th></tr></thead>
+      <tbody>
+      {% for o in options %}
+      <tr{% if o.dimmed %} class="dimmed"{% endif %}>
+        <td><b>{{ o.depart_date | day }} → {{ o.return_date | day }}</b>
+          <div class="meta">{{ o.origin }} → {% if o.open_jaw %}into {{ o.dest_airport }} · home from {{ o.return_airport }}{% else %}{{ o.dest_airport }}{% endif %}{% if o.evening_departure %} · leave after work{% endif %}</div>
+          <div class="meta">{{ season(o) }}</div></td>
+        <td><span class="price" style="font-size:18px;">{{ o.price | money(o.currency) }}</span><div>{{ vs_typical(o) }}</div></td>
+        <td class="bar-cell">{{ price_bar(o.bar) }}</td>
+        <td class="num"><b>{{ o.pto_cost }}</b> <span class="meta">for {{ o.days_away }} days</span></td>
+        <td class="flights">
+          {% if o.carrier %}<div class="meta">{{ o.carrier }} · {{ o.stops | stops }}{% if o.overnight %} · overnight{% endif %}</div>{% endif %}
+          {% if o.deep_link %}<a class="btn btn-sm" href="{{ o.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
+          {% if o.dimmed %}<span class="tag">{{ o.state }}</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted" style="margin:0;">First prices after the next daily scan.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel trend-panel">
+    <h2>Cheapest fare, last 30 days</h2>
+    {% if chart %}
+    <div class="trend-axis"><span>{{ chart.high | money }}</span>{% if band %}<span>shaded: typical {{ band[0] | money }}–{{ band[1] | money }}</span>{% endif %}</div>
+    {{ chart.svg }}
+    <div class="trend-axis"><span>{{ chart.first | day }} · low {{ chart.low | money }}</span><span>{{ chart.last | day }}</span></div>
+    {% else %}
+    <p class="muted" style="margin:0;">Price history fills in after a few daily scans.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
