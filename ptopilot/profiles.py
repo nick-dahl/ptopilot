@@ -1,6 +1,7 @@
 """Load a traveler profile (user, travel windows, trackers) from YAML into the database.
 
     python -m ptopilot.profiles load profiles/me.yaml [--dry-run]
+    python -m ptopilot.profiles invite friend@example.com
 
 A stopgap until the web app's onboarding (Plan 6) exists. Loading is idempotent and keyed on email:
 the user is created or updated, travel windows are replaced, trackers are matched by destination
@@ -283,7 +284,20 @@ def main(argv: list[str] | None = None) -> int:
     load = sub.add_parser("load", help="create or update a traveler from a YAML profile")
     load.add_argument("path", type=Path)
     load.add_argument("--dry-run", action="store_true", help="validate and show changes without saving")
+    invite = sub.add_parser("invite", help="allow an email address to sign in to the web app")
+    invite.add_argument("email")
     args = parser.parse_args(argv)
+
+    if args.command == "invite":
+        email = args.email.strip().lower()
+        if "@" not in email:
+            print(f"not an email address: {args.email!r}", file=sys.stderr)
+            return 2
+        with Session(make_engine(Settings.from_env().database_url)) as s:
+            s.execute(insert(Invite).values(email=email).on_conflict_do_nothing())
+            s.commit()
+        print(f"invited {email}")
+        return 0
 
     try:
         profile = parse_profile(yaml.safe_load(args.path.read_text(encoding="utf-8")), load_geo())

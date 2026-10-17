@@ -120,16 +120,22 @@ def latest_run_date(engine: Engine, today: date) -> date | None:
 
 
 def build_digests(
-    engine: Engine, geo: Geo, seasons: SeasonTable, today: date, min_level: str = "good"
+    engine: Engine,
+    geo: Geo,
+    seasons: SeasonTable,
+    today: date,
+    min_level: str = "good",
+    user_id: int | None = None,
 ) -> list[Digest]:
-    """One digest per user with active trackers, from the latest scan on or before `today`."""
+    """One digest per user with active trackers (or only `user_id`), from the latest scan up to today."""
     run_date = latest_run_date(engine, today)
     if run_date is None:
         return []
     floor = LEVELS[min_level]
     with session_scope(engine) as s:
         baselines = load_baselines(s)
-        users = list(s.scalars(select(User).order_by(User.id)))
+        user_filter = User.id == user_id if user_id is not None else User.id.is_not(None)
+        users = list(s.scalars(select(User).where(user_filter).order_by(User.id)))
         trackers = list(s.scalars(select(Tracker).where(Tracker.active.is_(True)).order_by(Tracker.id)))
         rows = s.execute(
             select(Candidate, RouteQuery, TrackerRouteLink, PriceObservation)

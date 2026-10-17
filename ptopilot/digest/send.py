@@ -13,7 +13,7 @@ from sqlalchemy import Engine, update
 from ptopilot import config
 from ptopilot.db.models import Candidate, DigestSend
 from ptopilot.db.session import session_scope
-from ptopilot.digest.render import render
+from ptopilot.digest.render import LinkBuilder, render
 from ptopilot.digest.select import Digest
 from ptopilot.notify.email import Emailer, EmailError
 
@@ -27,6 +27,7 @@ def deliver(
     today: date,
     emailer: Emailer | None = None,
     preview_dir: Path | None = None,
+    links: LinkBuilder | None = None,
 ) -> Counter[str]:
     """Send each digest (or write it to preview_dir), recording sends.
 
@@ -38,7 +39,7 @@ def deliver(
         if digest.quiet and today.weekday() != config.QUIET_DIGEST_WEEKDAY and preview_dir is None:
             counts["quiet_skipped"] += 1
             continue
-        subject, html, text = render(digest)
+        subject, html, text = render(digest, links=links)
         if preview_dir is not None:
             preview_dir.mkdir(parents=True, exist_ok=True)
             stem = f"digest-{digest.user_id}-{digest.run_date}"

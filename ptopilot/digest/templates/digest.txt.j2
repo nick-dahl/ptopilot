@@ -24,6 +24,9 @@ Uses {{ d.pto_cost }} PTO day{{ "s" if d.pto_cost != 1 }} for {{ d.days_away }} 
 {% if d.deep_link %}
 See flights: {{ d.deep_link }}
 {% endif %}
+{% for label, url in actions[d.candidate_id] %}
+{{ label }}: {{ url }}
+{% endfor %}
 {% endfor %}
 
 Your trackers

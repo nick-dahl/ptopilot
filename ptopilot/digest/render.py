@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal
 
 from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
 
-from ptopilot.digest.select import Digest
+from ptopilot.digest.select import DealCard, Digest
+
+LinkBuilder = Callable[[DealCard], list[tuple[str, str]]]
 
 LEVEL_LABEL = {"great": "Great deal", "good": "Good deal", "none": "Tracking"}
 TREND_ARROW = {"down": "↓", "up": "↑", "flat": "→", "new": "·"}
@@ -76,10 +79,13 @@ def subject(digest: Digest) -> str:
     return f"ptopilot: {lead}{more}"
 
 
-def render(digest: Digest, now: datetime | None = None) -> tuple[str, str, str]:
-    """(subject, html, text)."""
+def render(
+    digest: Digest, now: datetime | None = None, links: LinkBuilder | None = None
+) -> tuple[str, str, str]:
+    """(subject, html, text). `links` adds snooze buttons (label, url) under each deal card."""
     now = now or datetime.now(UTC)
     context = {
+        "actions": {d.candidate_id: links(d) if links else [] for d in digest.deals},
         "digest": digest,
         "levels": LEVEL_LABEL,
         "arrows": TREND_ARROW,

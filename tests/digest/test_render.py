@@ -97,3 +97,14 @@ def test_quiet_digest_still_shows_trackers():
     subj, html, text = render(digest(), now=NOW)
     assert "A quiet week" in html and "Your trackers" in html
     assert "Azores: best $603, typical $870" in text
+
+
+def test_snooze_links_appear_under_each_card_when_provided():
+    def links(c):
+        return [("Not this trip", f"https://app.example/s/tok{c.candidate_id}")]
+
+    _, html, text = render(digest(card()), now=NOW, links=links)
+    assert 'href="https://app.example/s/tok1"' in html and "Not this trip" in html
+    assert "Not this trip: https://app.example/s/tok1" in text
+    _, html, _ = render(digest(card()), now=NOW)
+    assert "/s/" not in html

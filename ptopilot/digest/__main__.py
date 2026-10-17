@@ -17,6 +17,7 @@ from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.session import make_engine
 from ptopilot.digest.select import LEVELS, build_digests
 from ptopilot.digest.send import deliver
+from ptopilot.links import action_links
 from ptopilot.notify.email import ResendEmailer
 from ptopilot.settings import Settings
 
@@ -54,7 +55,19 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         digests = [d for d in digests if d.email.lower() == settings.admin_email.strip().lower()]
     emailer = None if args.preview else ResendEmailer(settings.resend_api_key, settings.email_from)
-    counts = deliver(engine, digests, today, emailer=emailer, preview_dir=args.preview)
+    links = None
+    if settings.app_base_url and settings.secret_key:  # snooze buttons need the web app and the shared key
+
+        def links(card):
+            return action_links(
+                settings.app_base_url,
+                settings.secret_key,
+                card.tracker_id,
+                card.depart_date,
+                card.return_date,
+            )
+
+    counts = deliver(engine, digests, today, emailer=emailer, preview_dir=args.preview, links=links)
     summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "nothing to send"
     print(f"digests for {today}: {len(digests)} built; {summary}")
     if args.preview:
