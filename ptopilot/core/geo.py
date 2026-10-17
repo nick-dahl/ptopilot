@@ -63,6 +63,9 @@ def tint(color: str, amount: float = 0.25) -> str:
     return "#" + "".join(f"{round(255 - (255 - c) * amount):02x}" for c in rgb)
 
 
+NEUTRAL_PALETTE = Palette(NEUTRAL_COLOR, tint(NEUTRAL_COLOR))
+
+
 def palette(dest: Destination) -> Palette:
     color = dest.color or ZONE_COLORS.get(dest.zone, NEUTRAL_COLOR)
     return Palette(color, tint(color))

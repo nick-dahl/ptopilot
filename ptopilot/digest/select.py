@@ -10,7 +10,7 @@ from decimal import Decimal
 from sqlalchemy import Engine, func, select
 
 from ptopilot import config
-from ptopilot.core.geo import Geo
+from ptopilot.core.geo import NEUTRAL_PALETTE, Geo, Palette, palette
 from ptopilot.core.seasons import SeasonTable, trip_month
 from ptopilot.db.models import (
     Candidate,
@@ -59,6 +59,8 @@ class DealCard:
     flight_numbers: tuple[str, ...]
     deep_link: str | None
     observed_at: datetime | None
+    palette: Palette = NEUTRAL_PALETTE
+    sigma: float | None = None  # spread of the typical price, for the "where this price sits" bar
 
     @property
     def open_jaw(self) -> bool:
@@ -80,6 +82,7 @@ class TrackerRow:
     trend: str  # "down" | "up" | "flat" | "new"
     next_good_month: str | None
     snoozed_until: date | None
+    palette: Palette = NEUTRAL_PALETTE
 
 
 @dataclass
@@ -89,6 +92,7 @@ class Digest:
     run_date: date
     deals: list[DealCard]
     trackers: list[TrackerRow]
+    held_back: int = 0  # deals left out because they were already sent at (about) this price
 
     @property
     def quiet(self) -> bool:
@@ -172,6 +176,7 @@ def build_digests(
 
     tracker_by_id = {t.id: t for t in trackers}
     cards_by_tracker: defaultdict[int, list[DealCard]] = defaultdict(list)
+    held_back: defaultdict[int, int] = defaultdict(int)
     best_today: dict[int, tuple[Decimal, Decimal | None]] = {}
     for c, rq, link, obs in rows:
         tracker = tracker_by_id.get(c.tracker_id)
@@ -187,6 +192,7 @@ def build_digests(
             continue
         prior = sent_price.get((c.tracker_id, c.route_query_id, c.evening_departure))
         if skip_sent and prior is not None and c.price > prior * Decimal(str(config.DIGEST_RESEND_FACTOR)):
+            held_back[c.tracker_id] += 1
             continue
         dest = geo.destination(tracker.destination_code)
         codes = (dest.code, dest.country)
@@ -221,6 +227,8 @@ def build_digests(
                 flight_numbers=tuple(obs.flight_numbers or ()) if obs else (),
                 deep_link=obs.deep_link if obs else None,
                 observed_at=obs.observed_at if obs else None,
+                palette=palette(dest),
+                sigma=b.sigma if b else None,
             )
         )
 
@@ -249,7 +257,11 @@ def build_digests(
                     trend=_trend(best, week_ago.get(t.id)),
                     next_good_month=_next_good_month(seasons, (dest.code, dest.country), run_date),
                     snoozed_until=t.snoozed_until if t.snoozed_until and t.snoozed_until >= today else None,
+                    palette=palette(dest),
                 )
             )
-        digests.append(Digest(user.id, user.email, run_date, sorted(chosen, key=by_score), rows_for_user))
+        held = sum(held_back[t.id] for t in mine)
+        digests.append(
+            Digest(user.id, user.email, run_date, sorted(chosen, key=by_score), rows_for_user, held)
+        )
     return digests

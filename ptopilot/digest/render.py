@@ -9,6 +9,7 @@ from decimal import Decimal
 from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
 
 from ptopilot.digest.select import DealCard, Digest
+from ptopilot.web.viz import BarGeometry, bar_geometry
 
 LinkBuilder = Callable[[DealCard], list[tuple[str, str]]]
 
@@ -76,6 +77,25 @@ _env = Environment(
 _env.filters.update(money=money, day=day, dates=date_range, duration=duration, clock=clock, stops=stops)
 
 
+BAR_DOT_WIDTH = 3.0  # percent of the bar
+
+
+def bar_cells(bar: BarGeometry) -> list[tuple[float, str]]:
+    """The price bar as table cells for email: (width %, "track" | "band" | "dot"), left to right."""
+    d0 = min(max(bar.dot - BAR_DOT_WIDTH / 2, 0.0), 100 - BAR_DOT_WIDTH)
+    d1 = d0 + BAR_DOT_WIDTH
+    edges = sorted({0.0, bar.band_start, bar.band_end, d0, d1, 100.0})
+    cells: list[tuple[float, str]] = []
+    for lo, hi in zip(edges, edges[1:], strict=False):
+        mid = (lo + hi) / 2
+        kind = "dot" if d0 <= mid <= d1 else "band" if bar.band_start <= mid <= bar.band_end else "track"
+        if cells and cells[-1][1] == kind:
+            cells[-1] = (round(cells[-1][0] + hi - lo, 1), kind)
+        else:
+            cells.append((round(hi - lo, 1), kind))
+    return cells
+
+
 def subject(digest: Digest) -> str:
     if digest.quiet:
         return "ptopilot: a quiet week for your trips"
@@ -89,12 +109,24 @@ def subject(digest: Digest) -> str:
 
 
 def render(
-    digest: Digest, now: datetime | None = None, links: LinkBuilder | None = None
+    digest: Digest,
+    now: datetime | None = None,
+    links: LinkBuilder | None = None,
+    base_url: str | None = None,
 ) -> tuple[str, str, str]:
-    """(subject, html, text). `links` adds snooze buttons (label, url) under each deal card."""
+    """(subject, html, text). `links` adds snooze buttons (label, url) to the lead deal; `base_url` (the web
+    app) makes the other deals link to their destination pages."""
     now = now or datetime.now(UTC)
+    bars = {
+        d.candidate_id: bar_cells(bar)
+        for d in digest.deals
+        if d.typical and (bar := bar_geometry(d.price, float(d.typical), d.sigma))
+    }
     context = {
         "actions": {d.candidate_id: links(d) if links else [] for d in digest.deals},
+        "bars": bars,
+        "base_url": (base_url or "").rstrip("/"),
+        "preheader": subject(digest).removeprefix("ptopilot: "),
         "digest": digest,
         "levels": LEVEL_LABEL,
         "arrows": TREND_ARROW,

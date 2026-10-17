@@ -67,7 +67,15 @@ def main(argv: list[str] | None = None) -> int:
                 card.return_date,
             )
 
-    counts = deliver(engine, digests, today, emailer=emailer, preview_dir=args.preview, links=links)
+    counts = deliver(
+        engine,
+        digests,
+        today,
+        emailer=emailer,
+        preview_dir=args.preview,
+        links=links,
+        base_url=settings.app_base_url or None,
+    )
     summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "nothing to send"
     print(f"digests for {today}: {len(digests)} built; {summary}")
     if args.preview:

@@ -71,7 +71,7 @@ def test_html_card_contents():
     for fragment in (
         "Azores", "Great deal", "Go-now 84", "Fri Mar 5 → Sun Mar 14", "leave after work", "$603", "~$870",
         "31% below", "5 PTO days", "Memorial Day gives you a free day", "1 stop", "10h 00m out",
-        "departs 10:00pm", "TP 202", "(outbound flight)", "checked 9 hours ago", "See flights",
+        "departs 10:00pm", "TP 202", "(outbound flight)", "checked 9 hours ago", "View flights",
         "tfs=X&amp;curr=USD", "Your trackers", "↓",
     ):  # fmt: skip
         assert fragment in html, fragment

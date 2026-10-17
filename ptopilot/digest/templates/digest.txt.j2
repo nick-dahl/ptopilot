@@ -1,12 +1,16 @@
 ptopilot · {{ digest.run_date | day }}
 {% if digest.quiet %}
-A quiet week: nothing well below typical yet. Your trackers are still watching.
+A quiet week for your trips.
+{% if digest.held_back %}
+No new deals since your last digest. The ones we sent are still on your dashboard while their prices hold.
+{% else %}
+Nothing below typical yet. Your trackers are still watching.
+{% endif %}
 {% else %}
 {{ digest.deals | length }} trip{{ "s" if digest.deals | length != 1 }} worth a look
-{% endif %}
-{% for d in digest.deals %}
+{% set d = digest.deals[0] %}
 
-== {{ d.destination }}: {{ levels[d.deal_level] }}, go-now {{ d.go_now }}
+== Best this week: {{ d.destination }}, {{ levels[d.deal_level] }}, go-now {{ d.go_now }}
 {{ d.depart_date | day }} -> {{ d.return_date | day }}{% if d.evening_departure %} (leave after work){% endif %}, {{ d.origin }} -> {{ d.dest_airport }}{% if d.open_jaw %}, home from {{ d.return_airport }}{% endif %}
 
 {{ d.price | money(d.currency) }} {{ "both flights" if d.open_jaw else "round trip" }}{% if d.typical %}, typically ~{{ d.typical | money(d.currency) }}{% if d.pct_below and d.pct_below > 0 %} ({{ d.pct_below }}% below){% endif %}{% endif %}
@@ -22,12 +26,20 @@ Uses {{ d.pto_cost }} PTO day{{ "s" if d.pto_cost != 1 }} for {{ d.days_away }} 
 {{ "Live price" if d.verified else "Cached price, not yet confirmed live" }}{% if checked[d.candidate_id] %}, {{ checked[d.candidate_id] }}{% endif %}.{% if d.confidence == "low" %} Typical price is still being learned.{% endif %}
 
 {% if d.deep_link %}
-See flights: {{ d.deep_link }}
+View flights: {{ d.deep_link }}
 {% endif %}
 {% for label, url in actions[d.candidate_id] %}
 {{ label }}: {{ url }}
 {% endfor %}
+{% if digest.deals | length > 1 %}
+
+More trips
+{% for d in digest.deals[1:] %}
+- {{ d.destination }}: {{ d.price | money(d.currency) }}{% if d.pct_below and d.pct_below > 0 %} ({{ d.pct_below }}% below){% endif %}, {{ d.depart_date | dates(d.return_date) }}, {{ d.pto_cost }} PTO for {{ d.days_away }} days{% if base_url %}: {{ base_url }}/trackers/{{ d.tracker_id }}{% elif d.deep_link %}: {{ d.deep_link }}{% endif %}
+
 {% endfor %}
+{% endif %}
+{% endif %}
 
 Your trackers
 {% for t in digest.trackers %}
@@ -35,4 +47,7 @@ Your trackers
 
 {% endfor %}
 
+{% if base_url %}Manage trips: {{ base_url }}/
+{% endif %}
 Prices change constantly; always confirm before booking.
+Why am I getting this? {{ digest.email }} was invited to ptopilot, which emails trip deals on Mondays and Thursdays.
