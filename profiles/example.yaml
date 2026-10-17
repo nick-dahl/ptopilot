@@ -1,0 +1,27 @@
+# Traveler profile for `python -m ptopilot.profiles load <file>`.
+# Copy to profiles/<you>.yaml (git-ignored: it holds your email) and edit.
+email: you@example.com
+home_airport: JFK
+nearby_airports: [EWR, PHL]      # LGA omitted: almost no long-haul international flights
+country: US
+holiday_calendar: US             # e.g. US, GB-ENG, GB-SCT
+ignored_holidays: [Columbus Day, Veterans Day]   # federal holidays your office works
+extra_days_off: []               # company days off, YYYY-MM-DD
+pto_days_total: 22
+pto_committed: 7                 # already spoken for
+min_trip_days: 7                 # days away from home
+max_trip_days: 16                # two work weeks plus the weekends either side
+weather_tolerance: normal        # strict | normal | relaxed ("normal" skips months rated avoid)
+max_stops_short: 3
+max_stops_long: 3
+allow_overnight_layover: true
+friday_evening_departure: true   # leave after work on the last workday
+friday_evening_min_time: "17:00"
+windows:
+  - {start: 2027-03-01, end: 2027-03-31}
+  - {start: 2027-10-01, end: 2027-10-31}
+trackers:                        # min_stay/max_stay: days on the ground, after travel days
+  - {destination: PATAGONIA, min_stay: 7, max_stay: 11}         # W Trek (~5 days) + Puerto Natales
+  - {destination: AZORES, min_stay: 7, max_stay: 10}
+  - {destination: MADEIRA, min_stay: 6, max_stay: 9}
+  - {destination: CAMINO_PORTUGUES, min_stay: 11, max_stay: 14}  # walk Porto -> Santiago (open-jaw)

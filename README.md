@@ -32,6 +32,18 @@ After a reboot, start it again with the `pg_ctl ... start` line. Apply migration
 .venv/Scripts/python -m pytest -m live  # hits real flight sources; run by hand
 ```
 
+## Traveler profiles
+
+Until the web app's onboarding exists, travelers are loaded from YAML:
+
+```powershell
+copy profiles\example.yaml profiles\me.yaml                       # profiles/* is git-ignored (holds your email)
+.venv/Scripts/python -m ptopilot.profiles load profiles/me.yaml --dry-run   # validate and preview
+.venv/Scripts/python -m ptopilot.profiles load profiles/me.yaml             # save (re-run any time to update)
+```
+
+Destinations must exist in `ptopilot/data/geo.yaml` (with season ratings in `seasons.yaml`). A destination with `return_airports` is an **open-jaw** route (fly into one airport, home from another); only SerpApi can price those. Live checks skip departures more than ~300 days out (Google Flights doesn't search that far yet).
+
 ## Daily scan
 
 ```powershell
