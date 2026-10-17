@@ -38,3 +38,10 @@ SOURCE_BUDGETS = {"serpapi": {"per_day": 8, "per_month": 250}}  # every attempte
 SHORT_HAUL_MAX_MIN = 600  # fastest option under 10 h -> short-haul stop limit applies
 MAX_DURATION_RATIO = 1.5
 LIVE_HORIZON_DAYS = 300  # Google Flights returns nothing ~10-11 months out; don't spend checks beyond this
+
+# Digest (spec §8)
+DIGEST_MAX_DEALS = 8
+DIGEST_ALTERNATES_PER_TRACKER = 2
+DIGEST_RESEND_FACTOR = 0.95  # a deal already sent is only sent again once it is at least 5% cheaper
+TREND_BAND = 0.03  # week-over-week change smaller than this shows as flat
+QUIET_DIGEST_WEEKDAY = 0  # Monday: when there are no deals, only this day's digest is sent
