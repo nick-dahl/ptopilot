@@ -16,11 +16,14 @@ GOOD_DEAL_Z = -1.0
 GREAT_DEAL_Z = -1.5
 
 # Go-now score
-GO_NOW_WEIGHTS = {"deal": 0.5, "weather": 0.2, "efficiency": 0.2, "timing": 0.1}
+GO_NOW_WEIGHTS = {"deal": 0.5, "weather": 0.2, "efficiency": 0.15, "length": 0.1, "timing": 0.05}
 DEAL_Z_FOR_FULL_SCORE = 2.5
 WEATHER_SCORES = {"good": 1.0, "shoulder": 0.6, "avoid": 0.2}
 SWEET_SPOT_DAYS = {"international": (30, 120), "domestic": (21, 90)}
 OFF_SWEET_SPOT_TIMING = 0.5
+# Preferred trip length (V2): fit fades from 1 at the ideal to 0 this many days away from it.
+LENGTH_FIT_SPAN = 4
+LENGTH_SELECTION_BONUS = 0.25  # selection ranks by efficiency x (1 + bonus x fit)
 
 # Pipeline (spec §7)
 DEFAULT_CURRENCY = "USD"

@@ -8,8 +8,11 @@ def test_perfect_trip_scores_100():
 
 
 def test_poor_trip_scores_low():
-    # 0.5*0 + 0.2*0.2 + 0.2*0 + 0.1*0.5 = 0.09
-    assert go_now(z=0.0, rating="avoid", efficiency=1.0, days_until_departure=10, international=True) == 9
+    # 0.5*0 + 0.2*0.2 + 0.15*0 + 0.1*0 + 0.05*0.5 = 0.065
+    poor = go_now(
+        z=0.0, rating="avoid", efficiency=1.0, days_until_departure=10, international=True, length_fit=0.0
+    )
+    assert poor == 6
 
 
 def test_missing_z_contributes_nothing():

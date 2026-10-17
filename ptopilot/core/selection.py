@@ -7,6 +7,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
 
+from ptopilot import config
+from ptopilot.core.scoring import length_fit
 from ptopilot.core.shapes import TripShape
 
 
@@ -34,19 +36,25 @@ def satisfies(shape: TripShape, c: ShapeConstraints) -> bool:
 
 
 def select_top(
-    shapes: Iterable[TripShape], n: int = 6, max_per_length: int = 2, max_per_week: int | None = None
+    shapes: Iterable[TripShape],
+    n: int = 6,
+    max_per_length: int = 2,
+    max_per_week: int | None = None,
+    ideal_days: int | None = None,
 ) -> list[TripShape]:
-    """Best n shapes by PTO efficiency, with diversity limits: at most max_per_length per trip length,
+    """Best n shapes by PTO efficiency, boosted near the preferred length (ideal_days; None = no boost),
+    with diversity limits: at most max_per_length per trip length,
     at most max_per_week per departure week (ISO week; None = unlimited), and at most one per
     (depart, return) pair so an evening variant never duplicates its regular twin.
 
     Ties: fewer PTO days, then earlier departure, then the non-evening variant. Without a weekly limit,
     windows with no holidays (where every week ties) would only ever get trips from their first weeks.
     """
-    ranked = sorted(
-        shapes,
-        key=lambda s: (-s.efficiency, s.pto_cost, s.depart_date, s.evening_departure),
-    )
+
+    def rank(s: TripShape) -> float:
+        return s.efficiency * (1 + config.LENGTH_SELECTION_BONUS * length_fit(s.days_away, ideal_days))
+
+    ranked = sorted(shapes, key=lambda s: (-rank(s), s.pto_cost, s.depart_date, s.evening_departure))
     picked: list[TripShape] = []
     per_length: Counter[int] = Counter()
     per_week: Counter[tuple[int, int]] = Counter()
