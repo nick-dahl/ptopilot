@@ -40,7 +40,7 @@ def test_only_if_under_asks_for_a_price(client, clean_engine):
     token = action_token(KEY, Action(tid, "under", *TRIP))
     assert 'name="price"' in client.get(f"/s/{token}").text
     bad = client.post(f"/s/{token}", data={"price": "cheap"})
-    assert bad.status_code == 400 and "above zero" in bad.text
+    assert bad.status_code == 400 and "between $1 and $99,999" in bad.text
     ok = client.post(f"/s/{token}", data={"price": "$1,200"})
     assert ok.status_code == 200 and "$1,200" in ok.text
     with session_scope(clean_engine) as s:

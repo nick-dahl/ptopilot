@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from ptopilot.db.models import Tracker, TrackerExclusion
 from ptopilot.links import Action
 
+MIN_PRICE, MAX_PRICE = 1, 99_999  # fits trackers.max_price (Numeric(10, 2)) with room
+
 
 def snooze(tracker: Tracker, until: date) -> None:
     tracker.snoozed_until = until
@@ -47,8 +49,8 @@ def apply_action(
         snooze(tracker, date(year, 12, 31))
         return f"Snoozed for the rest of {year}."
     if action.kind == "under":
-        if price is None or price <= 0:
-            raise ValueError("enter a price above zero")
+        if price is None or not price.is_finite() or not MIN_PRICE <= price <= MAX_PRICE:
+            raise ValueError(f"enter a price between ${MIN_PRICE:,} and ${MAX_PRICE:,}")
         tracker.max_price = price
         return f"You'll only hear about this destination under ${price:,.0f}."
     raise ValueError(f"unknown action {action.kind!r}")

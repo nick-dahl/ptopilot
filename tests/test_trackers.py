@@ -48,7 +48,7 @@ def test_snooze_30_days_and_not_this_year(session, tracker):
 def test_only_if_under_sets_max_price(session, tracker):
     message = apply_action(session, tracker, Action(tracker.id, "under"), TODAY, price=Decimal("750"))
     assert tracker.max_price == Decimal("750") and "$750" in message
-    with pytest.raises(ValueError, match="above zero"):
+    with pytest.raises(ValueError, match="between"):
         apply_action(session, tracker, Action(tracker.id, "under"), TODAY, price=Decimal("0"))
 
 

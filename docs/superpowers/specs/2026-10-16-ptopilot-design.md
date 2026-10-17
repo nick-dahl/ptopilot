@@ -380,6 +380,11 @@ The visual design is expected to change once real digests exist.
 - **Dashboard:** the PTO bar (available vs. committed), the tracker overview (reusing the digest's `build_digests(..., user_id=…)`) with snooze/resume, and the five best-priced current options. Before any scan exists, trackers are listed without prices.
 - **Deployment:** `render.yaml` (Blueprint) runs `uvicorn ptopilot.web.main:app` with proxy headers and health check `/healthz`.
 - **Until a sending domain is verified in Resend,** sign-in and digest emails reach only the Resend account owner. Verifying a domain is the prerequisite for inviting friends.
+- **Hardening (Plan 6 review):**
+  - **Invites are re-checked** on every signed-in request and at `/auth`. Removing an invite ends that person's session, and they can't recreate themselves through the profile form.
+  - **Sign-in links** are limited to one per address every 2 minutes (in memory, per process), and the email is sent after the response, so invited and uninvited addresses answer equally fast.
+  - **"Only if under" prices** must be finite and between $1 and $99,999.
+  - **The dashboard** shows deals even if they were already emailed (`build_digests(..., skip_sent=False)`) and lists the five cheapest.
 
 ---
 

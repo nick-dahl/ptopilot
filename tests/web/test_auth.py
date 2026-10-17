@@ -44,6 +44,7 @@ def test_sign_out(client, emailer, clean_engine):
     assert client.get("/").headers["location"] == "/login"
 
 
-def test_token_for_a_valid_key_signs_in_directly(client):
+def test_token_for_a_valid_key_signs_in_directly(client, clean_engine):
+    invite(clean_engine, "nick@example.com")
     response = client.get(f"/auth?token={login_token(KEY, 'nick@example.com')}")
     assert response.status_code == 303

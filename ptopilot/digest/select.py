@@ -126,6 +126,7 @@ def build_digests(
     today: date,
     min_level: str = "good",
     user_id: int | None = None,
+    skip_sent: bool = True,
 ) -> list[Digest]:
     """One digest per user with active trackers (or only `user_id`), from the latest scan up to today."""
     run_date = latest_run_date(engine, today)
@@ -185,7 +186,7 @@ def build_digests(
         if tracker.snoozed_until is not None and tracker.snoozed_until >= today:
             continue
         prior = sent_price.get((c.tracker_id, c.route_query_id, c.evening_departure))
-        if prior is not None and c.price > prior * Decimal(str(config.DIGEST_RESEND_FACTOR)):
+        if skip_sent and prior is not None and c.price > prior * Decimal(str(config.DIGEST_RESEND_FACTOR)):
             continue
         dest = geo.destination(tracker.destination_code)
         codes = (dest.code, dest.country)

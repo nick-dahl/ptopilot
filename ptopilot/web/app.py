@@ -9,12 +9,13 @@ a GET that changed state would snooze trackers nobody clicked.
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from fastapi import FastAPI, Form, Request
+from fastapi import BackgroundTasks, FastAPI, Form, Request
 from fastapi.responses import RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine, select
@@ -38,6 +39,7 @@ log = logging.getLogger(__name__)
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 TEMPLATES.env.filters.update(money=money, day=day)
 SESSION_MAX_AGE_S = 30 * 24 * 3600
+LOGIN_COOLDOWN_S = 120  # at most one sign-in email per address per 2 minutes
 
 
 def create_app(
@@ -47,6 +49,7 @@ def create_app(
     geo: Geo | None = None,
     seasons: SeasonTable | None = None,
     today: Callable[[], date] | None = None,
+    now: Callable[[], float] | None = None,
 ) -> FastAPI:
     if not settings.secret_key:
         raise ValueError("SECRET_KEY is required to run the web app")
@@ -54,6 +57,8 @@ def create_app(
     geo = geo or load_geo()
     seasons = seasons or load_seasons()
     today = today or (lambda: datetime.now(UTC).date())
+    now = now or time.monotonic
+    last_link_sent: dict[str, float] = {}  # per process; enough for one small instance
     if emailer is None and settings.resend_api_key:
         emailer = ResendEmailer(settings.resend_api_key, settings.email_from)
 
@@ -74,8 +79,20 @@ def create_app(
     def redirect(url: str) -> RedirectResponse:
         return RedirectResponse(url, status_code=303)
 
-    def signed_in_user(s, request: Request) -> User | None:
+    def is_invited(email: str) -> bool:
+        with session_scope(engine) as s:
+            return s.scalar(select(Invite.email).where(Invite.email == email)) is not None
+
+    def current_email(request: Request) -> str | None:
+        """The signed-in email, as long as it is still invited; removing an invite ends the session."""
         email = request.session.get("email")
+        if email and not is_invited(email):
+            request.session.clear()
+            return None
+        return email
+
+    def signed_in_user(s, request: Request) -> User | None:
+        email = current_email(request)
         return s.scalar(select(User).where(User.email == email)) if email else None
 
     def owned_tracker(s, request: Request, tracker_id: int) -> Tracker | None:
@@ -97,26 +114,30 @@ def create_app(
     def login_form(request: Request):
         return page(request, "login.html")
 
+    def send_link(email: str, link: str) -> None:
+        if emailer is None:
+            log.warning("no emailer configured; sign-in link for an invited user: %s", link)
+            return
+        try:
+            emailer.send(
+                email,
+                "Your ptopilot sign-in link",
+                f'<p><a href="{link}">Sign in to ptopilot</a>. The link works for 15 minutes.</p>',
+                f"Sign in to ptopilot (link works for 15 minutes): {link}",
+            )
+        except EmailError as exc:
+            log.error("sign-in email not sent: %s", exc)
+
     @app.post("/login")
-    def login(request: Request, email: str = Form("")):
+    def login(request: Request, background: BackgroundTasks, email: str = Form("")):
         email = email.strip().lower()
-        with session_scope(engine) as s:
-            invited = s.scalar(select(Invite.email).where(Invite.email == email)) if email else None
-        if invited:
+        cooled_down = now() - last_link_sent.get(email, float("-inf")) >= LOGIN_COOLDOWN_S
+        if email and cooled_down and is_invited(email):
+            last_link_sent[email] = now()
             base = settings.app_base_url or str(request.base_url).rstrip("/")
             link = f"{base}/auth?token={login_token(settings.secret_key, email)}"
-            if emailer is None:
-                log.warning("no emailer configured; sign-in link for an invited user: %s", link)
-            else:
-                try:
-                    emailer.send(
-                        email,
-                        "Your ptopilot sign-in link",
-                        f'<p><a href="{link}">Sign in to ptopilot</a>. The link works for 15 minutes.</p>',
-                        f"Sign in to ptopilot (link works for 15 minutes): {link}",
-                    )
-                except EmailError as exc:
-                    log.error("sign-in email not sent: %s", exc)
+            # Sent after the response, so invited and uninvited addresses answer equally fast.
+            background.add_task(send_link, email, link)
         # Same answer either way, so the form doesn't reveal who is invited.
         return page(request, "login_sent.html")
 
@@ -128,6 +149,9 @@ def create_app(
             return page(
                 request, "message.html", 400, title="Sign-in link problem", message=f"{exc}.", login=True
             )
+        if not is_invited(email):
+            message = "this address is no longer invited."
+            return page(request, "message.html", 400, title="Sign-in link problem", message=message)
         request.session.clear()
         request.session["email"] = email
         return redirect("/")
@@ -141,14 +165,15 @@ def create_app(
 
     @app.get("/")
     def dashboard(request: Request, saved: int = 0):
-        if not request.session.get("email"):
+        if not current_email(request):
             return redirect("/login")
         with session_scope(engine) as s:
             user = signed_in_user(s, request)
             if user is None:
                 return redirect("/profile")
             user_id, pto_total, pto_committed = user.id, user.pto_days_total, user.pto_committed
-        digests = build_digests(engine, geo, seasons, today(), "none", user_id=user_id)
+        # The dashboard shows everything current, including deals already emailed.
+        digests = build_digests(engine, geo, seasons, today(), "none", user_id=user_id, skip_sent=False)
         digest = digests[0] if digests else None
         trackers = digest.trackers if digest else []
         if digest is None:  # no scan has priced anything yet: list the trackers without prices
@@ -167,7 +192,7 @@ def create_app(
             request,
             "dashboard.html",
             digest=digest,
-            deals=(digest.deals[:5] if digest else []),
+            deals=(sorted(digest.deals, key=lambda d: (d.price, -d.go_now))[:5] if digest else []),
             trackers=trackers,
             pto_total=pto_total,
             pto_committed=pto_committed,
@@ -208,7 +233,7 @@ def create_app(
 
     @app.get("/profile")
     def profile_form(request: Request):
-        if not request.session.get("email"):
+        if not current_email(request):
             return redirect("/login")
         with session_scope(engine) as s:
             form = profile_to_form(s, signed_in_user(s, request))
@@ -216,7 +241,7 @@ def create_app(
 
     @app.post("/profile")
     async def save_profile(request: Request):
-        email = request.session.get("email")
+        email = current_email(request)
         if not email:
             return redirect("/login")
         form = {k: str(v) for k, v in (await request.form()).items()}
