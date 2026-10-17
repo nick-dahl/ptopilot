@@ -251,6 +251,7 @@ def create_app(
             request,
             "profile.html",
             status,
+            active="profile",
             form=form,
             errors=errors,
             destinations=geo.destinations(),

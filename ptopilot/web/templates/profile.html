@@ -1,82 +1,90 @@
 {% extends "base.html" %}
+{% from "_components.html" import field %}
 {% block title %}Profile · ptopilot{% endblock %}
 {% block content %}
-<h1>Your travel profile</h1>
+<div class="page-head">
+  <div>
+    <h1>Your travel profile</h1>
+    <p class="muted small">Changes apply from the next morning scan.</p>
+  </div>
+</div>
 {% if errors %}
-<div class="card">
-  <p class="error"><b>Please fix {{ errors | length }} thing{{ "s" if errors | length != 1 }}:</b></p>
-  <ul class="error">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+<div class="panel notice-error" style="margin-bottom:14px;">
+  <p class="error" style="margin-bottom:6px;"><b>Please fix {{ errors | length }} thing{{ "s" if errors | length != 1 }}:</b></p>
+  <ul class="error" style="margin:0;padding-left:20px;">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
 </div>
 {% endif %}
-<form method="post" action="/profile">
-  <div class="card">
-    <h2 style="margin-top:0;">Home and calendar</h2>
-    <div class="grid">
-      <div><label for="home_airport">Home airport</label><input id="home_airport" name="home_airport" value="{{ form.home_airport }}" placeholder="JFK" required></div>
-      <div><label for="nearby_airports">Also fly from</label><input id="nearby_airports" name="nearby_airports" value="{{ form.nearby_airports }}" placeholder="EWR, PHL"></div>
-      <div><label for="country">Country</label><input id="country" name="country" value="{{ form.country }}" maxlength="2"></div>
-      <div><label for="holiday_calendar">Holiday calendar</label><input id="holiday_calendar" name="holiday_calendar" value="{{ form.holiday_calendar }}" placeholder="US or GB-ENG"></div>
+<form method="post" action="/profile" class="stack">
+  <section class="panel">
+    <h2>Home and calendar</h2>
+    <div class="fields">
+      {{ field("home_airport", "Home airport", form.home_airport, attrs='placeholder="JFK" required') }}
+      {{ field("nearby_airports", "Also fly from", form.nearby_airports, attrs='placeholder="EWR, PHL"') }}
+      {{ field("country", "Country", form.country, attrs='maxlength="2"') }}
+      {{ field("holiday_calendar", "Holiday calendar", form.holiday_calendar, attrs='placeholder="US or GB-ENG"') }}
     </div>
-    <label for="ignored_holidays">Holidays your office works (comma-separated)</label>
-    <input id="ignored_holidays" name="ignored_holidays" value="{{ form.ignored_holidays }}" placeholder="Columbus Day, Veterans Day">
-    <label for="extra_days_off">Company days off (YYYY-MM-DD, comma-separated)</label>
-    <input id="extra_days_off" name="extra_days_off" value="{{ form.extra_days_off }}">
-  </div>
+    {{ field("ignored_holidays", "Holidays your office works", form.ignored_holidays, hint="Comma-separated, e.g. Columbus Day, Veterans Day") }}
+    {{ field("extra_days_off", "Company days off", form.extra_days_off, hint="YYYY-MM-DD, comma-separated") }}
+  </section>
 
-  <div class="card">
-    <h2 style="margin-top:0;">Time off</h2>
-    <div class="grid">
-      <div><label for="pto_days_total">PTO days this year</label><input id="pto_days_total" name="pto_days_total" value="{{ form.pto_days_total }}" inputmode="numeric" required></div>
-      <div><label for="pto_committed">Already committed</label><input id="pto_committed" name="pto_committed" value="{{ form.pto_committed }}" inputmode="numeric"></div>
-      <div><label for="min_trip_days">Shortest trip (days away)</label><input id="min_trip_days" name="min_trip_days" value="{{ form.min_trip_days }}" inputmode="numeric"></div>
-      <div><label for="max_trip_days">Longest trip (days away)</label><input id="max_trip_days" name="max_trip_days" value="{{ form.max_trip_days }}" inputmode="numeric" required></div>
+  <section class="panel">
+    <h2>PTO and trip length</h2>
+    <div class="fields">
+      {{ field("pto_days_total", "PTO days this year", form.pto_days_total, attrs='inputmode="numeric" required') }}
+      {{ field("pto_committed", "Already committed", form.pto_committed, attrs='inputmode="numeric"') }}
+      {{ field("min_trip_days", "Shortest trip", form.min_trip_days, hint="Days away from home", attrs='inputmode="numeric"') }}
+      {{ field("max_trip_days", "Longest trip", form.max_trip_days, hint="Days away from home", attrs='inputmode="numeric" required') }}
+      {{ field("ideal_trip_days", "Ideal trip", form.ideal_trip_days, hint="Optional. Trips near it are priced first.", attrs='inputmode="numeric" placeholder="no preference"') }}
     </div>
+  </section>
+
+  <section class="panel">
     <h2>Travel windows</h2>
     {% for i in range(windows) %}
-    <div class="grid">
-      <div><label for="window_start_{{ i }}">From</label><input id="window_start_{{ i }}" type="date" name="window_start_{{ i }}" value="{{ form['window_start_%d' % i] }}"></div>
-      <div><label for="window_end_{{ i }}">To</label><input id="window_end_{{ i }}" type="date" name="window_end_{{ i }}" value="{{ form['window_end_%d' % i] }}"></div>
+    <div class="fields">
+      {{ field("window_start_%d" % i, "From", form["window_start_%d" % i], type="date") }}
+      {{ field("window_end_%d" % i, "To", form["window_end_%d" % i], type="date") }}
     </div>
     {% endfor %}
-    <p class="muted small">Leave a row blank to remove it.</p>
-  </div>
+    <p class="muted small" style="margin:0;">Leave a row blank to remove it.</p>
+  </section>
 
-  <div class="card">
-    <h2 style="margin-top:0;">Bucket list</h2>
+  <section class="panel">
+    <h2>Bucket list</h2>
     <p class="muted small">Days on the ground, after travel days. Priority 1 is checked first.</p>
     {% for i in range(trackers) %}
-    <div class="row">
-      <div><label for="tracker_dest_{{ i }}">Destination</label>
+    <div class="row-fields">
+      <label class="field"><span>Destination</span>
         <select id="tracker_dest_{{ i }}" name="tracker_dest_{{ i }}">
           <option value=""></option>
           {% for d in destinations %}<option value="{{ d.code }}" {{ "selected" if form['tracker_dest_%d' % i] == d.code }}>{{ d.name }}</option>{% endfor %}
-        </select></div>
-      <div><label for="tracker_min_{{ i }}">Min days</label><input id="tracker_min_{{ i }}" name="tracker_min_{{ i }}" value="{{ form['tracker_min_%d' % i] }}" inputmode="numeric"></div>
-      <div><label for="tracker_max_{{ i }}">Max days</label><input id="tracker_max_{{ i }}" name="tracker_max_{{ i }}" value="{{ form['tracker_max_%d' % i] }}" inputmode="numeric"></div>
-      <div><label for="tracker_priority_{{ i }}">Priority</label><input id="tracker_priority_{{ i }}" name="tracker_priority_{{ i }}" value="{{ form['tracker_priority_%d' % i] }}" inputmode="numeric"></div>
-      <div><label for="tracker_price_{{ i }}">Max price</label><input id="tracker_price_{{ i }}" name="tracker_price_{{ i }}" value="{{ form['tracker_price_%d' % i] }}" inputmode="numeric" placeholder="any"></div>
+        </select></label>
+      {{ field("tracker_min_%d" % i, "Min days", form["tracker_min_%d" % i], attrs='inputmode="numeric"') }}
+      {{ field("tracker_max_%d" % i, "Max days", form["tracker_max_%d" % i], attrs='inputmode="numeric"') }}
+      {{ field("tracker_priority_%d" % i, "Priority", form["tracker_priority_%d" % i], attrs='inputmode="numeric"') }}
+      {{ field("tracker_price_%d" % i, "Max price", form["tracker_price_%d" % i], attrs='inputmode="numeric" placeholder="any"') }}
     </div>
     {% endfor %}
-    <p class="muted small">Missing a destination? It has to be added to the app's data first.</p>
-  </div>
+    <p class="muted small" style="margin:0;">Missing a destination? It has to be added to the app's data first.</p>
+  </section>
 
-  <div class="card">
-    <h2 style="margin-top:0;">Preferences</h2>
-    <div class="grid">
-      <div><label for="weather_tolerance">Weather</label>
+  <section class="panel">
+    <h2>Preferences</h2>
+    <div class="fields">
+      <label class="field"><span>Weather</span>
         <select id="weather_tolerance" name="weather_tolerance">
           {% for value, text in [("strict", "Only the best months"), ("normal", "Skip bad-weather months"), ("relaxed", "Any month")] %}
           <option value="{{ value }}" {{ "selected" if form.weather_tolerance == value }}>{{ text }}</option>
           {% endfor %}
-        </select></div>
-      <div><label for="max_stops_short">Max stops (short haul)</label><input id="max_stops_short" name="max_stops_short" value="{{ form.max_stops_short }}" inputmode="numeric"></div>
-      <div><label for="max_stops_long">Max stops (long haul)</label><input id="max_stops_long" name="max_stops_long" value="{{ form.max_stops_long }}" inputmode="numeric"></div>
-      <div><label for="friday_evening_min_time">Leave-after-work time</label><input id="friday_evening_min_time" type="time" name="friday_evening_min_time" value="{{ form.friday_evening_min_time }}"></div>
+        </select></label>
+      {{ field("max_stops_short", "Max stops (short haul)", form.max_stops_short, attrs='inputmode="numeric"') }}
+      {{ field("max_stops_long", "Max stops (long haul)", form.max_stops_long, attrs='inputmode="numeric"') }}
+      {{ field("friday_evening_min_time", "Leave-after-work time", form.friday_evening_min_time, type="time") }}
     </div>
     <label class="check"><input type="checkbox" name="allow_overnight_layover" {{ "checked" if form.allow_overnight_layover }}> Overnight layovers are OK</label>
     <label class="check"><input type="checkbox" name="friday_evening_departure" {{ "checked" if form.friday_evening_departure }}> I can leave after work on my last workday</label>
-  </div>
+  </section>
 
-  <p><button type="submit">Save profile</button></p>
+  <div class="form-actions"><button class="btn" type="submit">Save profile</button><a class="muted small" href="/">Cancel</a></div>
 </form>
 {% endblock %}
