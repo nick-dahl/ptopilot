@@ -13,3 +13,4 @@ node_modules/
 profiles/*
 !profiles/example.yaml
 out/
+.superpowers/
