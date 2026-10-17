@@ -23,6 +23,7 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}  # min_level=none tuning sends go only to this address
       SECRET_KEY: ${{ secrets.SECRET_KEY }}  # must match the web app's, or snooze links won't verify
       APP_BASE_URL: ${{ vars.APP_BASE_URL }}  # e.g. https://ptopilot.onrender.com; empty = no snooze buttons
       MIN_LEVEL: ${{ inputs.min_level || 'good' }}  # passed via env, never spliced into the shell script
