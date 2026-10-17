@@ -91,6 +91,12 @@ def trend_chart(
         height = round(bottom - top, 1)
         parts.append(f'<rect x="0" y="{top}" width="{CHART_W}" height="{height}" fill="{palette.tint}"/>')
     for seg in segments:
+        if len(seg) == 1:
+            # A lone point: a one-vertex polyline draws nothing. The latest point gets its own circle below.
+            if seg[0] is not points[-1]:
+                cx, cy = xy(seg[0])
+                parts.append(f'<circle cx="{cx}" cy="{cy}" r="3.5" fill="{palette.color}"/>')
+            continue
         coords = " ".join(f"{x},{y}" for x, y in map(xy, seg))
         parts.append(
             f'<polyline points="{coords}" fill="none" stroke="{palette.color}" stroke-width="2.5" '

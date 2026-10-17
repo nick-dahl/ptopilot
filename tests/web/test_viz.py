@@ -73,3 +73,9 @@ def test_latest_price_is_marked():
 def test_flat_prices_still_draw():
     chart = trend_chart(points(700, 700, 700), None, TEAL)
     assert "nan" not in chart.svg.lower() and chart.svg.count("<polyline") == 1
+
+
+def test_a_lone_day_between_gaps_is_still_drawn():
+    chart = trend_chart(points(700, 690, 680, 670, 660, gaps=(2, 4)), None, TEAL)
+    assert chart.svg.count("<polyline") == 2
+    assert chart.svg.count("<circle") == 2
