@@ -358,6 +358,29 @@ The visual design is expected to change once real digests exist.
 - **Snooze endpoints:** `GET /s/{token}` takes a signed token that contains the user, tracker or candidate, and action. It expires after 30 days and needs no login. The confirmation page says "Snoozed ✓".
 - **Render cold start:** the first request after idle takes about 30–60 s. This is acceptable for V1.
 
+### Implementation notes (Plan 6)
+- **No HTMX.** Server-rendered Jinja pages and plain HTML forms (POST, then 303 redirect) do everything needed, with no JavaScript.
+- **Session cookie:** signed with `SECRET_KEY`, `SameSite=Lax`, HTTPS-only when `APP_BASE_URL` is https, lasts 30 days. SameSite=Lax is the CSRF protection: other sites can't submit these forms with the cookie attached.
+- **Sign-in:**
+  - The link is an `itsdangerous` token (salt `login`) valid for 15 minutes.
+  - `POST /login` gives the same answer whether or not the email is invited, so the form doesn't reveal who's invited.
+  - Without an emailer configured (local development), the link is logged.
+  - Invites come from `python -m ptopilot.profiles invite EMAIL`, or automatically from `profiles load`.
+- **Snooze links:**
+  - `GET /s/{token}` shows a confirmation page, and only `POST /s/{token}` acts. Mail scanners (e.g. Outlook Safe Links) pre-fetch every link in an email, so a GET that changed state would snooze trackers nobody clicked.
+  - Tokens use salt `action`, last 30 days, and need no sign-in.
+  - **Actions:**
+    - *Not this trip* adds a `tracker_exclusions` row.
+    - *Snooze 30 days* pauses the tracker for 30 days.
+    - *Not this year* snoozes until Dec 31 of **the trip's** departure year.
+    - *Only if under $X* sets `trackers.max_price`.
+  - The digest shows the buttons only when both `APP_BASE_URL` and `SECRET_KEY` are set.
+- **Shared secret:** `SECRET_KEY` must be identical for the Render service and the digest workflow (a GitHub secret). `APP_BASE_URL` is a GitHub *variable* for the workflow.
+- **Profile page:** reuses `profiles.parse_profile` and `apply_profile`, so the form and the YAML loader accept exactly the same input and report every problem at once. The form offers two blank rows each for new windows and trackers; clearing a row removes it.
+- **Dashboard:** the PTO bar (available vs. committed), the tracker overview (reusing the digest's `build_digests(..., user_id=…)`) with snooze/resume, and the five best-priced current options. Before any scan exists, trackers are listed without prices.
+- **Deployment:** `render.yaml` (Blueprint) runs `uvicorn ptopilot.web.main:app` with proxy headers and health check `/healthz`.
+- **Until a sending domain is verified in Resend,** sign-in and digest emails reach only the Resend account owner. Verifying a domain is the prerequisite for inviting friends.
+
 ---
 
 ## 10. Error handling and operations
