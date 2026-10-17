@@ -23,15 +23,16 @@ airports:
   HND: {country: JP, zone: E_ASIA}
   NRT: {country: JP, zone: E_ASIA}
 
+# color: header and accent color in the web app and digest (#rrggbb); optional, defaults by zone.
 destinations:
-  TH: {name: Thailand, kind: region, airports: [BKK, HKT, CNX]}
-  LIS: {name: Lisbon, kind: city, airports: [LIS]}
-  TYO: {name: Tokyo, kind: city, airports: [HND, NRT]}
-  PATAGONIA: {name: "Patagonia (W Trek)", kind: region, airports: [PUQ]}
-  AZORES: {name: Azores, kind: region, airports: [PDL]}
-  MADEIRA: {name: Madeira, kind: region, airports: [FNC]}
+  TH: {name: Thailand, kind: region, airports: [BKK, HKT, CNX], color: "#047857"}
+  LIS: {name: Lisbon, kind: city, airports: [LIS], color: "#1d4ed8"}
+  TYO: {name: Tokyo, kind: city, airports: [HND, NRT], color: "#be123c"}
+  PATAGONIA: {name: "Patagonia (W Trek)", kind: region, airports: [PUQ], color: "#7c2d12"}
+  AZORES: {name: Azores, kind: region, airports: [PDL], color: "#0e7490"}
+  MADEIRA: {name: Madeira, kind: region, airports: [FNC], color: "#15803d"}
   # Open-jaw: fly into the first list, home from the second.
-  CAMINO_PORTUGUES: {name: "Camino Portugués (Porto → Santiago)", kind: route, airports: [OPO], return_airports: [SCQ]}
+  CAMINO_PORTUGUES: {name: "Camino Portugués (Porto → Santiago)", kind: route, airports: [OPO], return_airports: [SCQ], color: "#a16207"}
 
 # overhead_days: round-trip travel days subtracted from time on the ground.
 # min_trip_days: shortest trip worth taking between the two zones.
