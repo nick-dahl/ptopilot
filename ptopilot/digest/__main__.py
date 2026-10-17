@@ -47,6 +47,12 @@ def main(argv: list[str] | None = None) -> int:
     today = args.date or datetime.now(UTC).date()
     engine = make_engine(settings.database_url)
     digests = build_digests(engine, load_geo(), load_seasons(), today, args.min_level)
+    if args.min_level == "none" and args.preview is None:
+        # Tuning digests include non-deals: send them to the admin only, never to other travelers.
+        if not settings.admin_email:
+            print("--min-level none sends only to ADMIN_EMAIL, which is not set", file=sys.stderr)
+            return 2
+        digests = [d for d in digests if d.email.lower() == settings.admin_email.strip().lower()]
     emailer = None if args.preview else ResendEmailer(settings.resend_api_key, settings.email_from)
     counts = deliver(engine, digests, today, emailer=emailer, preview_dir=args.preview)
     summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "nothing to send"

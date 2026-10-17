@@ -332,15 +332,15 @@ The visual design is expected to change once real digests exist.
 - **Which scan:** the digest uses the latest scan on or before the send date.
 - **Price comparison:** a deal's "typical" price is its route's baseline median, and "% below" is computed from it. Open-jaw prices say "both flights" instead of "round trip".
 - **Outbound only:** carrier, stops, duration, departure time and flight numbers describe the outbound flight, and the card says so.
-- **Resends:** a deal already sent is matched on (tracker, route, evening variant) and sent again only once it is at least 5% cheaper (`DIGEST_RESEND_FACTOR = 0.95`).
+- **Resends:** a deal already sent is matched on (tracker, route, evening variant) and sent again only once it is at least 5% cheaper (`DIGEST_RESEND_FACTOR = 0.95`). `digest_sends.items` stores that identity (`tracker_id`, `route_query_id`, `evening_departure`, `price`, `candidate_id`), because a re-run of the score stage deletes and recreates candidates. Only good and great cards are recorded, so tuning digests never hold back later deals.
 - **Caps:** each tracker's best deal is chosen before any tracker's alternates when applying the cap of 8.
 - **Tracker overview:**
   - "Best now" is the tracker's cheapest candidate in the scan, at any deal level.
   - "7-day" compares it with the cheapest from 7 days earlier: down or up beyond ±3%, otherwise flat, and "new" without history.
   - "Next good month" is the first month from the scan month rated good.
 - **Snooze buttons** are deferred to Plan 6, which adds the web app they link to.
-- **Tuning:** `python -m ptopilot.digest send --preview DIR` writes HTML and text files without touching the database or email. `--min-level none` includes trips that aren't deals. The `digest.yml` manual dispatch accepts `min_level`.
-- **Delivery:** a failed send (e.g. Resend refusing a non-account address while no domain is verified) is logged and counted, nothing is recorded for it, the remaining digests still go out, and the CLI exits 1.
+- **Tuning:** `python -m ptopilot.digest send --preview DIR` writes HTML and text files without touching the database or email. `--min-level none` includes trips that aren't deals. The `digest.yml` manual dispatch accepts `min_level`. A *sent* `--min-level none` digest goes only to `ADMIN_EMAIL`, and is refused without it.
+- **Delivery:** a failed send (e.g. Resend refusing a non-account address while no domain is verified) is logged and counted, nothing is recorded for it, the remaining digests still go out, and the CLI exits 1. `EmailError` messages have email addresses replaced with `<email>`, because CI logs are public.
 
 ---
 

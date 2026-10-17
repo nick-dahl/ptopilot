@@ -18,6 +18,7 @@ from ptopilot.digest.select import Digest
 from ptopilot.notify.email import Emailer, EmailError
 
 log = logging.getLogger(__name__)
+REAL_DEALS = frozenset({"good", "great"})
 
 
 def deliver(
@@ -53,16 +54,27 @@ def deliver(
             counts["failed"] += 1
             log.error("digest for user %s not sent: %s", digest.user_id, exc)
             continue
+        # Only real deals count as "sent": tuning digests (min level none) mustn't hold back later deals.
+        deals = [d for d in digest.deals if d.deal_level in REAL_DEALS]
         with session_scope(engine) as s:
             s.add(
                 DigestSend(
                     user_id=digest.user_id,
-                    items=[{"candidate_id": d.candidate_id, "price": float(d.price)} for d in digest.deals],
+                    items=[
+                        {
+                            "candidate_id": d.candidate_id,
+                            "tracker_id": d.tracker_id,
+                            "route_query_id": d.route_query_id,
+                            "evening_departure": d.evening_departure,
+                            "price": float(d.price),
+                        }
+                        for d in deals
+                    ],
                 )
             )
-            ids = [d.candidate_id for d in digest.deals]
+            ids = [d.candidate_id for d in deals]
             if ids:
                 s.execute(update(Candidate).where(Candidate.id.in_(ids)).values(state="sent"))
         counts["sent"] += 1
-        counts["deals_sent"] += len(digest.deals)
+        counts["deals_sent"] += len(deals)
     return counts

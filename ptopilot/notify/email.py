@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Protocol
 
 import httpx
@@ -9,11 +10,15 @@ import httpx
 from ptopilot.sources.base import snippet
 
 API_URL = "https://api.resend.com/emails"
+EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+")
 TIMEOUT_S = 20
 
 
 class EmailError(Exception):
-    pass
+    """A failed send. Messages never contain email addresses: they end up in public CI logs."""
+
+    def __init__(self, message: str):
+        super().__init__(EMAIL_RE.sub("<email>", message))
 
 
 class Emailer(Protocol):

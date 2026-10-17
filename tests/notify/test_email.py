@@ -41,3 +41,11 @@ def test_http_error_raises_email_error():
 def test_empty_key_is_rejected():
     with pytest.raises(ValueError, match="RESEND_API_KEY"):
         ResendEmailer("", "x@example.com")
+
+
+def test_error_messages_never_contain_email_addresses():
+    body = {"message": "You can only send testing emails to your own email address (owner@example.com)."}
+    with pytest.raises(EmailError) as exc:
+        emailer(status=403, body=body).send("friend@example.com", "s", "h", "t")
+    assert "@" not in str(exc.value)
+    assert "<email>" in str(exc.value)

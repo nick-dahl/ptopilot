@@ -32,6 +32,7 @@ MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", 
 class DealCard:
     candidate_id: int
     tracker_id: int
+    route_query_id: int
     destination: str
     origin: str
     dest_airport: str
@@ -150,17 +151,17 @@ def build_digests(
                 .group_by(Candidate.tracker_id)
             ).all()
         )
-        # Lowest price already sent per (tracker, route, evening); resent only when meaningfully cheaper.
+        # Lowest price already sent per (tracker, route, evening variant). Matched on the identity stored in
+        # each item, not on candidate ids: a re-run of the score stage deletes and recreates candidates.
+        # Items without that identity (recorded before it was stored) are ignored.
         sent_price: dict[tuple, Decimal] = {}
-        sent_ids: dict[int, Decimal] = {}
         for send in s.scalars(select(DigestSend)):
             for item in send.items or []:
-                cid, price = int(item["candidate_id"]), Decimal(str(item["price"]))
-                sent_ids[cid] = min(price, sent_ids.get(cid, price))
-        if sent_ids:
-            for c in s.scalars(select(Candidate).where(Candidate.id.in_(sent_ids))):
-                key = (c.tracker_id, c.route_query_id, c.evening_departure)
-                sent_price[key] = min(sent_ids[c.id], sent_price.get(key, sent_ids[c.id]))
+                if "route_query_id" not in item:
+                    continue
+                key = (item["tracker_id"], item["route_query_id"], item["evening_departure"])
+                price = Decimal(str(item["price"]))
+                sent_price[key] = min(price, sent_price.get(key, price))
 
     tracker_by_id = {t.id: t for t in trackers}
     cards_by_tracker: defaultdict[int, list[DealCard]] = defaultdict(list)
@@ -186,6 +187,7 @@ def build_digests(
             DealCard(
                 candidate_id=c.id,
                 tracker_id=c.tracker_id,
+                route_query_id=c.route_query_id,
                 destination=dest.name,
                 origin=rq.origin,
                 dest_airport=rq.dest_airport,

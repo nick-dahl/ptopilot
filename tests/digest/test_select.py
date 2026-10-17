@@ -71,7 +71,14 @@ def test_already_sent_deal_is_resent_only_when_meaningfully_cheaper(clean_engine
     t = add_tracker(clean_engine, uid)
     old = add_candidate(clean_engine, t, 600, run_date=RUN - timedelta(days=3))
     with session_scope(clean_engine) as s:
-        s.add(DigestSend(user_id=uid, items=[{"candidate_id": old, "price": 600.0}]))
+        item = {
+            "candidate_id": old,
+            "tracker_id": t,
+            "route_query_id": 1,
+            "evening_departure": True,
+            "price": 600.0,
+        }
+        s.add(DigestSend(user_id=uid, items=[item]))
     add_candidate(clean_engine, t, 590, run_date=RUN)  # only 1.7% cheaper than what was sent
     assert digests(clean_engine)[0].deals == []
     add_candidate(
@@ -116,6 +123,16 @@ def test_tracker_overview_trend_and_next_good_month(clean_engine):
         "new",
         "Mar",
     )
+
+
+def test_sends_recorded_without_route_identity_are_ignored(clean_engine):
+    uid = add_user(clean_engine)
+    t = add_tracker(clean_engine, uid)
+    old = add_candidate(clean_engine, t, 600, run_date=RUN - timedelta(days=3))
+    with session_scope(clean_engine) as s:  # the pre-fix format: candidate id and price only
+        s.add(DigestSend(user_id=uid, items=[{"candidate_id": old, "price": 600.0}]))
+    add_candidate(clean_engine, t, 600, run_date=RUN)
+    assert [c.price for c in digests(clean_engine)[0].deals] == [600]
 
 
 def test_users_without_active_trackers_get_no_digest(clean_engine):

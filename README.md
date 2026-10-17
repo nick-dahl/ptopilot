@@ -66,7 +66,7 @@ The repo is linked to Neon project `green-feather-91450838`, branch `production`
 .venv/Scripts/python -m ptopilot.digest send                                 # email them (needs RESEND_API_KEY)
 ```
 
-`.github/workflows/digest.yml` sends on Mondays and Thursdays at 12:00 UTC, after the morning scan. A digest with no deals ("quiet week") only goes out on Mondays. Run it by hand from the Actions tab with `min_level: none` to get a tuning email built from every priced trip. Without a verified sending domain, Resend only delivers to the Resend account's own address; a send to anyone else fails, is logged, and the run exits red while the other digests still go out.
+`.github/workflows/digest.yml` sends on Mondays and Thursdays at 12:00 UTC, after the morning scan. A digest with no deals ("quiet week") only goes out on Mondays. Run it by hand from the Actions tab with `min_level: none` to get a tuning email built from every priced trip. Tuning emails go only to `ADMIN_EMAIL` and never count as "already sent". Without a verified sending domain, Resend only delivers to the Resend account's own address; a send to anyone else fails, is logged, and the run exits red while the other digests still go out.
 
 ## Configuration
 

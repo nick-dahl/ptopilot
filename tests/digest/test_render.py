@@ -11,6 +11,7 @@ def card(**overrides) -> DealCard:
     fields = dict(
         candidate_id=1,
         tracker_id=1,
+        route_query_id=1,
         destination="Azores",
         origin="JFK",
         dest_airport="PDL",
