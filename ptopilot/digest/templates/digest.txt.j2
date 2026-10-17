@@ -1,0 +1,35 @@
+ptopilot · {{ digest.run_date | day }}
+{% if digest.quiet %}
+A quiet week: nothing well below typical yet. Your trackers are still watching.
+{% else %}
+{{ digest.deals | length }} trip{{ "s" if digest.deals | length != 1 }} worth a look
+{% endif %}
+{% for d in digest.deals %}
+
+== {{ d.destination }}: {{ levels[d.deal_level] }}, go-now {{ d.go_now }}
+{{ d.depart_date | day }} -> {{ d.return_date | day }}{% if d.evening_departure %} (leave after work){% endif %}, {{ d.origin }} -> {{ d.dest_airport }}{% if d.open_jaw %}, home from {{ d.return_airport }}{% endif %}
+
+{{ d.price | money(d.currency) }} {{ "both flights" if d.open_jaw else "round trip" }}{% if d.typical %}, typically ~{{ d.typical | money(d.currency) }}{% if d.pct_below and d.pct_below > 0 %} ({{ d.pct_below }}% below){% endif %}{% endif %}
+
+Uses {{ d.pto_cost }} PTO day{{ "s" if d.pto_cost != 1 }} for {{ d.days_away }} days away{% if d.days_off %} ({{ d.days_off | join(", ") }} gives you a free day){% endif %}
+
+{% if d.carrier %}
+{{ d.carrier }}, {{ d.stops | stops }}{% if d.duration_min %}, {{ d.duration_min | duration }} out{% endif %}{% if d.outbound_departure %}, departs {{ d.outbound_departure | clock }}{% endif %}{% if d.flight_numbers %}, {{ d.flight_numbers | join(", ") }}{% endif %} (outbound flight)
+{% endif %}
+{% if d.weather_note %}
+{{ "Off-season: " if d.season_rating == "avoid" }}{{ d.weather_note }}
+{% endif %}
+{{ "Live price" if d.verified else "Cached price, not yet confirmed live" }}{% if checked[d.candidate_id] %}, {{ checked[d.candidate_id] }}{% endif %}.{% if d.confidence == "low" %} Typical price is still being learned.{% endif %}
+
+{% if d.deep_link %}
+See flights: {{ d.deep_link }}
+{% endif %}
+{% endfor %}
+
+Your trackers
+{% for t in digest.trackers %}
+- {{ t.destination }}: best {{ t.best_price | money }}, typical {{ t.typical | money }}, 7-day {{ arrows[t.trend] }}, next good month {{ t.next_good_month or "-" }}{% if t.snoozed_until %} (snoozed to {{ t.snoozed_until | day }}){% endif %}
+
+{% endfor %}
+
+Prices change constantly; always confirm before booking.

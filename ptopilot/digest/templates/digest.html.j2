@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>ptopilot digest</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#111827;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;">
+
+  <tr><td style="padding:0 4px 16px;">
+    <div style="font-size:13px;color:#6b7280;letter-spacing:.04em;text-transform:uppercase;">ptopilot · {{ digest.run_date | day }}</div>
+    {% if digest.quiet %}
+    <h1 style="margin:6px 0 0;font-size:22px;line-height:1.3;">A quiet week: nothing well below typical yet</h1>
+    <p style="margin:8px 0 0;font-size:15px;color:#374151;">Your trackers are still watching. Here's where prices stand.</p>
+    {% else %}
+    <h1 style="margin:6px 0 0;font-size:22px;line-height:1.3;">{{ digest.deals | length }} trip{{ "s" if digest.deals | length != 1 }} worth a look</h1>
+    {% endif %}
+  </td></tr>
+
+  {% for d in digest.deals %}
+  <tr><td style="padding:0 0 14px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;">
+      <tr><td style="padding:16px 18px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td style="font-size:18px;font-weight:700;">{{ d.destination }}</td>
+          <td align="right" style="font-size:12px;">
+            <span style="display:inline-block;padding:3px 8px;border-radius:999px;background:{{ '#dcfce7' if d.deal_level == 'great' else ('#e0f2fe' if d.deal_level == 'good' else '#f3f4f6') }};color:#111827;font-weight:600;">{{ levels[d.deal_level] }}</span>
+            <span style="display:inline-block;padding:3px 8px;margin-left:4px;border-radius:999px;background:#f3f4f6;color:#374151;">Go-now {{ d.go_now }}</span>
+          </td>
+        </tr></table>
+        <div style="margin-top:4px;font-size:14px;color:#374151;">
+          {{ d.depart_date | day }} → {{ d.return_date | day }}{% if d.evening_departure %} · leave after work{% endif %}
+          · {{ d.origin }} → {{ d.dest_airport }}{% if d.open_jaw %}, home from {{ d.return_airport }}{% endif %}
+        </div>
+        <div style="margin-top:12px;font-size:26px;font-weight:700;">{{ d.price | money(d.currency) }}
+          <span style="font-size:14px;font-weight:400;color:#6b7280;">{{ "both flights" if d.open_jaw else "round trip" }}{% if d.typical %} · typically ~{{ d.typical | money(d.currency) }}{% if d.pct_below and d.pct_below > 0 %} ({{ d.pct_below }}% below){% endif %}{% endif %}</span>
+        </div>
+        <div style="margin-top:8px;font-size:14px;color:#111827;">
+          Uses <b>{{ d.pto_cost }} PTO day{{ "s" if d.pto_cost != 1 }}</b> for {{ d.days_away }} days away{% if d.days_off %} ({{ d.days_off | join(", ") }} gives you a free day){% endif %}
+        </div>
+        {% if d.carrier %}
+        <div style="margin-top:6px;font-size:14px;color:#374151;">
+          {{ d.carrier }} · {{ d.stops | stops }}{% if d.duration_min %} · {{ d.duration_min | duration }} out{% endif %}{% if d.outbound_departure %}, departs {{ d.outbound_departure | clock }}{% endif %}{% if d.flight_numbers %} · {{ d.flight_numbers | join(", ") }}{% endif %}
+          <span style="color:#9ca3af;">(outbound flight)</span>
+        </div>
+        {% endif %}
+        {% if d.weather_note %}
+        <div style="margin-top:6px;font-size:14px;color:#374151;">{{ "Off-season: " if d.season_rating == "avoid" }}{{ d.weather_note }}</div>
+        {% endif %}
+        <div style="margin-top:8px;font-size:12px;color:#6b7280;">
+          {{ "Live price" if d.verified else "Cached price, not yet confirmed live" }}{% if checked[d.candidate_id] %}, {{ checked[d.candidate_id] }}{% endif %}. Fares change fast.
+          {% if d.confidence == "low" %}Typical price is still being learned (low confidence).{% endif %}
+        </div>
+        {% if d.deep_link %}
+        <div style="margin-top:14px;">
+          <a href="{{ d.deep_link }}" style="display:inline-block;padding:10px 16px;border-radius:8px;background:#111827;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;">See flights →</a>
+        </div>
+        {% endif %}
+      </td></tr>
+    </table>
+  </td></tr>
+  {% endfor %}
+
+  <tr><td style="padding:10px 4px 6px;font-size:15px;font-weight:700;">Your trackers</td></tr>
+  <tr><td>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;font-size:13px;">
+      <tr style="color:#6b7280;">
+        <td style="padding:10px 12px;">Destination</td><td style="padding:10px 6px;">Best now</td><td style="padding:10px 6px;">Typical</td><td style="padding:10px 6px;">7-day</td><td style="padding:10px 12px;">Next good month</td>
+      </tr>
+      {% for t in digest.trackers %}
+      <tr style="border-top:1px solid #f3f4f6;">
+        <td style="padding:8px 12px;border-top:1px solid #f3f4f6;">{{ t.destination }}{% if t.snoozed_until %} <span style="color:#9ca3af;">(snoozed to {{ t.snoozed_until | day }})</span>{% endif %}</td>
+        <td style="padding:8px 6px;border-top:1px solid #f3f4f6;">{{ t.best_price | money }}</td>
+        <td style="padding:8px 6px;border-top:1px solid #f3f4f6;">{{ t.typical | money }}</td>
+        <td style="padding:8px 6px;border-top:1px solid #f3f4f6;">{{ arrows[t.trend] }}</td>
+        <td style="padding:8px 12px;border-top:1px solid #f3f4f6;">{{ t.next_good_month or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:16px 4px 0;font-size:12px;color:#9ca3af;">
+    Prices are per person in economy and change constantly; always confirm before booking. Sent by ptopilot to {{ digest.email }}.
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

@@ -13,6 +13,7 @@ dependencies = [
     "fast-flights>=3.1,<4",
     # fast-flights 3.1.0 imports typing_extensions without declaring it
     "typing_extensions>=4.12",
+    "jinja2>=3.1",
 ]
 
 [project.optional-dependencies]
@@ -30,6 +31,7 @@ include = ["ptopilot*"]
 
 [tool.setuptools.package-data]
 "ptopilot.data" = ["*.yaml"]
+"ptopilot.digest" = ["templates/*.j2"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
