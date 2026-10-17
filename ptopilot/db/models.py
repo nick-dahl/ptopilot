@@ -50,6 +50,11 @@ class User(Base):
         CheckConstraint("weather_tolerance IN ('strict', 'normal', 'relaxed')", name="weather_tolerance"),
         CheckConstraint("0 < min_trip_days AND min_trip_days <= max_trip_days", name="trip_days"),
         CheckConstraint("pto_days_total >= 0 AND pto_committed >= 0", name="pto_nonneg"),
+        CheckConstraint(
+            "ideal_trip_days IS NULL"
+            " OR (min_trip_days <= ideal_trip_days AND ideal_trip_days <= max_trip_days)",
+            name="ideal_trip_days",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -65,6 +70,7 @@ class User(Base):
     pto_committed: Mapped[int] = mapped_column(SmallInteger, server_default="0")
     min_trip_days: Mapped[int] = mapped_column(SmallInteger, server_default="3")
     max_trip_days: Mapped[int] = mapped_column(SmallInteger)
+    ideal_trip_days: Mapped[int | None] = mapped_column(SmallInteger)  # None: no preferred length
     weather_tolerance: Mapped[str] = mapped_column(String(8), server_default="normal")
     max_stops_short: Mapped[int] = mapped_column(SmallInteger, server_default="1")
     max_stops_long: Mapped[int] = mapped_column(SmallInteger, server_default="2")

@@ -40,6 +40,7 @@ USER_FIELDS = {
     "pto_committed": int,
     "min_trip_days": int,
     "max_trip_days": int,
+    "ideal_trip_days": int,
     "weather_tolerance": str,
     "max_stops_short": int,
     "max_stops_long": int,
@@ -128,6 +129,13 @@ def parse_profile(data: dict, geo: Geo) -> Profile:
             problems.append(
                 f"min_trip_days/max_trip_days: need 0 < min <= max, got {lo}..{user['max_trip_days']}"
             )
+    if ok_int("ideal_trip_days"):
+        lo, hi = user.get("min_trip_days", DEFAULT_MIN_TRIP_DAYS), user.get("max_trip_days")
+        if isinstance(lo, int) and isinstance(hi, int) and not lo <= user["ideal_trip_days"] <= hi:
+            problems.append(
+                f"ideal_trip_days: {user['ideal_trip_days']} is outside your trip length {lo}..{hi}"
+            )
+    user.setdefault("ideal_trip_days", None)  # absent means no preference, and clears a stored one
     if ok_int("pto_days_total") and user["pto_days_total"] < 0:
         problems.append("pto_days_total: must be 0 or more")
     if ok_int("pto_committed"):

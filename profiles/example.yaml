@@ -11,6 +11,7 @@ pto_days_total: 22
 pto_committed: 7                 # already spoken for
 min_trip_days: 7                 # days away from home
 max_trip_days: 16                # two work weeks plus the weekends either side
+ideal_trip_days: 10              # optional: trips near this length are priced first and score higher
 weather_tolerance: normal        # strict | normal | relaxed ("normal" skips months rated avoid)
 max_stops_short: 3
 max_stops_long: 3

@@ -16,6 +16,7 @@ from ptopilot.db.models import Tracker, TravelWindow, User
 INT_FIELDS = (
     "pto_days_total", "pto_committed", "min_trip_days", "max_trip_days", "max_stops_short", "max_stops_long",
 )  # fmt: skip
+OPTIONAL_INT_FIELDS = ("ideal_trip_days",)  # blank means "no preference"
 TEXT_FIELDS = ("home_airport", "country", "holiday_calendar", "weather_tolerance")
 BOOL_FIELDS = ("allow_overnight_layover", "friday_evening_departure")
 EXTRA_ROWS = 2  # blank rows offered for new windows and trackers
@@ -49,7 +50,7 @@ def form_to_profile(form: Mapping[str, str], email: str) -> dict:
         value = (form.get(key) or "").strip()
         if value:
             data[key] = value.upper() if key in ("home_airport", "country") else value
-    for key in INT_FIELDS:
+    for key in INT_FIELDS + OPTIONAL_INT_FIELDS:
         value = _int(form.get(key, ""))
         if value is not None:
             data[key] = value
@@ -89,10 +90,12 @@ def profile_to_form(s: Session, user: User | None) -> dict[str, str]:
             "max_stops_short": "1",
             "max_stops_long": "2",
             "friday_evening_min_time": "17:00",
+            "ideal_trip_days": "",
         }
         windows, trackers = [], []
     else:
         form = {key: str(getattr(user, key)) for key in INT_FIELDS} | {
+            "ideal_trip_days": str(user.ideal_trip_days) if user.ideal_trip_days is not None else "",
             "home_airport": user.home_airport,
             "country": user.country,
             "holiday_calendar": user.holiday_calendar,
