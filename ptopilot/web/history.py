@@ -17,10 +17,9 @@ from ptopilot.core.geo import Geo, Palette, palette
 from ptopilot.core.seasons import SeasonTable, trip_month
 from ptopilot.db.models import Candidate, PriceObservation, RouteQuery, Tracker, TrackerRouteLink
 from ptopilot.db.session import session_scope
-from ptopilot.digest.select import _next_good_month as next_good_month
-from ptopilot.digest.select import latest_run_date
+from ptopilot.digest.select import latest_run_date, next_good_month
 from ptopilot.pipeline.queries import load_baselines, rq_baseline_key
-from ptopilot.web.viz import BarGeometry, TrendPoint, bar_geometry
+from ptopilot.web.viz import BarGeometry, TrendPoint, bar_geometry, sigma_floor
 
 TREND_DAYS = 30
 DIMMED_STATES = frozenset({"snoozed", "excluded"})
@@ -172,7 +171,10 @@ def typical_band(options: list[TripOption]) -> tuple[Decimal, Decimal] | None:
     best = options[0] if options else None
     if best is None or best.median is None:
         return None
-    median, sigma = Decimal(str(round(best.median))), Decimal(str(round(best.sigma or 0)))
+    median, sigma = (
+        Decimal(str(round(best.median))),
+        Decimal(str(round(sigma_floor(best.median, best.sigma)))),
+    )
     return median - sigma, median + sigma
 
 

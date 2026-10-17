@@ -101,6 +101,8 @@ def parse_profile(data: dict, geo: Geo) -> Profile:
         problems.append(f"unknown field(s) {sorted(unknown)}")
 
     user = {k: data[k] for k in USER_FIELDS if k in data}
+    if user.get("ideal_trip_days", 0) is None:
+        user.pop("ideal_trip_days")  # an explicit null means no preference, same as leaving it out
     for key, kind in USER_FIELDS.items():
         if key not in user:
             continue

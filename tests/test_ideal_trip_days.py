@@ -22,6 +22,11 @@ def test_ideal_trip_days_is_optional_and_defaults_to_none():
     assert parse_profile(data, GEO).user["ideal_trip_days"] is None
 
 
+def test_an_explicit_null_ideal_means_no_preference():
+    parsed = parse_profile({**EXAMPLE, "ideal_trip_days": None}, GEO)
+    assert parsed.user["ideal_trip_days"] is None
+
+
 def test_example_profile_sets_an_ideal_length():
     assert parse_profile(EXAMPLE, GEO).user["ideal_trip_days"] == 10
 

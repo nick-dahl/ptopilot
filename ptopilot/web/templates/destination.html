@@ -8,9 +8,9 @@
   <div class="hero-actions">
     {% if snoozed_until %}
     <span class="tag">Snoozed until {{ snoozed_until | day }}</span>
-    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/unsnooze"><button class="btn btn-ghost btn-sm" type="submit">Unsnooze</button></form>
+    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/unsnooze"><input type="hidden" name="next" value="/trackers/{{ tracker_id }}"><button class="btn btn-ghost btn-sm" type="submit">Unsnooze</button></form>
     {% else %}
-    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/snooze"><input type="hidden" name="days" value="30"><button class="btn btn-ghost btn-sm" type="submit">Snooze 30 days</button></form>
+    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/snooze"><input type="hidden" name="days" value="30"><input type="hidden" name="next" value="/trackers/{{ tracker_id }}"><button class="btn btn-ghost btn-sm" type="submit">Snooze 30 days</button></form>
     {% endif %}
     <a class="btn btn-ghost btn-sm" href="/">All trips</a>
   </div>
@@ -20,7 +20,7 @@
   <section class="panel">
     <h2>Date options</h2>
     {% if options %}
-    <p class="muted small">From the {{ run_date | day }} scan, cheapest first · {{ season(options[0]) }}. Prices are per person, economy, and change fast.</p>
+    <p class="muted small">From the {{ run_date | day }} scan, cheapest first{% if options | map(attribute="season_rating") | unique | list | length == 1 and options | map(attribute="weather_note") | unique | list | length == 1 %} · {{ season(options[0]) }}{% endif %}. Prices are per person, economy, and change fast.</p>
     <table class="trips">
       <thead><tr><th>Dates</th><th>Price</th><th>vs typical</th><th>PTO</th><th>Flights</th></tr></thead>
       <tbody>
@@ -41,7 +41,7 @@
       </tbody>
     </table>
     {% else %}
-    <p class="muted" style="margin:0;">First prices after the next daily scan.</p>
+    <p class="muted" style="margin:0;">{% if snoozed_until %}Not watching while snoozed.{% else %}First prices after the next daily scan.{% endif %}</p>
     {% endif %}
   </section>
 

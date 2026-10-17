@@ -42,11 +42,16 @@ class TrendChart:
     last: date
 
 
+def sigma_floor(median: float, sigma: float | None) -> float:
+    """sigma, but never so small that the typical band collapses to a line."""
+    return max(float(sigma or 0), config.SIGMA_FLOOR_FRACTION * float(median), 1.0)
+
+
 def bar_geometry(price: Decimal, median: float | None, sigma: float | None) -> BarGeometry | None:
     if median is None:
         return None
     median = float(median)
-    sigma = max(float(sigma or 0), config.SIGMA_FLOOR_FRACTION * median, 1.0)
+    sigma = sigma_floor(median, sigma)
     lo, span = median - BAR_SIGMAS * sigma, 2 * BAR_SIGMAS * sigma
 
     def pos(x: float) -> float:
@@ -62,8 +67,10 @@ def trend_chart(
     if len(points) < config.MIN_TREND_POINTS:
         return None
     points = sorted(points, key=lambda p: p.run_date)
-    prices = [p.price for p in points] + (list(band) if band else [])
-    low, high = min(prices), max(prices)
+    fares = [p.price for p in points]
+    low_fare, high_fare = min(fares), max(fares)
+    # The y-scale also spans the band, so it can be drawn; the labels report the fares only.
+    low, high = min([low_fare, *(band or ())]), max([high_fare, *(band or ())])
     first, last = points[0].run_date, points[-1].run_date
     days = max((last - first).days, 1)
     spread = float(high - low) or 1.0
@@ -105,4 +112,4 @@ def trend_chart(
     cx, cy = xy(points[-1])
     parts.append(f'<circle cx="{cx}" cy="{cy}" r="6" fill="{palette.color}" stroke="#fff" stroke-width="2"/>')
     parts.append("</svg>")
-    return TrendChart(Markup("".join(parts)), low, high, first, last)
+    return TrendChart(Markup("".join(parts)), low_fare, high_fare, first, last)

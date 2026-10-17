@@ -99,7 +99,7 @@ class Digest:
         return not self.deals
 
 
-def _next_good_month(seasons: SeasonTable, codes: tuple[str, ...], start: date) -> str | None:
+def next_good_month(seasons: SeasonTable, codes: tuple[str, ...], start: date) -> str | None:
     for i in range(12):
         month = (start.month - 1 + i) % 12 + 1
         if seasons.rating(codes, month) == "good":
@@ -255,7 +255,7 @@ def build_digests(
                     best_price=best,
                     typical=typical,
                     trend=_trend(best, week_ago.get(t.id)),
-                    next_good_month=_next_good_month(seasons, (dest.code, dest.country), run_date),
+                    next_good_month=next_good_month(seasons, (dest.code, dest.country), run_date),
                     snoozed_until=t.snoozed_until if t.snoozed_until and t.snoozed_until >= today else None,
                     palette=palette(dest),
                 )

@@ -59,10 +59,10 @@ def test_missing_days_break_the_line_into_segments():
     assert chart.svg.count("<polyline") == 2
 
 
-def test_band_is_drawn_when_known_and_widens_the_range():
+def test_band_is_drawn_when_known_and_widens_the_range_but_not_the_labels():
     chart = trend_chart(points(700, 690, 680), (Decimal(600), Decimal(760)), TEAL)
     assert "<rect" in chart.svg and "#c3dde3" in chart.svg
-    assert (chart.low, chart.high) == (Decimal(600), Decimal(760))
+    assert (chart.low, chart.high) == (Decimal(680), Decimal(700))  # the fares, not the band's edges
     assert "<rect" not in trend_chart(points(700, 690, 680), None, TEAL).svg
 
 

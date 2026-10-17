@@ -1,5 +1,6 @@
 """Queries behind the dashboard cards and the destination page."""
 
+from dataclasses import replace
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -138,3 +139,12 @@ def test_a_summarys_best_trip_skips_excluded_ones(clean_engine):
         s.get(Candidate, excluded).state = "excluded"
     (summary,) = destination_summaries(clean_engine, GEO, SEASONS, user, RUN)
     assert summary.best.price == 650
+
+
+def test_typical_band_uses_the_same_sigma_floor_as_the_bar(clean_engine):
+    t = add_tracker(clean_engine, add_user(clean_engine))
+    add_candidate(clean_engine, t, 603)
+    add_baseline(clean_engine, 655)
+    (flat,) = [replace(o, sigma=0.0) for o in options(clean_engine, t)]
+    low, high = typical_band([flat])
+    assert (low, high) == (Decimal(635), Decimal(675))

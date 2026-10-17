@@ -84,3 +84,10 @@ def test_only_if_under_rejects_odd_prices_with_a_message(client, clean_engine, p
     assert response.status_code == 400 and "between $1 and $99,999" in response.text
     with session_scope(clean_engine) as s:
         assert s.get(Tracker, tid).max_price is None
+
+
+def test_unknown_paths_get_the_styled_not_found_page(client):
+    page = client.get("/foo")
+    assert page.status_code == 404 and "text/html" in page.headers["content-type"]
+    assert 'href="/static/app.css"' in page.text and "Not found" in page.text
+    assert client.get("/healthz").json() == {"ok": True}

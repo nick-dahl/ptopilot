@@ -50,7 +50,7 @@
     <div class="meta">{{ o.depart_date | dates(o.return_date) }} · {{ o.pto_cost }} PTO for {{ o.days_away }} days{% if o.open_jaw %} · open-jaw{% endif %}</div>
     <div class="meta">{{ season(o) }}</div>
     {% else %}
-    <div class="meta">First prices after the next daily scan.</div>
+    <div class="meta">{% if s.snoozed_until %}Not watching while snoozed.{% else %}First prices after the next daily scan.{% endif %}</div>
     {% endif %}
     {% if s.snoozed_until %}<div class="meta">Snoozed until {{ s.snoozed_until | day }}</div>{% endif %}
   </div>

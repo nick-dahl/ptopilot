@@ -9,18 +9,23 @@ a GET that changed state would snooze trackers nobody clicked.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
+from http import HTTPStatus
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import BackgroundTasks, FastAPI, Form, Request
+from fastapi import Path as PathParam
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine, select
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 from ptopilot.core.geo import Geo, palette
@@ -44,6 +49,8 @@ log = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).parent
 TEMPLATES = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 TEMPLATES.env.filters.update(money=money, day=day, dates=date_range, stops=stops)
+TRACKER_ID = Annotated[int, PathParam(ge=1, le=2**31 - 1)]  # Postgres int4; larger ids would be a 500
+TRACKER_URL = re.compile(r"/trackers/\d+")
 SESSION_MAX_AGE_S = 30 * 24 * 3600
 LOGIN_COOLDOWN_S = 120  # at most one sign-in email per address per 2 minutes
 
@@ -112,6 +119,20 @@ def create_app(
         """Malformed form fields or URLs (e.g. a non-numeric id) get a page, not FastAPI's JSON."""
         message = "Something in that request didn't look right. Go back and try again."
         return page(request, "message.html", 400, title="That didn't work", message=message)
+
+    @app.exception_handler(StarletteHTTPException)
+    def http_error(request: Request, exc: StarletteHTTPException):
+        """Unknown URLs and other HTTP errors get a page, not FastAPI's JSON."""
+        if exc.status_code == 404:
+            return page(
+                request, "message.html", 404, title="Not found", message="There's nothing at this address."
+            )
+        title = (
+            HTTPStatus(exc.status_code).phrase
+            if exc.status_code in HTTPStatus._value2member_map_
+            else "Error"
+        )
+        return page(request, "message.html", exc.status_code, title=title, message="That didn't work.")
 
     @app.get("/healthz")
     def healthz():
@@ -198,12 +219,12 @@ def create_app(
         )
 
     @app.get("/trackers/{tracker_id}")
-    def destination_page(request: Request, tracker_id: int):
+    def destination_page(request: Request, tracker_id: TRACKER_ID):
         if not current_email(request):
             return redirect("/")
         with session_scope(engine) as s:
             tracker = owned_tracker(s, request, tracker_id)
-            if tracker is None:  # someone else's or missing: same answer, so ids reveal nothing
+            if tracker is None or not tracker.active:  # someone else's, removed or missing: same answer
                 return page(request, "message.html", 404, title="Not found", message="No such destination.")
             code, stay = tracker.destination_code, (tracker.min_stay_days, tracker.max_stay_days)
             snoozed = tracker.snoozed_until
@@ -226,23 +247,27 @@ def create_app(
             chart=trend_chart(trend(engine, tracker_id, today()), band, palette(dest)),
         )
 
+    def after_snooze(next_url: str) -> RedirectResponse:
+        """Back to the page the form was on, if that is a destination page of ours; never off-site."""
+        return redirect(next_url if TRACKER_URL.fullmatch(next_url) else "/")
+
     @app.post("/trackers/{tracker_id}/snooze")
-    def snooze_tracker(request: Request, tracker_id: int, days: int = Form(30)):
+    def snooze_tracker(request: Request, tracker_id: TRACKER_ID, days: int = Form(30), next: str = Form("")):
         with session_scope(engine) as s:
             tracker = owned_tracker(s, request, tracker_id)
             if tracker is None:
                 return page(request, "message.html", 404, title="Not found", message="No such tracker.")
             snooze(tracker, date.fromordinal(today().toordinal() + max(days, 1)))
-        return redirect("/")
+        return after_snooze(next)
 
     @app.post("/trackers/{tracker_id}/unsnooze")
-    def unsnooze_tracker(request: Request, tracker_id: int):
+    def unsnooze_tracker(request: Request, tracker_id: TRACKER_ID, next: str = Form("")):
         with session_scope(engine) as s:
             tracker = owned_tracker(s, request, tracker_id)
             if tracker is None:
                 return page(request, "message.html", 404, title="Not found", message="No such tracker.")
             unsnooze(tracker)
-        return redirect("/")
+        return after_snooze(next)
 
     # --- profile / onboarding --------------------------------------------------------------------
 
