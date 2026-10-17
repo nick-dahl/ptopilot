@@ -100,3 +100,31 @@ def test_invalid_inputs_are_rejected():
 def test_inverted_trip_length_range_is_rejected():
     with pytest.raises(ValueError, match="10"):
         profile(min_trip_days=10, max_trip_days=5)
+
+
+NYC = ("JFK", "EWR", "PHL")
+
+
+def test_open_jaw_route_pairs_arrival_and_return_airports():
+    camino = TrackerSpec("CAMINO_PORTUGUES", min_stay_days=11, max_stay_days=14)
+    march = Window(date(2027, 3, 1), date(2027, 3, 31))
+    its = plan_itineraries(
+        profile(home_airports=NYC, weather_tolerance="relaxed"), camino, [march], GEO, SEASONS
+    )
+    assert its
+    assert {(i.dest_airport, i.return_airport) for i in its} == {("OPO", "SCQ")}
+    assert all(i.open_jaw for i in its)
+    assert {i.origin for i in its} == set(NYC)
+
+
+def test_round_trips_return_from_the_arrival_airport():
+    its = plan_itineraries(profile(), THAILAND, [JUNE], GEO, SEASONS)
+    assert all(i.return_airport == i.dest_airport and not i.open_jaw for i in its)
+
+
+def test_new_destinations_load_with_seasons():
+    for code in ("PATAGONIA", "AZORES", "MADEIRA", "CAMINO_PORTUGUES"):
+        dest = GEO.destination(code)
+        assert SEASONS.rating([dest.code, dest.country], 3) in ("good", "shoulder", "avoid")
+    assert SEASONS.rating(["PATAGONIA"], 7) == "avoid"  # southern winter
+    assert GEO.travel_rule("JFK", GEO.destination("PATAGONIA")).overhead_days == 3

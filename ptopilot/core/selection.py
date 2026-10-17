@@ -33,11 +33,15 @@ def satisfies(shape: TripShape, c: ShapeConstraints) -> bool:
     return shape.pto_cost <= c.pto_available
 
 
-def select_top(shapes: Iterable[TripShape], n: int = 6, max_per_length: int = 2) -> list[TripShape]:
-    """Best n shapes by PTO efficiency, at most max_per_length per trip length, and at most
-    one per (depart, return) pair so an evening variant never duplicates its regular twin.
+def select_top(
+    shapes: Iterable[TripShape], n: int = 6, max_per_length: int = 2, max_per_week: int | None = None
+) -> list[TripShape]:
+    """Best n shapes by PTO efficiency, with diversity limits: at most max_per_length per trip length,
+    at most max_per_week per departure week (ISO week; None = unlimited), and at most one per
+    (depart, return) pair so an evening variant never duplicates its regular twin.
 
-    Ties: fewer PTO days, then earlier departure, then the non-evening variant.
+    Ties: fewer PTO days, then earlier departure, then the non-evening variant. Without a weekly limit,
+    windows with no holidays (where every week ties) would only ever get trips from their first weeks.
     """
     ranked = sorted(
         shapes,
@@ -45,13 +49,18 @@ def select_top(shapes: Iterable[TripShape], n: int = 6, max_per_length: int = 2)
     )
     picked: list[TripShape] = []
     per_length: Counter[int] = Counter()
+    per_week: Counter[tuple[int, int]] = Counter()
     seen_dates: set[tuple[date, date]] = set()
     for s in ranked:
         dates = (s.depart_date, s.return_date)
+        week = s.depart_date.isocalendar()[:2]
         if per_length[s.days_away] >= max_per_length or dates in seen_dates:
+            continue
+        if max_per_week is not None and per_week[week] >= max_per_week:
             continue
         picked.append(s)
         per_length[s.days_away] += 1
+        per_week[week] += 1
         seen_dates.add(dates)
         if len(picked) == n:
             break

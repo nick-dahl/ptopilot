@@ -1,8 +1,9 @@
 """Tunable thresholds and weights. Change behavior here, not in the logic modules."""
 
 # Itinerary pruning
-TOP_SHAPES_PER_WINDOW = 6
-MAX_SHAPES_PER_LENGTH = 2
+TOP_SHAPES_PER_WINDOW = 8
+MAX_SHAPES_PER_LENGTH = 3
+MAX_SHAPES_PER_WEEK = 2  # spread picks across the window instead of bunching at its start
 WINDOW_SLACK_DAYS = 2
 
 # Baselines
@@ -36,3 +37,4 @@ LIVE_DELAY_S = (3.0, 8.0)  # random pause between live checks
 SOURCE_BUDGETS = {"serpapi": {"per_day": 8, "per_month": 250}}  # every attempted call counts
 SHORT_HAUL_MAX_MIN = 600  # fastest option under 10 h -> short-haul stop limit applies
 MAX_DURATION_RATIO = 1.5
+LIVE_HORIZON_DAYS = 300  # Google Flights returns nothing ~10-11 months out; don't spend checks beyond this

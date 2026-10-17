@@ -57,11 +57,16 @@ class TrackerSpec:
 @dataclass(frozen=True)
 class PlannedItinerary:
     origin: str
-    dest_airport: str
+    dest_airport: str  # fly into
     destination_code: str
     shape: TripShape
     month: int
     season_rating: Rating
+    return_airport: str  # fly home from; equals dest_airport except on open-jaw routes
+
+    @property
+    def open_jaw(self) -> bool:
+        return self.return_airport != self.dest_airport
 
 
 def plan_itineraries(
@@ -73,13 +78,18 @@ def plan_itineraries(
     top_n: int = config.TOP_SHAPES_PER_WINDOW,
 ) -> list[PlannedItinerary]:
     """For each window and home airport: generate shapes, apply limits and season filter,
-    keep the top_n, then fan out across the destination's airports. Duplicates from
-    overlapping windows are dropped."""
+    keep the top_n, then fan out across the destination's (arrival, return) airport pairs:
+    the same airport both ways for ordinary trips, every arrival x return pair for open-jaw
+    routes. Duplicates from overlapping windows are dropped."""
     dest = geo.destination(tracker.destination_code)
     season_codes = (dest.code, dest.country)
     pto_available = max(profile.pto_available, 0)
     out: list[PlannedItinerary] = []
-    seen: set[tuple[str, str, TripShape]] = set()
+    seen: set[tuple[str, str, str, TripShape]] = set()
+    if dest.open_jaw:
+        airport_pairs = [(a, r) for a in dest.airports for r in dest.home_from]
+    else:
+        airport_pairs = [(a, a) for a in dest.airports]
 
     for window in windows:
         shapes = generate_shapes(
@@ -109,12 +119,17 @@ def plan_itineraries(
                 if is_allowed(rating, profile.weather_tolerance):
                     season_of[s] = (month, rating)
 
-            for s in select_top(season_of, n=top_n, max_per_length=config.MAX_SHAPES_PER_LENGTH):
+            for s in select_top(
+                season_of,
+                n=top_n,
+                max_per_length=config.MAX_SHAPES_PER_LENGTH,
+                max_per_week=config.MAX_SHAPES_PER_WEEK,
+            ):
                 month, rating = season_of[s]
-                for airport in dest.airports:
-                    key = (origin, airport, s)
+                for airport, home_from in airport_pairs:
+                    key = (origin, airport, home_from, s)
                     if key in seen:
                         continue
                     seen.add(key)
-                    out.append(PlannedItinerary(origin, airport, dest.code, s, month, rating))
+                    out.append(PlannedItinerary(origin, airport, dest.code, s, month, rating, home_from))
     return out

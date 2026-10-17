@@ -71,3 +71,12 @@ def test_select_top_keeps_one_shape_per_date_pair():
 def test_select_top_returns_at_most_n():
     shapes = [shape(9 + i, 5) for i in range(8)]
     assert len(select_top(shapes, n=6)) == 6
+
+
+def test_select_top_spreads_across_departure_weeks():
+    # Equal efficiency every week (no holidays): without a weekly cap, ties all go to the first weeks.
+    weekly = [shape(9, 5, date(2027, 3, 6) + timedelta(days=7 * w)) for w in range(4)]
+    weekly += [shape(10, 5, date(2027, 3, 5) + timedelta(days=7 * w)) for w in range(4)]
+    picked = select_top(weekly, n=4, max_per_length=4, max_per_week=1)
+    assert sorted(s.depart_date.isocalendar()[1] for s in picked) == [9, 10, 11, 12]
+    assert len(select_top(weekly, n=4, max_per_length=4)) == 4  # unlimited by default
