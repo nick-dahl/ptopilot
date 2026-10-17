@@ -33,6 +33,7 @@ def profile_for(user: User) -> TravelerProfile:
         max_trip_days=user.max_trip_days,
         weather_tolerance=user.weather_tolerance,  # type: ignore[arg-type]
         friday_evening_departure=user.friday_evening_departure,
+        ideal_trip_days=user.ideal_trip_days,
     )
 
 

@@ -13,7 +13,7 @@ from datetime import timedelta
 from sqlalchemy import delete, select
 
 from ptopilot import config
-from ptopilot.core.scoring import go_now
+from ptopilot.core.scoring import go_now, length_fit
 from ptopilot.core.stats import deal_level, z_score
 from ptopilot.db.models import Candidate, PriceObservation, RouteQuery, Tracker, TrackerRouteLink, User
 from ptopilot.db.session import session_scope
@@ -126,6 +126,7 @@ def run(ctx: RunContext) -> dict[str, int]:
                         link.efficiency,
                         (rq.depart_date - ctx.run_date).days,
                         ctx.geo.is_international(rq.origin, dest),
+                        length_fit=length_fit(link.days_away, user.ideal_trip_days),
                     ),
                     confidence=b.confidence if b else "low",
                     verified=is_verified,

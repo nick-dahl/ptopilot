@@ -33,6 +33,7 @@ class TravelerProfile:
     max_trip_days: int
     weather_tolerance: Tolerance = "normal"
     friday_evening_departure: bool = False
+    ideal_trip_days: int | None = None  # preferred days away; trips near it are priced first
 
     def __post_init__(self) -> None:
         if not 0 < self.min_trip_days <= self.max_trip_days:
@@ -124,6 +125,7 @@ def plan_itineraries(
                 n=top_n,
                 max_per_length=config.MAX_SHAPES_PER_LENGTH,
                 max_per_week=config.MAX_SHAPES_PER_WEEK,
+                ideal_days=profile.ideal_trip_days,
             ):
                 month, rating = season_of[s]
                 for airport, home_from in airport_pairs:
