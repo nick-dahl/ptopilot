@@ -84,3 +84,7 @@ def test_unknown_return_airport_is_rejected():
     }
     with pytest.raises(ValueError, match="NOPE"):
         Geo.from_dict(bad)
+
+
+def test_destinations_are_listed_by_name():
+    assert [d.code for d in GEO.destinations()] == ["LAX", "TH"]  # Los Angeles, Thailand

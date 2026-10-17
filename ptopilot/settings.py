@@ -27,6 +27,12 @@ class Settings:
     resend_api_key: str = ""
     admin_email: str = ""
     email_from: str = DEFAULT_EMAIL_FROM
+    secret_key: str = (
+        ""  # signs sign-in links, sessions and snooze links; shared by the web app and the digest job
+    )
+    app_base_url: str = (
+        ""  # public URL of the web app, e.g. https://ptopilot.onrender.com; enables snooze links
+    )
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> Settings:
@@ -37,4 +43,6 @@ class Settings:
             resend_api_key=env.get("RESEND_API_KEY", ""),
             admin_email=env.get("ADMIN_EMAIL", ""),
             email_from=env.get("EMAIL_FROM") or DEFAULT_EMAIL_FROM,
+            secret_key=env.get("SECRET_KEY", ""),
+            app_base_url=(env.get("APP_BASE_URL") or "").rstrip("/"),
         )

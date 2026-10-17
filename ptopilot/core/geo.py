@@ -91,6 +91,10 @@ class Geo:
         except KeyError:
             raise UnknownCodeError(f"Unknown airport: {code!r}") from None
 
+    def destinations(self) -> list[Destination]:
+        """Every known destination, sorted by name."""
+        return sorted(self._destinations.values(), key=lambda d: d.name)
+
     def destination(self, code: str) -> Destination:
         try:
             return self._destinations[code]

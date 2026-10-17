@@ -35,3 +35,9 @@ def test_email_settings_default_to_resend_shared_sender():
     assert (s.resend_api_key, s.admin_email) == ("re", "me@example.com")
     assert s.email_from == "ptopilot <onboarding@resend.dev>"
     assert Settings.from_env({"EMAIL_FROM": "deals@example.com"}).email_from == "deals@example.com"
+
+
+def test_web_settings():
+    s = Settings.from_env({"SECRET_KEY": "k", "APP_BASE_URL": "https://ptopilot.onrender.com/"})
+    assert (s.secret_key, s.app_base_url) == ("k", "https://ptopilot.onrender.com")
+    assert Settings.from_env({}).app_base_url == ""
