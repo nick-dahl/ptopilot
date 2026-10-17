@@ -8,7 +8,8 @@ Two kinds of entry, deals first in check order:
   EXPLORATION_QUOTA slots are reserved for these so history keeps building even on days full of deals,
   and exploration also takes any of the LIVE_CHECK_CAP slots that deals leave unused.
 
-Departures more than LIVE_HORIZON_DAYS out are left alone: Google can't price them yet.
+Departures more than LIVE_HORIZON_DAYS out are left alone: Google can't price them yet. Open-jaw routes
+are capped at what open-jaw-capable sources (SerpApi) can still price today.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from ptopilot.core.stats import z_score
 from ptopilot.db.models import LiveCheck, ShortlistEntry, Tracker, TrackerRouteLink
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext
+from ptopilot.pipeline.live_verify import Budget
 from ptopilot.pipeline.queries import (
     cached_prices,
     date_key,
@@ -42,6 +44,18 @@ def urgency(days_until: int) -> float:
     if days_until <= 120:
         return config.URGENCY["sweet"]
     return config.URGENCY["far"]
+
+
+def open_jaw_capacity(ctx: RunContext) -> int:
+    """How many open-jaw routes the configured sources can still price today."""
+    budget, total = Budget(ctx), 0
+    for src in ctx.live_sources:
+        if src.supports_open_jaw:
+            left = budget.remaining_today(src.name)
+            if left is None:
+                return config.LIVE_CHECK_CAP
+            total += left
+    return total
 
 
 def run(ctx: RunContext) -> dict[str, int]:
@@ -70,7 +84,7 @@ def run(ctx: RunContext) -> dict[str, int]:
         }
 
         deals: list[tuple[float, int, Decimal]] = []
-        explore: list[tuple[datetime, date, int, Decimal | None]] = []
+        explore: list[tuple[datetime, date, int, Decimal | None, bool]] = []
         for rq in rqs:
             if (rq.depart_date - ctx.run_date).days > config.LIVE_HORIZON_DAYS:
                 counts["beyond_horizon"] += 1
@@ -79,7 +93,15 @@ def run(ctx: RunContext) -> dict[str, int]:
             b = baselines.get(rq_baseline_key(rq))
             if est is None or b is None or b.n < config.COLD_START_N:
                 seen = last_checked.get(rq.id, NEVER)
-                explore.append((seen, rq.depart_date, rq.id, est.price if est else None))
+                explore.append(
+                    (
+                        seen,
+                        rq.depart_date,
+                        rq.id,
+                        est.price if est else None,
+                        rq.return_airport != rq.dest_airport,
+                    )
+                )
                 continue
             z = z_score(float(est.price), b)
             if z > config.SHORTLIST_Z:
@@ -92,6 +114,16 @@ def run(ctx: RunContext) -> dict[str, int]:
             deals.append((score, rq.id, est.price))
 
         explore.sort()
+        # Open-jaw routes nobody can price today would otherwise sit at the front of the queue every day.
+        room_for_open_jaw, kept = open_jaw_capacity(ctx), []
+        for item in explore:
+            if item[4]:
+                if room_for_open_jaw <= 0:
+                    counts["open_jaw_unpriceable"] += 1
+                    continue
+                room_for_open_jaw -= 1
+            kept.append(item)
+        explore = kept
         deals.sort(key=lambda d: (-d[0], d[1]))
         reserved = min(config.EXPLORATION_QUOTA, len(explore))
         picked_deals = deals[: config.LIVE_CHECK_CAP - reserved]
@@ -105,7 +137,7 @@ def run(ctx: RunContext) -> dict[str, int]:
                     run_date=ctx.run_date, route_query_id=rq_id, rank=rank, reason="deal", est_price=price
                 )
             )
-        for _, _, rq_id, price in picked_explore:
+        for _, _, rq_id, price, _ in picked_explore:
             rank += 1
             s.add(
                 ShortlistEntry(

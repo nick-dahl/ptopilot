@@ -61,4 +61,6 @@ def downgrade() -> None:
     )
     for table in TABLES:
         op.drop_column(table, "return_airport")
+    # Codes longer than 8 characters (e.g. CAMINO_PORTUGUES) can't survive the narrower column.
+    op.execute("DELETE FROM trackers WHERE length(destination_code) > 8")
     op.alter_column("trackers", "destination_code", type_=sa.String(length=8), existing_nullable=False)

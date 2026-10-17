@@ -43,6 +43,16 @@ class Budget:
             return False
         return self.used_this_month(source) < caps["per_month"]
 
+    def remaining_today(self, source: str) -> int | None:
+        """Calls this source may still make today (None = unbudgeted)."""
+        caps = config.SOURCE_BUDGETS.get(source)
+        if caps is None:
+            return None
+        left = min(
+            caps["per_day"] - self.used_today(source), caps["per_month"] - self.used_this_month(source)
+        )
+        return max(left, 0)
+
     def used_today(self, source: str) -> int:
         with session_scope(self._ctx.engine) as s:
             return s.scalar(
@@ -142,6 +152,11 @@ def run(ctx: RunContext) -> dict[str, int]:
         )
 
     budget = Budget(ctx)
+    # Open-jaw routes can only be priced by budgeted SerpApi, so round-trip fallbacks never spend
+    # the calls those routes still need.
+    pending_open_jaw = sum(
+        1 for rq in entries if rq.id not in checked and rq.return_airport != rq.dest_airport
+    )
     consecutive_failures: Counter[str] = Counter()
     disabled: set[str] = set()
     for i, rq in enumerate(entries):
@@ -160,6 +175,8 @@ def run(ctx: RunContext) -> dict[str, int]:
             config.DEFAULT_CURRENCY,
             return_from=rq.return_airport,
         )
+        if query.open_jaw:
+            pending_open_jaw -= 1
         capable = [src for src in usable if src.supports_open_jaw or not query.open_jaw]
         if not capable:  # e.g. open-jaw with SerpApi unconfigured or out of budget for today
             counts["no_open_jaw_source"] += 1
@@ -169,6 +186,11 @@ def run(ctx: RunContext) -> dict[str, int]:
                 disabled.add(src.name)
                 counts[f"{src.name}_budget_exhausted"] += 1
                 continue
+            if not query.open_jaw and src.supports_open_jaw and pending_open_jaw:
+                left = budget.remaining_today(src.name)
+                if left is not None and left <= pending_open_jaw:
+                    counts[f"{src.name}_reserved_for_open_jaw"] += 1
+                    continue
             budget.charge(src.name)
             try:
                 result = src.exact_search(query)

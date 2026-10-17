@@ -80,3 +80,48 @@ def test_trackers_removed_from_the_file_are_deactivated_not_deleted(session):
     assert summary["trackers_deactivated"] == 2
     active = {t.destination_code: t.active for t in session.scalars(mine(Tracker))}
     assert active == {"PATAGONIA": True, "AZORES": True, "MADEIRA": False, "CAMINO_PORTUGUES": False}
+
+
+def test_value_mistakes_are_all_reported_before_anything_is_written():
+    bad = {
+        **EXAMPLE,
+        "email": "not-an-email",
+        "nearby_airports": ["JFK", "EWR"],  # JFK is already the home airport
+        "country": "USA",
+        "pto_days_total": 10,
+        "pto_committed": 30,
+        "min_trip_days": 12,
+        "max_trip_days": 8,
+        "weather_tolerance": "lenient",
+        "max_stops_short": -1,
+        "trackers": [
+            {"destination": "AZORES", "min_stay": 5, "max_stay": 9, "max_price": -5},
+            {"destination": "MADEIRA", "min_stay": 5, "max_stay": 9, "max_price": "abc"},
+        ],
+    }
+    with pytest.raises(ValueError) as exc:
+        parse_profile(bad, GEO)
+    message = str(exc.value)
+    for fragment in (
+        "email", "JFK", "country", "pto_committed", "min_trip_days", "weather_tolerance",
+        "max_stops_short", "AZORES", "MADEIRA",
+    ):  # fmt: skip
+        assert fragment in message, fragment
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"windows": ["2027-03-01"]},
+        {"trackers": ["AZORES"]},
+        {"pto_days_total": True},
+    ],
+)
+def test_malformed_shapes_are_validation_errors_not_crashes(overrides):
+    with pytest.raises(ValueError, match="invalid profile"):
+        parse_profile({**EXAMPLE, **overrides}, GEO)
+
+
+def test_non_mapping_file_is_a_validation_error():
+    with pytest.raises(ValueError, match="invalid profile"):
+        parse_profile(["just", "a", "list"], GEO)

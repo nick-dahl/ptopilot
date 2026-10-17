@@ -14,12 +14,13 @@ import argparse
 import sys
 from dataclasses import dataclass, field
 from datetime import date, time
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import yaml
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ptopilot.core.calendar import WorkCalendar
@@ -45,6 +46,8 @@ USER_FIELDS = {
     "friday_evening_departure": bool,
 }
 REQUIRED = ("email", "home_airport", "country", "holiday_calendar", "pto_days_total", "max_trip_days")
+TOLERANCES = ("strict", "normal", "relaxed")
+DEFAULT_MIN_TRIP_DAYS = 3  # matches the users.min_trip_days server default
 
 
 @dataclass
@@ -81,7 +84,10 @@ def _as_date(value, where: str, problems: list[str]) -> date | None:
 def parse_profile(data: dict, geo: Geo) -> Profile:
     """Validate a profile mapping. Raises ValueError listing every problem found."""
     problems: list[str] = []
-    data = data or {}
+    if data is None:
+        data = {}
+    if not isinstance(data, dict):
+        raise ValueError("invalid profile:\n  - the file must be a mapping of field: value pairs")
     for key in REQUIRED:
         if data.get(key) in (None, ""):
             problems.append(f"missing required field {key!r}")
@@ -94,8 +100,50 @@ def parse_profile(data: dict, geo: Geo) -> Profile:
 
     user = {k: data[k] for k in USER_FIELDS if k in data}
     for key, kind in USER_FIELDS.items():
-        if key in user and not isinstance(user[key], kind):
-            problems.append(f"{key}: expected {kind.__name__}, got {user[key]!r}")
+        if key not in user:
+            continue
+        value = user[key]
+        if not isinstance(value, kind) or (kind is int and isinstance(value, bool)):
+            problems.append(f"{key}: expected {kind.__name__}, got {value!r}")
+            user.pop(key)
+
+    def ok_int(key):
+        return isinstance(user.get(key), int)
+
+    email = str(data.get("email") or "")
+    if email and not ("@" in email and "." in email.rsplit("@", 1)[-1]):
+        problems.append(f"email: {email!r} is not an email address")
+    if "country" in user and not (len(user["country"]) == 2 and user["country"].isalpha()):
+        problems.append(f"country: expected a 2-letter code like US, got {user['country']!r}")
+    if "currency" in user and not (len(user["currency"]) == 3 and user["currency"].isalpha()):
+        problems.append(f"currency: expected a 3-letter code like USD, got {user['currency']!r}")
+    if "weather_tolerance" in user and user["weather_tolerance"] not in TOLERANCES:
+        problems.append(
+            f"weather_tolerance: must be one of {list(TOLERANCES)}, got {user['weather_tolerance']!r}"
+        )
+    if ok_int("max_trip_days"):
+        lo = user.get("min_trip_days", DEFAULT_MIN_TRIP_DAYS)
+        if isinstance(lo, int) and not 0 < lo <= user["max_trip_days"]:
+            problems.append(
+                f"min_trip_days/max_trip_days: need 0 < min <= max, got {lo}..{user['max_trip_days']}"
+            )
+    if ok_int("pto_days_total") and user["pto_days_total"] < 0:
+        problems.append("pto_days_total: must be 0 or more")
+    if ok_int("pto_committed"):
+        if user["pto_committed"] < 0:
+            problems.append("pto_committed: must be 0 or more")
+        elif ok_int("pto_days_total") and user["pto_committed"] > user["pto_days_total"]:
+            problems.append(
+                f"pto_committed: {user['pto_committed']} is more than pto_days_total {user['pto_days_total']}"
+            )
+    for key in ("max_stops_short", "max_stops_long"):
+        if ok_int(key) and user[key] < 0:
+            problems.append(f"{key}: must be 0 or more")
+
+    nearby = list(data.get("nearby_airports") or [])
+    dupes = sorted({c for c in nearby if c == data.get("home_airport") or nearby.count(c) > 1})
+    if dupes:
+        problems.append(f"nearby_airports: {dupes} repeat the home airport or each other")
 
     for code in [data.get("home_airport"), *(data.get("nearby_airports") or [])]:
         if code:
@@ -121,8 +169,11 @@ def parse_profile(data: dict, geo: Geo) -> Profile:
 
     windows = []
     for i, w in enumerate(data.get("windows") or []):
-        start = _as_date((w or {}).get("start"), f"windows[{i}].start", problems)
-        end = _as_date((w or {}).get("end"), f"windows[{i}].end", problems)
+        if not isinstance(w, dict):
+            problems.append(f"windows[{i}]: expected {{start: YYYY-MM-DD, end: YYYY-MM-DD}}, got {w!r}")
+            continue
+        start = _as_date(w.get("start"), f"windows[{i}].start", problems)
+        end = _as_date(w.get("end"), f"windows[{i}].end", problems)
         if start and end:
             if end < start:
                 problems.append(f"windows[{i}]: ends {end} before it starts {start}")
@@ -133,7 +184,11 @@ def parse_profile(data: dict, geo: Geo) -> Profile:
     trackers = []
     seen = set()
     for i, t in enumerate(data.get("trackers") or []):
-        t = t or {}
+        if not isinstance(t, dict):
+            problems.append(
+                f"trackers[{i}]: expected {{destination: CODE, min_stay: N, max_stay: N}}, got {t!r}"
+            )
+            continue
         code = t.get("destination")
         try:
             geo.destination(code)
@@ -150,9 +205,16 @@ def parse_profile(data: dict, geo: Geo) -> Profile:
         if prio not in (1, 2, 3):
             problems.append(f"trackers[{i}] ({code}): priority must be 1, 2 or 3")
         price = t.get("max_price")
-        trackers.append(
-            TrackerSpecRow(code, lo, hi, prio, Decimal(str(price)) if price is not None else None)
-        )
+        max_price = None
+        if price is not None:
+            try:
+                max_price = Decimal(str(price))
+            except InvalidOperation:
+                max_price = None
+            if max_price is None or isinstance(price, bool) or not max_price.is_finite() or max_price <= 0:
+                problems.append(f"trackers[{i}] ({code}): max_price must be a positive number, got {price!r}")
+                continue
+        trackers.append(TrackerSpecRow(code, lo, hi, prio, max_price))
     if not trackers and not any("trackers[" in p for p in problems):
         problems.append("at least one tracker is required")
 
@@ -229,12 +291,19 @@ def main(argv: list[str] | None = None) -> int:
         print(exc, file=sys.stderr)
         return 2
     engine = make_engine(Settings.from_env().database_url)
-    with Session(engine) as s:
-        summary = apply_profile(s, profile)
-        if args.dry_run:
-            s.rollback()
-        else:
-            s.commit()
+    try:
+        with Session(engine) as s:
+            summary = apply_profile(s, profile)
+            if args.dry_run:
+                s.rollback()
+            else:
+                s.commit()
+    except SQLAlchemyError as exc:  # nothing was saved: the session rolls back on close
+        print(
+            f"database rejected the profile: {type(exc).__name__}: {str(exc).splitlines()[0]}",
+            file=sys.stderr,
+        )
+        return 2
     verb = "would apply" if args.dry_run else "applied"
     print(f"{verb} profile for {profile.email}: " + ", ".join(f"{k}={v}" for k, v in summary.items()))
     return 0
