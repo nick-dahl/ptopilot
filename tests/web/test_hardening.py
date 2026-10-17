@@ -28,8 +28,7 @@ def test_dashboard_still_shows_deals_after_they_were_emailed(client, emailer, cl
     digests = build_digests(clean_engine, load_geo(), load_seasons(), TODAY)
     deliver(clean_engine, digests, TODAY, emailer=CapturingEmailer())  # both deals now count as "sent"
     page = client.get("/").text
-    assert "$603" in page and "$700" in page
-    assert page.index("$603") < page.index("$700")  # cheapest first, not by go-now
+    assert "$603" in page  # the destination's best trip, although it was emailed already
 
 
 def test_removing_an_invite_ends_the_session(client, emailer, clean_engine):

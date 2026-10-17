@@ -1,57 +1,31 @@
 {% extends "base.html" %}
-{% block title %}Dashboard · ptopilot{% endblock %}
+{% from "_components.html" import dest_card, pto_bar %}
+{% block title %}Your trips · ptopilot{% endblock %}
 {% block content %}
-{% if saved %}<p class="ok">Profile saved. The next morning scan will use it.</p>{% endif %}
-<h1>Your trips</h1>
-
-<div class="card">
-  <div class="small muted">PTO for the year</div>
-  <div style="display:flex;justify-content:space-between;margin:4px 0 8px;">
-    <span><b>{{ pto_total - pto_committed }}</b> days available</span>
-    <span class="muted">{{ pto_committed }} of {{ pto_total }} committed</span>
+{% if saved %}<div class="panel notice" style="margin-bottom:14px;">Profile saved. The next morning scan will use it.</div>{% endif %}
+<div class="page-head">
+  <div>
+    <h1>Your trips</h1>
+    <p class="muted small">{% if run_date %}Prices from the {{ run_date | day }} scan.{% else %}Prices appear after the first daily scan (06:00 UTC).{% endif %}</p>
   </div>
-  <div class="bar"><span style="width:{{ (100 * pto_committed / pto_total) | round | int if pto_total else 0 }}%"></span></div>
 </div>
-
-<h2>Trackers</h2>
-<div class="card scroll">
-  {% if trackers %}
-  <table>
-    <tr><th>Destination</th><th>Best now</th><th>Typical</th><th>Next good</th><th></th></tr>
-    {% for t in trackers %}
-    <tr>
-      <td>{{ t.destination }}{% if t.snoozed_until %}<br><span class="pill">snoozed to {{ t.snoozed_until | day }}</span>{% endif %}</td>
-      <td>{{ t.best_price | money }}</td>
-      <td>{{ t.typical | money }}</td>
-      <td>{{ t.next_good_month or "—" }}</td>
-      <td style="text-align:right;white-space:nowrap;">
-        {% if t.snoozed_until %}
-        <form class="inline" method="post" action="/trackers/{{ t.tracker_id }}/unsnooze"><button class="link">Resume</button></form>
-        {% else %}
-        <form class="inline" method="post" action="/trackers/{{ t.tracker_id }}/snooze"><input type="hidden" name="days" value="30"><button class="link">Snooze 30d</button></form>
-        {% endif %}
-      </td>
-    </tr>
+<div class="stack">
+  {{ pto_bar(pto_total, pto_committed) }}
+  {% if summaries %}
+  <div class="grid">
+    {% for s in summaries %}
+    <div>
+      {{ dest_card(s, href="/trackers/%d" % s.tracker_id) }}
+      {% if s.snoozed_until %}
+      <form class="inline" method="post" action="/trackers/{{ s.tracker_id }}/unsnooze">
+        <button class="link-btn small" type="submit" style="margin:8px 4px 0;">Unsnooze {{ s.name }}</button>
+      </form>
+      {% endif %}
+    </div>
     {% endfor %}
-  </table>
+  </div>
   {% else %}
-  <p class="muted">No trackers yet. <a href="/profile">Add destinations to your profile.</a></p>
+  <div class="panel"><p style="margin:0;">No destinations yet. <a href="/profile">Add your bucket list to your profile.</a></p></div>
   {% endif %}
 </div>
-
-<h2>Best options right now</h2>
-{% for d in deals %}
-<div class="card">
-  <div style="display:flex;justify-content:space-between;gap:8px;">
-    <b>{{ d.destination }}</b>
-    <span class="pill">{{ {"great": "Great deal", "good": "Good deal"}.get(d.deal_level, "Tracking") }} · go-now {{ d.go_now }}</span>
-  </div>
-  <div class="small muted">{{ d.depart_date | day }} → {{ d.return_date | day }} · {{ d.origin }} → {{ d.dest_airport }}{% if d.open_jaw %}, home from {{ d.return_airport }}{% endif %} · {{ d.pto_cost }} PTO days</div>
-  <div style="margin-top:6px;"><span class="price">{{ d.price | money(d.currency) }}</span>
-    <span class="muted small">{% if d.typical %}typically ~{{ d.typical | money(d.currency) }}{% endif %}</span></div>
-  {% if d.deep_link %}<p style="margin:8px 0 0;"><a href="{{ d.deep_link }}">See flights →</a></p>{% endif %}
-</div>
-{% else %}
-<div class="card"><p class="muted">No prices yet. The daily scan runs at 06:00 UTC; check back tomorrow.</p></div>
-{% endfor %}
 {% endblock %}

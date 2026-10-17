@@ -33,8 +33,8 @@ def test_new_traveler_fills_in_the_profile_and_lands_on_the_dashboard(client, em
         assert [t.destination_code for t in s.scalars(select(Tracker))] == ["AZORES"]
         assert len(list(s.scalars(select(TravelWindow)))) == 1
     dashboard = client.get("/?saved=1")
-    assert "Profile saved" in dashboard.text and "15</b> days available" in dashboard.text
-    assert "Azores" in dashboard.text and "No prices yet" in dashboard.text
+    assert "Profile saved" in dashboard.text and "15</b> PTO days left" in dashboard.text
+    assert "Azores" in dashboard.text and "First prices after the next daily scan" in dashboard.text
 
 
 def test_invalid_profile_lists_every_problem_and_saves_nothing(client, emailer, clean_engine):
@@ -64,11 +64,12 @@ def test_dashboard_shows_prices_and_snooze_controls(client, emailer, clean_engin
         tracker_id = s.scalar(select(Tracker.id))
     add_candidate(clean_engine, tracker_id, 603, level="good", run_date=TODAY)
     page = client.get("/").text
-    assert "$603" in page and "Good deal" in page and "See flights" in page
+    assert "$603" in page and f'href="/trackers/{tracker_id}"' in page
     assert client.post(f"/trackers/{tracker_id}/snooze", data={"days": "30"}).status_code == 303
     with session_scope(clean_engine) as s:
         assert s.get(Tracker, tracker_id).snoozed_until == TODAY + timedelta(days=30)
-    assert "snoozed to" in client.get("/").text
+    snoozed = client.get("/").text
+    assert "Snoozed until Sat Apr 3" in snoozed and f'action="/trackers/{tracker_id}/unsnooze"' in snoozed
     client.post(f"/trackers/{tracker_id}/unsnooze")
     with session_scope(clean_engine) as s:
         assert s.get(Tracker, tracker_id).snoozed_until is None

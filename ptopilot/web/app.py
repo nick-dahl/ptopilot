@@ -29,13 +29,14 @@ from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import Invite, Tracker, User
 from ptopilot.db.session import make_engine, session_scope
 from ptopilot.digest.render import date_range, day, money
-from ptopilot.digest.select import TrackerRow, build_digests
+from ptopilot.digest.select import latest_run_date
 from ptopilot.links import ACTION_LABELS, TokenError, login_token, read_action_token, read_login_token
 from ptopilot.notify.email import Emailer, EmailError, ResendEmailer
 from ptopilot.profiles import apply_profile, parse_profile
 from ptopilot.settings import Settings
 from ptopilot.trackers import apply_action, snooze, unsnooze
 from ptopilot.web.forms import form_to_profile, profile_to_form, row_count
+from ptopilot.web.history import destination_summaries
 from ptopilot.web.samples import sample_cards
 
 log = logging.getLogger(__name__)
@@ -183,28 +184,13 @@ def create_app(
             if user is None:
                 return redirect("/profile")
             user_id, pto_total, pto_committed = user.id, user.pto_days_total, user.pto_committed
-        # The dashboard shows everything current, including deals already emailed.
-        digests = build_digests(engine, geo, seasons, today(), "none", user_id=user_id, skip_sent=False)
-        digest = digests[0] if digests else None
-        trackers = digest.trackers if digest else []
-        if digest is None:  # no scan has priced anything yet: list the trackers without prices
-            with session_scope(engine) as s:
-                rows = s.scalars(
-                    select(Tracker)
-                    .where(Tracker.user_id == user_id, Tracker.active.is_(True))
-                    .order_by(Tracker.id)
-                )
-                trackers = [
-                    TrackerRow(t.id, geo.destination(t.destination_code).name, None, None, "new", None,
-                               t.snoozed_until if t.snoozed_until and t.snoozed_until >= today() else None)
-                    for t in rows
-                ]  # fmt: skip
+        # Every current trip counts, including deals already emailed.
         return page(
             request,
             "dashboard.html",
-            digest=digest,
-            deals=(sorted(digest.deals, key=lambda d: (d.price, -d.go_now))[:5] if digest else []),
-            trackers=trackers,
+            active="dashboard",
+            summaries=destination_summaries(engine, geo, seasons, user_id, today()),
+            run_date=latest_run_date(engine, today()),
             pto_total=pto_total,
             pto_committed=pto_committed,
             saved=bool(saved),
