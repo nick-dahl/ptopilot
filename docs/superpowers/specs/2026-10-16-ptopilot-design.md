@@ -327,6 +327,21 @@ All weights and thresholds live in `config.py`.
 
 The visual design is expected to change once real digests exist.
 
+### Implementation notes (Plan 5)
+- **Templates:** Jinja2 (`ptopilot/digest/templates/`). Styles are written inline by hand (table layout, 600px max, readable at phone width), so `css-inline` isn't used. Only `*.html.j2` is autoescaped; the text template isn't, so `&` stays `&`.
+- **Which scan:** the digest uses the latest scan on or before the send date.
+- **Price comparison:** a deal's "typical" price is its route's baseline median, and "% below" is computed from it. Open-jaw prices say "both flights" instead of "round trip".
+- **Outbound only:** carrier, stops, duration, departure time and flight numbers describe the outbound flight, and the card says so.
+- **Resends:** a deal already sent is matched on (tracker, route, evening variant) and sent again only once it is at least 5% cheaper (`DIGEST_RESEND_FACTOR = 0.95`).
+- **Caps:** each tracker's best deal is chosen before any tracker's alternates when applying the cap of 8.
+- **Tracker overview:**
+  - "Best now" is the tracker's cheapest candidate in the scan, at any deal level.
+  - "7-day" compares it with the cheapest from 7 days earlier: down or up beyond ±3%, otherwise flat, and "new" without history.
+  - "Next good month" is the first month from the scan month rated good.
+- **Snooze buttons** are deferred to Plan 6, which adds the web app they link to.
+- **Tuning:** `python -m ptopilot.digest send --preview DIR` writes HTML and text files without touching the database or email. `--min-level none` includes trips that aren't deals. The `digest.yml` manual dispatch accepts `min_level`.
+- **Delivery:** a failed send (e.g. Resend refusing a non-account address while no domain is verified) is logged and counted, nothing is recorded for it, the remaining digests still go out, and the CLI exits 1.
+
 ---
 
 ## 9. Web app (`web/`)
