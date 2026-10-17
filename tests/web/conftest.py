@@ -46,6 +46,11 @@ def invite(engine, email):
         s.execute(insert(Invite).values(email=email).on_conflict_do_nothing())
 
 
+def is_landing(response) -> bool:
+    """The signed-out home page: the product pitch with the sign-in form."""
+    return response.status_code == 200 and 'id="sign-in"' in response.text
+
+
 def sign_in(client, emailer, engine, email="nick@example.com"):
     invite(engine, email)
     client.post("/login", data={"email": email})

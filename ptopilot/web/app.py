@@ -36,6 +36,7 @@ from ptopilot.profiles import apply_profile, parse_profile
 from ptopilot.settings import Settings
 from ptopilot.trackers import apply_action, snooze, unsnooze
 from ptopilot.web.forms import form_to_profile, profile_to_form, row_count
+from ptopilot.web.samples import sample_cards
 
 log = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).parent
@@ -121,8 +122,8 @@ def create_app(
     # --- sign-in ---------------------------------------------------------------------------------
 
     @app.get("/login")
-    def login_form(request: Request):
-        return page(request, "login.html")
+    def login_form():
+        return redirect("/")  # the sign-in form lives on the landing page
 
     def send_link(email: str, link: str) -> None:
         if emailer is None:
@@ -169,14 +170,14 @@ def create_app(
     @app.post("/logout")
     def logout(request: Request):
         request.session.clear()
-        return redirect("/login")
+        return redirect("/")
 
     # --- dashboard -------------------------------------------------------------------------------
 
     @app.get("/")
     def dashboard(request: Request, saved: int = 0):
         if not current_email(request):
-            return redirect("/login")
+            return page(request, "landing.html", samples=sample_cards(geo))
         with session_scope(engine) as s:
             user = signed_in_user(s, request)
             if user is None:
@@ -244,7 +245,7 @@ def create_app(
     @app.get("/profile")
     def profile_form(request: Request):
         if not current_email(request):
-            return redirect("/login")
+            return redirect("/")
         with session_scope(engine) as s:
             form = profile_to_form(s, signed_in_user(s, request))
         return profile_page(request, form, [])
@@ -253,7 +254,7 @@ def create_app(
     async def save_profile(request: Request):
         email = current_email(request)
         if not email:
-            return redirect("/login")
+            return redirect("/")
         form = {k: str(v) for k, v in (await request.form()).items()}
         try:
             profile = parse_profile(form_to_profile(form, email), geo)

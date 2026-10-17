@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_components.html" import dest_card %}
+{% block title %}ptopilot · flight deals that fit your PTO{% endblock %}
+{% block content %}
+<section class="landing-hero">
+  <div>
+    <h1>Your PTO, spent on the right trips at the right price.</h1>
+    <p class="lede">Tell ptopilot your days off, holidays and bucket list. It works out which dates stretch your PTO furthest, watches those fares every day, and emails you when a trip is genuinely cheap.</p>
+    <form id="sign-in" class="signin" method="post" action="/login">
+      <label class="sr-only" for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+      <button class="btn" type="submit">Send sign-in link</button>
+    </form>
+    <p class="muted small" style="margin-top:10px;">Invite-only for now. We'll email a link that signs you in, with no password.</p>
+  </div>
+  <div class="samples" aria-label="Example deals">
+    {% for card in samples %}{{ dest_card(card, sample=True) }}{% endfor %}
+  </div>
+</section>
+
+<section>
+  <h2 style="margin-bottom:14px;">How it works</h2>
+  <div class="steps">
+    <div class="panel step"><h3>Your PTO and windows</h3><p class="muted small" style="margin:6px 0 0;">Days off, your holiday calendar, when you can travel, and where you've been meaning to go.</p></div>
+    <div class="panel step"><h3>A daily fare watch</h3><p class="muted small" style="margin:6px 0 0;">Every morning it prices the date combinations that cost you the fewest PTO days, in the right season.</p></div>
+    <div class="panel step"><h3>Deals, twice a week</h3><p class="muted small" style="margin:6px 0 0;">Monday and Thursday emails flag trips well below their typical price, with one-click snoozes.</p></div>
+  </div>
+</section>
+{% endblock %}

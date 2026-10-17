@@ -1,5 +1,5 @@
 from ptopilot.links import login_token
-from tests.web.conftest import KEY, invite, sign_in
+from tests.web.conftest import KEY, invite, is_landing, sign_in
 
 
 def test_health_check(client):
@@ -8,9 +8,9 @@ def test_health_check(client):
 
 
 def test_pages_require_sign_in(client):
-    for path in ("/", "/profile"):
-        response = client.get(path)
-        assert (response.status_code, response.headers["location"]) == (303, "/login")
+    assert is_landing(client.get("/"))
+    response = client.get("/profile")
+    assert (response.status_code, response.headers["location"]) == (303, "/")
 
 
 def test_uninvited_email_gets_the_same_answer_and_no_email(client, emailer):
@@ -35,13 +35,13 @@ def test_bad_and_expired_links_are_refused(client):
     forged = login_token("some-other-key", "nick@example.com")
     response = client.get(f"/auth?token={forged}")
     assert response.status_code == 400 and "not valid" in response.text
-    assert client.get("/").headers["location"] == "/login"
+    assert is_landing(client.get("/"))
 
 
 def test_sign_out(client, emailer, clean_engine):
     sign_in(client, emailer, clean_engine)
-    assert client.post("/logout").headers["location"] == "/login"
-    assert client.get("/").headers["location"] == "/login"
+    assert client.post("/logout").headers["location"] == "/"
+    assert is_landing(client.get("/"))
 
 
 def test_token_for_a_valid_key_signs_in_directly(client, clean_engine):

@@ -11,7 +11,7 @@ from ptopilot.links import Action, action_token
 from ptopilot.settings import Settings
 from ptopilot.web.app import create_app
 from tests.digest.conftest import add_candidate, add_tracker, add_user
-from tests.web.conftest import KEY, PROFILE_FORM, TODAY, CapturingEmailer, invite, sign_in
+from tests.web.conftest import KEY, PROFILE_FORM, TODAY, CapturingEmailer, invite, is_landing, sign_in
 
 
 def test_dashboard_still_shows_deals_after_they_were_emailed(client, emailer, clean_engine):
@@ -37,8 +37,8 @@ def test_removing_an_invite_ends_the_session(client, emailer, clean_engine):
     client.post("/profile", data=PROFILE_FORM)
     with session_scope(clean_engine) as s:
         s.execute(delete(Invite))
-    assert client.get("/").headers["location"] == "/login"
-    assert client.get("/profile").headers["location"] == "/login"
+    assert is_landing(client.get("/"))
+    assert client.get("/profile").headers["location"] == "/"
 
 
 def test_a_removed_traveler_cannot_recreate_themselves(client, emailer, clean_engine):
@@ -46,7 +46,7 @@ def test_a_removed_traveler_cannot_recreate_themselves(client, emailer, clean_en
     with session_scope(clean_engine) as s:
         s.execute(delete(Invite))
     response = client.post("/profile", data=PROFILE_FORM)
-    assert response.headers["location"] == "/login"
+    assert response.headers["location"] == "/"
     with session_scope(clean_engine) as s:
         assert s.scalar(select(User)) is None and s.scalar(select(Invite)) is None
 
