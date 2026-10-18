@@ -18,7 +18,7 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75  # ~140 paced live checks take 25-30 minutes
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
