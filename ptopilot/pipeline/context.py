@@ -43,6 +43,7 @@ class RunContext:
     dry_run: bool = False
     sleep: Callable[[float], None] = time_module.sleep
     rng: random.Random = field(default_factory=random.Random)
+    clock: Callable[[], float] = time_module.monotonic  # seconds; live_verify's time budget
 
     def stamp(self) -> datetime:
         """observed_at for rows this run writes: now, or noon UTC on run_date when re-running a past day."""

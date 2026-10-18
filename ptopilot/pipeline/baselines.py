@@ -60,12 +60,17 @@ def run(ctx: RunContext) -> dict[str, int]:
                     google[key] = (o.observed_at, o.typical_low, o.typical_high)
 
         prices: defaultdict[BaselineKey, list[float]] = defaultdict(list)
-        for (key, *_), price in daily_min.items():
+        per_trip: defaultdict[BaselineKey, Counter[tuple]] = defaultdict(Counter)
+        for (key, depart, ret, _), price in daily_min.items():
             prices[key].append(float(price))
+            per_trip[key][(depart, ret)] += 1
 
         for key in sorted(wanted):
             g = google.get(key)
-            b = compute_baseline(prices[key], (float(g[1]), float(g[2])) if g else None)
+            trips = per_trip[key]
+            one_trip = bool(trips) and max(trips.values()) > config.SINGLE_TRIP_SHARE * sum(trips.values())
+            floor = config.SINGLE_TRIP_SIGMA_FLOOR_FRACTION if one_trip else config.SIGMA_FLOOR_FRACTION
+            b = compute_baseline(prices[key], (float(g[1]), float(g[2])) if g else None, floor)
             if b is None:
                 counts["no_data"] += 1
                 continue

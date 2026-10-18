@@ -18,7 +18,7 @@ V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](do
 ## Data quality: findings from real API calls (2026-10-16)
 
 - [x] **Broad scan by city, "to anywhere" (tested 2026-10-18, not useful for niche routes).** NYC/EWR→anywhere for March 2027 returns ~100 fares to 59 destinations but none to PDL, FNC, PUQ or OPO; October 2027 returns 10 fares in total; exact NYC→PDL/FNC/PUQ returns nothing in any month. Travelpayouts only caches recently searched routes. The existing broad scan keeps running (free) for hub destinations.
-- [x] **Check fast-flights for completeness.** Now measured daily: the scan health email compares fast-flights with SerpApi on trips both priced the same day (Plan 8). Revisit the source order if fast-flights proves systematically pricier.
+- [x] **Check fast-flights for completeness.** Measured in the scan health email on trips both sources price the same day: each seeded trip while history seeding runs, plus SerpApi fallbacks (Plan 8). Revisit the source order if fast-flights proves systematically pricier; a continuous audit would need spare SerpApi calls, which Camino currently uses.
 - [x] **History seeding.** SerpApi round-trip results carry ~60 days of Google's own daily prices; one call per baseline key seeds a confident baseline (Plan 8; spec `docs/superpowers/specs/2026-10-18-ptopilot-v2-price-data-design.md`). Also: every in-range route is checked daily, and routes Google returns no itineraries for no longer trip the circuit breaker.
 
 ## Later and unsorted ideas

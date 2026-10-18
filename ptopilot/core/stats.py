@@ -25,6 +25,7 @@ class Baseline:
 def compute_baseline(
     prices: Sequence[float],
     google_range: tuple[float, float] | None = None,
+    sigma_floor_fraction: float = config.SIGMA_FLOOR_FRACTION,
 ) -> Baseline | None:
     """Typical price and spread for a route.
 
@@ -47,7 +48,7 @@ def compute_baseline(
         m = w * m + (1 - w) * (low + high) / 2
         s = w * s + (1 - w) * (high - low) / 2
 
-    s = max(s, config.SIGMA_FLOOR_FRACTION * m)
+    s = max(s, sigma_floor_fraction * m)
     confidence: Confidence = "normal" if n >= config.COLD_START_N else "low"
     return Baseline(median=m, sigma=s, n=n, confidence=confidence)
 

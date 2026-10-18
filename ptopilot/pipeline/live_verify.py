@@ -171,14 +171,23 @@ def run(ctx: RunContext) -> dict[str, int]:
             .scalars()
             .all()
         )
-        # A re-run of the same day skips routes already checked successfully for this run date.
-        checked = set(
-            s.scalars(
-                select(LiveCheck.route_query_id).where(
-                    LiveCheck.run_date == ctx.run_date, LiveCheck.ok.is_(True)
+        # A re-run of the same day skips routes already checked successfully for this run date. A budgeted
+        # source's check (SerpApi, e.g. from seed_history) doesn't count for round trips: free Google still
+        # prices them, which is also what gives the health audit its fast-flights vs SerpApi pairs.
+        checked = {
+            rq_id
+            for rq_id, source, dest, ret in s.execute(
+                select(
+                    LiveCheck.route_query_id,
+                    LiveCheck.source,
+                    RouteQuery.dest_airport,
+                    RouteQuery.return_airport,
                 )
+                .join(RouteQuery, RouteQuery.id == LiveCheck.route_query_id)
+                .where(LiveCheck.run_date == ctx.run_date, LiveCheck.ok.is_(True))
             )
-        )
+            if source not in config.SOURCE_BUDGETS or ret != dest
+        }
 
     budget = Budget(ctx)
     # Open-jaw routes can only be priced by budgeted SerpApi, so round-trip fallbacks never spend
@@ -187,11 +196,17 @@ def run(ctx: RunContext) -> dict[str, int]:
         1 for rq in entries if rq.id not in checked and rq.return_airport != rq.dest_airport
     )
     consecutive_failures: Counter[str] = Counter()
+    route_failures: Counter[str] = Counter()
+    succeeded: set[str] = set()
     disabled: set[str] = set()
+    started = ctx.clock()
     for i, rq in enumerate(entries):
         if rq.id in checked:
             counts["already_checked"] += 1
             continue
+        if ctx.clock() - started > config.LIVE_VERIFY_BUDGET_S:
+            counts["out_of_time"] += len(entries) - i
+            break
         usable: list[ExactSearchSource] = [src for src in ctx.live_sources if src.name not in disabled]
         if not usable:
             counts["unchecked"] += len(entries) - i
@@ -228,6 +243,10 @@ def run(ctx: RunContext) -> dict[str, int]:
                 log.warning("%s failed for %s: %s", src.name, query, exc)
                 if exc.route_specific:  # this route's problem, not an outage: leave the breaker alone
                     counts[f"{src.name}_route_failed"] += 1
+                    route_failures[src.name] += 1
+                    if src.name not in succeeded and route_failures[src.name] >= config.ROUTE_FAILURE_LIMIT:
+                        disabled.add(src.name)  # every route failing: likely a format change, not routes
+                        counts[f"{src.name}_route_breaker_tripped"] += 1
                     continue
                 counts[f"{src.name}_failed"] += 1
                 consecutive_failures[src.name] += 1
@@ -236,6 +255,7 @@ def run(ctx: RunContext) -> dict[str, int]:
                     counts[f"{src.name}_breaker_tripped"] += 1
                 continue
             consecutive_failures[src.name] = 0
+            succeeded.add(src.name)
             counts[f"{src.name}_ok"] += 1
             counts["options_stored"] += store_options(ctx, rq, result)
             counts["history_points_stored"] += store_history(ctx, rq, result)
