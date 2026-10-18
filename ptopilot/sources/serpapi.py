@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, date, datetime
 
 import httpx
 
@@ -36,6 +36,24 @@ def _option(item: dict) -> FlightOption | None:
 NO_RESULTS_MARKER = "hasn't returned any results"
 
 
+def parse_price_history(insights: object) -> tuple[tuple[date, float], ...]:
+    """price_insights.price_history, [[unix_ts, price], ...] -> ((UTC day, price), ...). Skips bad points."""
+    raw = insights.get("price_history") if isinstance(insights, dict) else None
+    if not isinstance(raw, list):
+        return ()
+    points = []
+    for point in raw:
+        if not (isinstance(point, list) and len(point) == 2):
+            continue
+        ts, price = point
+        if isinstance(ts, bool) or isinstance(price, bool):
+            continue
+        if not (isinstance(ts, int | float) and isinstance(price, int | float)):
+            continue
+        points.append((datetime.fromtimestamp(ts, UTC).date(), float(price)))
+    return tuple(points)
+
+
 def parse_google_flights(payload: dict, query: ExactQuery) -> ExactResult:
     if not isinstance(payload, dict):
         raise SourceUnavailable(f"serpapi: unexpected payload: {snippet(str(payload))}")
@@ -50,7 +68,8 @@ def parse_google_flights(payload: dict, query: ExactQuery) -> ExactResult:
         options = tuple(o for o in (_option(i) for i in items) if o is not None)
     except (KeyError, TypeError, ValueError) as exc:
         raise SourceUnavailable(f"serpapi: unexpected flight shape: {exc}") from exc
-    typical = (payload.get("price_insights") or {}).get("typical_price_range")
+    insights = payload.get("price_insights") or {}
+    typical = insights.get("typical_price_range")
     typical_range = (float(typical[0]), float(typical[1])) if typical and len(typical) == 2 else None
     url = (payload.get("search_metadata") or {}).get("google_flights_url", "")
     return ExactResult(
@@ -60,6 +79,7 @@ def parse_google_flights(payload: dict, query: ExactQuery) -> ExactResult:
         options=options,
         deep_link=url,
         typical_range=typical_range,
+        price_history=parse_price_history(insights),
     )
 
 

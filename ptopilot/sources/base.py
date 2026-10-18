@@ -65,6 +65,8 @@ class ExactResult:
     options: tuple[FlightOption, ...]
     deep_link: str
     typical_range: tuple[float, float] | None = None  # Google's typical price range, when the source has it
+    # Google's daily price history for these exact dates, (day, price), when the source has it (SerpApi)
+    price_history: tuple[tuple[date, float], ...] = ()
 
     def cheapest(self) -> FlightOption | None:
         return min(self.options, key=lambda o: o.price, default=None)
