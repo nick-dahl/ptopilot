@@ -116,10 +116,28 @@ def store_history(ctx: RunContext, rq: RouteQuery, result: ExactResult) -> int:
     """Store Google's daily price history (SerpApi) for this route query, each point on its own day.
 
     Unverified and under HISTORY_SOURCE, so it feeds baselines but never becomes a price a user sees.
-    Points outside the trailing baseline window (or after the run date) are dropped."""
+    Points outside the trailing baseline window (or after the run date), and days already stored for this
+    trip (a later SerpApi call returns mostly the same history), are dropped. Returns the number stored."""
     first = ctx.run_date - timedelta(days=config.BASELINE_WINDOW_DAYS)
-    points = [(day, price) for day, price in result.price_history if first <= day <= ctx.run_date]
     with session_scope(ctx.engine) as s:
+        stored_days = {
+            when.date()
+            for when in s.scalars(
+                select(PriceObservation.observed_at).where(
+                    PriceObservation.source == config.HISTORY_SOURCE,
+                    PriceObservation.origin == rq.origin,
+                    PriceObservation.dest_airport == rq.dest_airport,
+                    PriceObservation.return_airport == rq.return_airport,
+                    PriceObservation.depart_date == rq.depart_date,
+                    PriceObservation.return_date == rq.return_date,
+                )
+            )
+        }
+        points = [
+            (day, price)
+            for day, price in result.price_history
+            if first <= day <= ctx.run_date and day not in stored_days
+        ]
         s.add_all(
             PriceObservation(
                 origin=rq.origin,

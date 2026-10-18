@@ -11,7 +11,7 @@ on:
         description: "Run only this stage (blank = all)"
         required: false
         type: choice
-        options: ["", expand, broad_scan, shortlist, live_verify, baselines, score]
+        options: ["", expand, broad_scan, shortlist, seed_history, live_verify, baselines, score]
 concurrency:
   group: scan
   cancel-in-progress: false

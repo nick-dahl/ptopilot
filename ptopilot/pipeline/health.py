@@ -34,7 +34,7 @@ def _pairs(s: Session, first: date, last: date) -> list[tuple[tuple, float, floa
         )
     )
     for o in rows:
-        key = (o.origin, o.dest_airport, o.depart_date, o.return_date, o.observed_at.date())
+        key = (o.origin, o.dest_airport, o.return_airport, o.depart_date, o.return_date, o.observed_at.date())
         by_source = cheapest.setdefault(key, {})
         by_source[o.source] = min(float(o.price), by_source.get(o.source, float("inf")))
     return [(key, p["google_flights"], p["serpapi"]) for key, p in cheapest.items() if len(p) == 2]
@@ -66,10 +66,14 @@ def audit_lines(s: Session, day: date) -> list[str]:
     if not today:
         lines = [f"{title}: no trips priced by both sources"]
     else:
-        (origin, dest, depart, ret, _), ff, serp = max(today, key=lambda p: p[1] - p[2])
-        worst = _signed(ff - serp, 100 * (ff - serp) / serp)
-        trip = f"{origin}→{dest} {date_range(depart, ret)} (${ff:,.0f} vs ${serp:,.0f})"
-        lines = [f"{title}: {_tally(today)}", f"  {_gap(today)}, worst {worst}: {trip}"]
+        (origin, dest, _, depart, ret, _), ff, serp = max(today, key=lambda p: p[1] - p[2])
+        if ff - serp > 0:
+            worst = _signed(ff - serp, 100 * (ff - serp) / serp)
+            trip = f"{origin}→{dest} {date_range(depart, ret)} (${ff:,.0f} vs ${serp:,.0f})"
+            detail = f"  {_gap(today)}, worst {worst}: {trip}"
+        else:
+            detail = f"  {_gap(today)}; fast-flights was never pricier"
+        lines = [f"{title}: {_tally(today)}", detail]
     recent = _pairs(s, day - timedelta(days=config.AUDIT_DAYS - 1), day)
     if recent:
         lines.append(f"Audit, last {config.AUDIT_DAYS} days: {_tally(recent)}; {_gap(recent)}")

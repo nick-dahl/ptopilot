@@ -226,7 +226,7 @@ def test_route_specific_failures_do_not_stop_the_stage(make_ctx, monkeypatch):
 
     src = serpapi(route_failing)
     ctx = expanded(make_ctx, live_sources=[src])
-    assert seed_history.run(ctx)["serpapi_failed"] == len(src.calls) == len(keys(ctx))
+    assert seed_history.run(ctx)["serpapi_route_failed"] == len(src.calls) == len(keys(ctx))
 
 
 def test_history_never_becomes_a_cached_price(make_ctx, monkeypatch):

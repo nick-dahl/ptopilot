@@ -72,6 +72,7 @@ def run(ctx: RunContext) -> dict[str, int]:
             s.execute(
                 select(PriceObservation.origin, PriceObservation.dest_airport, PriceObservation.month).where(
                     PriceObservation.verified.is_(False),
+                    PriceObservation.source != config.HISTORY_SOURCE,  # seeded history isn't a month scan
                     PriceObservation.observed_at >= start_of(ctx.run_date),
                     PriceObservation.observed_at < start_of(ctx.run_date + timedelta(days=1)),
                 )

@@ -54,11 +54,19 @@ def _keys_to_seed(ctx: RunContext) -> list[tuple[BaselineKey, RouteQuery]]:
             for b in s.scalars(select(RouteBaseline).where(RouteBaseline.confidence == "normal"))
         }
         seeded = {
-            baseline_key(o.origin, o.dest_airport, o.return_airport, o.depart_date, o.return_date)
-            for o in s.scalars(
-                select(PriceObservation).where(
+            baseline_key(*trip)
+            for trip in s.execute(
+                select(
+                    PriceObservation.origin,
+                    PriceObservation.dest_airport,
+                    PriceObservation.return_airport,
+                    PriceObservation.depart_date,
+                    PriceObservation.return_date,
+                )
+                .where(
                     PriceObservation.source == config.HISTORY_SOURCE, PriceObservation.observed_at >= since
                 )
+                .distinct()
             )
         }
         tried = set(
@@ -116,9 +124,10 @@ def run(ctx: RunContext) -> dict[str, int]:
             result = src.exact_search(query)
         except SourceUnavailable as exc:
             record_check(ctx, rq, src.name, ok=False, error=str(exc))
-            counts[f"{src.name}_failed"] += 1
             if exc.route_specific:
+                counts[f"{src.name}_route_failed"] += 1
                 continue
+            counts[f"{src.name}_failed"] += 1
             failures += 1
             if failures >= config.BREAKER_THRESHOLD:
                 counts["breaker_tripped"] = 1
