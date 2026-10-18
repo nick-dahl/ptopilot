@@ -5,15 +5,77 @@ from __future__ import annotations
 import html
 from collections import Counter
 from collections.abc import Sequence
+from datetime import date, timedelta
+from statistics import median
 
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from ptopilot import config
-from ptopilot.db.models import Candidate, SourceBudget
+from ptopilot.db.models import Candidate, PriceObservation, SourceBudget
 from ptopilot.db.session import session_scope
+from ptopilot.digest.render import date_range
 from ptopilot.pipeline.context import RunContext
-from ptopilot.pipeline.queries import month_of
+from ptopilot.pipeline.queries import month_of, start_of
 from ptopilot.pipeline.runner import StageResult
+
+AUDITED = ("google_flights", "serpapi")
+
+
+def _pairs(s: Session, first: date, last: date) -> list[tuple[tuple, float, float]]:
+    """(trip, fast-flights cheapest, SerpApi cheapest) for each trip both priced on the same day."""
+    cheapest: dict[tuple, dict[str, float]] = {}
+    rows = s.scalars(
+        select(PriceObservation).where(
+            PriceObservation.verified.is_(True),
+            PriceObservation.source.in_(AUDITED),
+            PriceObservation.observed_at >= start_of(first),
+            PriceObservation.observed_at < start_of(last + timedelta(days=1)),
+        )
+    )
+    for o in rows:
+        key = (o.origin, o.dest_airport, o.depart_date, o.return_date, o.observed_at.date())
+        by_source = cheapest.setdefault(key, {})
+        by_source[o.source] = min(float(o.price), by_source.get(o.source, float("inf")))
+    return [(key, p["google_flights"], p["serpapi"]) for key, p in cheapest.items() if len(p) == 2]
+
+
+def _tally(pairs: list[tuple[tuple, float, float]]) -> str:
+    gaps = [ff - serp for _, ff, serp in pairs]
+    equal = sum(1 for g in gaps if abs(g) <= config.AUDIT_EQUAL_USD)
+    pricier = sum(1 for g in gaps if g > config.AUDIT_EQUAL_USD)
+    return f"{len(pairs)} trips, cheaper {len(pairs) - equal - pricier}, equal {equal}, pricier {pricier}"
+
+
+def _signed(dollars: float, pct: float) -> str:
+    """+$137 (+23%): positive means fast-flights was pricier."""
+    sign = "-" if round(dollars) < 0 else "+"
+    return f"{sign}${abs(dollars):,.0f} ({pct:+.0f}%)"
+
+
+def _gap(pairs: list[tuple[tuple, float, float]]) -> str:
+    gap = median(ff - serp for _, ff, serp in pairs)
+    pct = median(100 * (ff - serp) / serp for _, ff, serp in pairs)
+    return f"median gap {_signed(gap, pct)}"
+
+
+def audit_lines(s: Session, day: date) -> list[str]:
+    """fast-flights vs SerpApi on the same trips: today, and over the last AUDIT_DAYS days."""
+    title = "Audit (fast-flights vs SerpApi, today)"
+    today = _pairs(s, day, day)
+    if not today:
+        lines = [f"{title}: no trips priced by both sources"]
+    else:
+        (origin, dest, depart, ret, _), ff, serp = max(today, key=lambda p: p[1] - p[2])
+        worst = _signed(ff - serp, 100 * (ff - serp) / serp)
+        trip = f"{origin}→{dest} {date_range(depart, ret)} (${ff:,.0f} vs ${serp:,.0f})"
+        lines = [f"{title}: {_tally(today)}", f"  {_gap(today)}, worst {worst}: {trip}"]
+    recent = _pairs(s, day - timedelta(days=config.AUDIT_DAYS - 1), day)
+    if recent:
+        lines.append(f"Audit, last {config.AUDIT_DAYS} days: {_tally(recent)}; {_gap(recent)}")
+    else:
+        lines.append(f"Audit, last {config.AUDIT_DAYS} days: no trips priced by both sources")
+    return lines
 
 
 def build_report(ctx: RunContext, results: Sequence[StageResult]) -> tuple[str, str]:
@@ -41,6 +103,8 @@ def build_report(ctx: RunContext, results: Sequence[StageResult]) -> tuple[str, 
         lines += [
             "",
             f"Candidates: great={deals['great']} good={deals['good']} none={deals['none']}",
+            "",
+            *audit_lines(s, ctx.run_date),
             "",
             "Budgets:",
         ]
