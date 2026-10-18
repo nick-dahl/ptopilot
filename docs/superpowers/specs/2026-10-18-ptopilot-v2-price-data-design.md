@@ -26,7 +26,7 @@
 2. **Full daily coverage:** every in-range route gets a Google check every day.
 3. **Breaker fix:** route-specific fast-flights parse failures no longer trip the breaker.
 4. **Audit:** the health email compares fast-flights against SerpApi on the same trips.
-5. **Travelpayouts:** it stops scanning pairs that never return anything.
+5. **Travelpayouts:** "to anywhere" is recorded as tested and not useful for these routes.
 
 **Successful when:**
 1. Within about a week of deploying, every in-range round-trip baseline key for the author's trackers reaches `normal` confidence.
@@ -145,21 +145,9 @@
 
 ---
 
-## 5. Travelpayouts pruning
+## 5. Travelpayouts "to anywhere"
 
-- `broad_scan` skips an (origin, dest_airport) pair when that pair's month scans returned zero fares on each of the last `TP_EMPTY_DAYS = 7` distinct scan days. Every 7th day it scans anyway, as a re-probe.
-- **Recording:** a scan currently stores nothing when it returns nothing. Each scan now records `live_checks`-style evidence in a minimal new table `month_scans`:
-
-  | Column | |
-  |---|---|
-  | `run_date` | date |
-  | `origin`, `dest_airport` | char(3) |
-  | `month` | date |
-  | `quotes` | int |
-
-  - Primary key: (`run_date`, `origin`, `dest_airport`, `month`). Migration 0006.
-- **Re-probe rule:** a pair is re-probed when `(run_date − first empty day).days % 7 == 0`, or when it has fewer than 7 recorded scan days.
-- **Count:** `skipped_empty_pair`.
+No code change. The probe in §1 shows the cache can't serve these routes, and the existing `broad_scan` calls are free and take about a minute a day, so they keep running. They still help travelers whose destinations Travelpayouts does cache, such as Lisbon and Tokyo. The ROADMAP records the findings and closes the item. Pruning empty pairs was considered and dropped: it needed a new table to remember empty scans, for no meaningful saving.
 
 ---
 
@@ -183,7 +171,6 @@
   - Route-specific errors don't trip the breaker, outage errors still do, and SerpApi fallback still happens after a route-specific Google failure.
   - Includes the captured fixture.
 - **Audit:** report lines for cheaper, equal and pricier, a worst-gap line, the empty state, and the 30-day line.
-- **Travelpayouts:** pairs empty for 7 days are skipped, the re-probe happens on the 7th day, and a non-empty scan resets the count. Migration 0006 upgrades and downgrades cleanly.
 - **Workflow test:** `scan.yml` timeout-minutes is 75.
 
 ---
@@ -191,7 +178,7 @@
 ## 7. Rollout
 
 - Commit and push to `main` at each step.
-- Migration 0006 (`month_scans`) runs from `scan.yml` (`alembic upgrade head`). The web app doesn't read it, so deployment order doesn't matter.
+- No schema change.
 - After deploying:
   - watch two scan health emails: the seed counts, the audit section, and `google_flights_route_failed`;
   - check on Neon that baselines move to `normal`.
