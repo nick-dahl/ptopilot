@@ -79,7 +79,8 @@ class Budget:
             s.execute(stmt)
 
 
-def _store(ctx: RunContext, rq: RouteQuery, result: ExactResult) -> int:
+def store_options(ctx: RunContext, rq: RouteQuery, result: ExactResult) -> int:
+    """Store every option of a live result as a verified observation of this route query."""
     low, high = result.typical_range or (None, None)
     with session_scope(ctx.engine) as s:
         for o in result.options:
@@ -110,7 +111,7 @@ def _store(ctx: RunContext, rq: RouteQuery, result: ExactResult) -> int:
     return len(result.options)
 
 
-def _record(
+def record_check(
     ctx: RunContext, rq: RouteQuery, source: str, ok: bool, options: int = 0, error: str | None = None
 ):
     with session_scope(ctx.engine) as s:
@@ -195,18 +196,21 @@ def run(ctx: RunContext) -> dict[str, int]:
             try:
                 result = src.exact_search(query)
             except SourceUnavailable as exc:
-                _record(ctx, rq, src.name, ok=False, error=str(exc))
+                record_check(ctx, rq, src.name, ok=False, error=str(exc))
+                log.warning("%s failed for %s: %s", src.name, query, exc)
+                if exc.route_specific:  # this route's problem, not an outage: leave the breaker alone
+                    counts[f"{src.name}_route_failed"] += 1
+                    continue
                 counts[f"{src.name}_failed"] += 1
                 consecutive_failures[src.name] += 1
-                log.warning("%s failed for %s: %s", src.name, query, exc)
                 if consecutive_failures[src.name] >= config.BREAKER_THRESHOLD:
                     disabled.add(src.name)
                     counts[f"{src.name}_breaker_tripped"] += 1
                 continue
             consecutive_failures[src.name] = 0
             counts[f"{src.name}_ok"] += 1
-            counts["options_stored"] += _store(ctx, rq, result)
-            _record(ctx, rq, src.name, ok=True, options=len(result.options))
+            counts["options_stored"] += store_options(ctx, rq, result)
+            record_check(ctx, rq, src.name, ok=True, options=len(result.options))
             if not result.options:
                 counts["no_flights"] += 1
             break
