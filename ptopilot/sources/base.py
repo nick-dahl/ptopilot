@@ -8,7 +8,15 @@ from typing import Protocol
 
 
 class SourceUnavailable(Exception):
-    """A source failed (network, auth, quota, or unparseable response). Message carries a short snippet."""
+    """A source failed (network, auth, quota, or unparseable response). Message carries a short snippet.
+
+    route_specific: the failure is about this one route (e.g. a page the scraper can't read), not an
+    outage, so it must not count toward the source's circuit breaker.
+    """
+
+    def __init__(self, message: str = "", route_specific: bool = False):
+        super().__init__(message)
+        self.route_specific = route_specific
 
 
 @dataclass(frozen=True)

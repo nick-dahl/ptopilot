@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import threading
 from collections.abc import Callable, Sequence
 from datetime import datetime
@@ -10,6 +11,8 @@ from typing import Any
 from ptopilot.sources.base import ExactQuery, ExactResult, FlightOption, SourceUnavailable
 
 SEARCH_TIMEOUT_S = 60
+# Errors raised while reading Google's page for one route: that route can't be parsed, Google isn't down.
+ROUTE_ERRORS = (TypeError, IndexError, KeyError)
 
 
 def _call_with_timeout(fn: Callable[[ExactQuery], Any], query: ExactQuery, timeout_s: float) -> Any:
@@ -66,9 +69,27 @@ def parse_flights(results: Sequence[Any]) -> tuple[FlightOption, ...]:
     return tuple(options)
 
 
-def _default_search(query: ExactQuery) -> tuple[Sequence[Any], str]:
-    from fast_flights import FlightQuery, Passengers, create_query, get_flights
+def flights_from_script(js: str) -> list[Any]:
+    """Google's results script -> fast-flights results. A page with no itineraries at all (results slot
+    null) is "no flights": fast-flights 3.1 crashes on it instead of returning an empty list."""
     from fast_flights.exceptions import FlightsNotFound
+    from fast_flights.parser import parse_js
+
+    data = js.split("data:", 1)[1].rsplit(",", 1)[0]
+    if not data.endswith("errorHasStatus: true"):
+        payload = json.loads(data)
+        if len(payload) <= 3 or payload[3] is None:
+            return []
+    try:
+        return list(parse_js(js))
+    except FlightsNotFound:
+        return []
+
+
+def _default_search(query: ExactQuery) -> tuple[Sequence[Any], str]:
+    from fast_flights import FlightQuery, Passengers, create_query
+    from fast_flights.fetcher import fetch_flights_html
+    from selectolax.lexbor import LexborHTMLParser
 
     q = create_query(
         flights=[
@@ -85,10 +106,10 @@ def _default_search(query: ExactQuery) -> tuple[Sequence[Any], str]:
         language="en-US",
         currency=query.currency,
     )
-    try:
-        return get_flights(q), q.url()
-    except FlightsNotFound:
-        return [], q.url()
+    script = LexborHTMLParser(fetch_flights_html(q)).css_first(r"script.ds\:1")
+    if script is None:
+        raise RuntimeError("no results script in the Google Flights page")
+    return flights_from_script(script.text()), q.url()
 
 
 class GoogleFlightsSource:
@@ -110,7 +131,8 @@ class GoogleFlightsSource:
             results, url = _call_with_timeout(self._search, query, self._timeout_s)
             options = parse_flights(results)
         except Exception as exc:  # the library scrapes HTML; any failure means "unavailable"
-            raise SourceUnavailable(f"google_flights: {type(exc).__name__}: {exc}") from exc
+            message = f"google_flights: {type(exc).__name__}: {exc}"
+            raise SourceUnavailable(message, route_specific=isinstance(exc, ROUTE_ERRORS)) from exc
         return ExactResult(
             source=self.name, query=query, currency=query.currency, options=options, deep_link=url
         )
