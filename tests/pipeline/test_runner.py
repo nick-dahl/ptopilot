@@ -55,6 +55,7 @@ def test_end_to_end_finds_a_great_deal(make_ctx):
         ("expand", "ok"),
         ("broad_scan", "ok"),
         ("shortlist", "ok"),
+        ("seed_history", "skipped"),  # no history source among the fakes
         ("live_verify", "ok"),
         ("baselines", "ok"),
         ("score", "ok"),
@@ -72,7 +73,7 @@ def test_failed_core_stage_stops_the_rest(make_ctx, monkeypatch):
 
     monkeypatch.setitem(runner.STAGES, "broad_scan", broken)
     results = runner.run_pipeline(make_ctx())
-    assert [r.status for r in results] == ["ok", "failed", "not_run", "not_run", "not_run", "not_run"]
+    assert [r.status for r in results] == ["ok", "failed"] + ["not_run"] * 5
     assert runs(make_ctx().engine)["broad_scan"].error == "all month scans failed"
 
 
@@ -84,6 +85,7 @@ def test_live_verify_failure_lets_scoring_continue(make_ctx):
         "expand": "ok",
         "broad_scan": "skipped",
         "shortlist": "ok",
+        "seed_history": "skipped",
         "live_verify": "failed",
         "baselines": "ok",
         "score": "ok",

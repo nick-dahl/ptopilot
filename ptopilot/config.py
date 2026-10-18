@@ -41,6 +41,10 @@ SOURCE_BUDGETS = {"serpapi": {"per_day": 8, "per_month": 250}}  # every attempte
 SHORT_HAUL_MAX_MIN = 600  # fastest option under 10 h -> short-haul stop limit applies
 MAX_DURATION_RATIO = 1.5
 LIVE_HORIZON_DAYS = 300  # Google Flights returns nothing ~10-11 months out; don't spend checks beyond this
+# History seeding (V2): Google's own daily prices from SerpApi round-trip results seed baselines.
+HISTORY_SOURCE = "google_history"  # observations source for those points; never a price shown to users
+SEED_RESERVE_FOR_OPEN_JAW = 2  # SerpApi calls per day seeding leaves for open-jaw routes
+SEED_RETRY_DAYS = 30  # a key whose SerpApi result had no history is tried again after this many days
 
 # Digest (spec §8)
 DIGEST_MAX_DEALS = 8

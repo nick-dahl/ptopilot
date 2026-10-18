@@ -86,6 +86,7 @@ def parse_google_flights(payload: dict, query: ExactQuery) -> ExactResult:
 class SerpApiSource:
     name = "serpapi"
     supports_open_jaw = True  # via type=3 multi-city searches
+    provides_history = True  # round-trip results carry Google's daily price history
 
     def __init__(self, api_key: str, client: httpx.Client | None = None):
         if not api_key:

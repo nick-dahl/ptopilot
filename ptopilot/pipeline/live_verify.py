@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
+from datetime import UTC, datetime, time, timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -109,6 +110,33 @@ def store_options(ctx: RunContext, rq: RouteQuery, result: ExactResult) -> int:
                 )
             )
     return len(result.options)
+
+
+def store_history(ctx: RunContext, rq: RouteQuery, result: ExactResult) -> int:
+    """Store Google's daily price history (SerpApi) for this route query, each point on its own day.
+
+    Unverified and under HISTORY_SOURCE, so it feeds baselines but never becomes a price a user sees.
+    Points outside the trailing baseline window (or after the run date) are dropped."""
+    first = ctx.run_date - timedelta(days=config.BASELINE_WINDOW_DAYS)
+    points = [(day, price) for day, price in result.price_history if first <= day <= ctx.run_date]
+    with session_scope(ctx.engine) as s:
+        s.add_all(
+            PriceObservation(
+                origin=rq.origin,
+                dest_airport=rq.dest_airport,
+                return_airport=rq.return_airport,
+                depart_date=rq.depart_date,
+                return_date=rq.return_date,
+                month=month_of(rq.depart_date),
+                source=config.HISTORY_SOURCE,
+                price=Decimal(str(price)),
+                currency=result.currency,
+                verified=False,
+                observed_at=datetime.combine(day, time(12), UTC),
+            )
+            for day, price in points
+        )
+    return len(points)
 
 
 def record_check(
@@ -210,6 +238,7 @@ def run(ctx: RunContext) -> dict[str, int]:
             consecutive_failures[src.name] = 0
             counts[f"{src.name}_ok"] += 1
             counts["options_stored"] += store_options(ctx, rq, result)
+            counts["history_points_stored"] += store_history(ctx, rq, result)
             record_check(ctx, rq, src.name, ok=True, options=len(result.options))
             if not result.options:
                 counts["no_flights"] += 1

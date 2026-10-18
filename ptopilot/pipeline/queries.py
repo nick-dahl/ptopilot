@@ -68,6 +68,7 @@ def cached_prices(
     rows = s.scalars(
         select(PriceObservation).where(
             PriceObservation.verified.is_(False),
+            PriceObservation.source != config.HISTORY_SOURCE,  # history seeds baselines, never prices
             PriceObservation.observed_at >= since,
             PriceObservation.observed_at < start_of(run_date + timedelta(days=1)),
         )
