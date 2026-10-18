@@ -62,4 +62,5 @@ DIGEST_ALTERNATES_PER_TRACKER = 2
 DIGEST_RESEND_FACTOR = 0.95  # a deal already sent is only sent again once it is at least 5% cheaper
 TREND_BAND = 0.03  # week-over-week change smaller than this shows as flat
 MIN_TREND_POINTS = 3  # the destination page draws a price trend from this many scan days
+DIGEST_WEEKDAYS = (0, 3)  # Monday, Thursday: must match the cron in .github/workflows/digest.yml
 QUIET_DIGEST_WEEKDAY = 0  # Monday: when there are no deals, only this day's digest is sent

@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescape
 
+from ptopilot import config
 from ptopilot.digest.select import DealCard, Digest
 from ptopilot.web.viz import BarGeometry, bar_geometry
 
@@ -77,6 +78,15 @@ _env = Environment(
 _env.filters.update(money=money, day=day, dates=date_range, duration=duration, clock=clock, stops=stops)
 
 
+DAY_NAMES = ("Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays")
+
+
+def schedule(weekdays) -> str:
+    """(0, 3) -> "Mondays and Thursdays"."""
+    names = [DAY_NAMES[d] for d in sorted(weekdays)]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
 BAR_DOT_WIDTH = 3.0  # percent of the bar
 
 
@@ -127,6 +137,7 @@ def render(
         "bars": bars,
         "base_url": (base_url or "").rstrip("/"),
         "preheader": subject(digest).removeprefix("ptopilot: "),
+        "schedule": schedule(config.DIGEST_WEEKDAYS),
         "digest": digest,
         "levels": LEVEL_LABEL,
         "arrows": TREND_ARROW,

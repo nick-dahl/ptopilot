@@ -13,6 +13,14 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 LOGIN_MAX_AGE_S = 15 * 60
 ACTION_MAX_AGE_S = 30 * 24 * 3600
 
+
+def web_link(url: str | None) -> str | None:
+    """The URL if it's a plain http(s) link, else None: only those may become a "View flights" button."""
+    if isinstance(url, str) and url.lower().startswith(("https://", "http://")):
+        return url
+    return None
+
+
 ACTION_LABELS = {
     "trip": "Not this trip",
     "snooze30": "Snooze 30 days",

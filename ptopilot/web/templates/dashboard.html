@@ -2,7 +2,7 @@
 {% from "_components.html" import dest_card, pto_bar %}
 {% block title %}Your trips · ptopilot{% endblock %}
 {% block content %}
-{% if saved %}<div class="panel notice" style="margin-bottom:14px;">Profile saved. The next morning scan will use it.</div>{% endif %}
+{% if saved %}<div class="panel notice">Profile saved. The next morning scan will use it.</div>{% endif %}
 <div class="page-head">
   <div>
     <h1>Your trips</h1>
@@ -18,14 +18,14 @@
       {{ dest_card(s, href="/trackers/%d" % s.tracker_id) }}
       {% if s.snoozed_until %}
       <form class="inline" method="post" action="/trackers/{{ s.tracker_id }}/unsnooze">
-        <button class="link-btn small" type="submit" style="margin:8px 4px 0;">Unsnooze {{ s.name }}</button>
+        <button class="link-btn small card-action" type="submit">Unsnooze {{ s.name }}</button>
       </form>
       {% endif %}
     </div>
     {% endfor %}
   </div>
   {% else %}
-  <div class="panel"><p style="margin:0;">No destinations yet. <a href="/profile">Add your bucket list to your profile.</a></p></div>
+  <div class="panel"><p class="m-0">No destinations yet. <a href="/profile">Add your bucket list to your profile.</a></p></div>
   {% endif %}
 </div>
 {% endblock %}

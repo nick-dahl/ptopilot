@@ -3,7 +3,7 @@
 {% block content %}
 <div class="panel panel-narrow">
   <h1>{{ destination }}: {{ label | replace("…", "a price") }}?</h1>
-  <div style="margin-top:10px;">
+  <div class="mt-sm">
   {% if action.kind == "trip" %}
   <p>Stop suggesting <b>{{ action.depart | day }} → {{ action.ret | day }}</b> for {{ destination }}. Other dates keep being tracked.</p>
   {% elif action.kind == "snooze30" %}

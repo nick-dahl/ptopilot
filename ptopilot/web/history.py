@@ -18,6 +18,7 @@ from ptopilot.core.seasons import SeasonTable, trip_month
 from ptopilot.db.models import Candidate, PriceObservation, RouteQuery, Tracker, TrackerRouteLink
 from ptopilot.db.session import session_scope
 from ptopilot.digest.select import latest_run_date, next_good_month
+from ptopilot.links import web_link
 from ptopilot.pipeline.queries import load_baselines, rq_baseline_key
 from ptopilot.web.viz import BarGeometry, TrendPoint, bar_geometry, sigma_floor
 
@@ -77,6 +78,7 @@ class DestinationSummary:
     best: TripOption | None
     snoozed_until: date | None
     next_good_month: str | None
+    ruled_out: bool = False  # it has trips today, but every one is snoozed or excluded
 
 
 def _options(
@@ -86,7 +88,6 @@ def _options(
     by_id = {t.id: t for t in trackers}
     if not by_id:
         return {}
-    baselines = load_baselines(s)
     rows = s.execute(
         select(Candidate, RouteQuery, TrackerRouteLink, PriceObservation)
         .join(RouteQuery, RouteQuery.id == Candidate.route_query_id)
@@ -101,6 +102,9 @@ def _options(
         .where(Candidate.run_date == run_date, Candidate.tracker_id.in_(by_id))
         .order_by(Candidate.price, RouteQuery.depart_date, Candidate.id)
     ).all()
+    baselines = load_baselines(
+        s, routes={(rq.origin, rq.dest_airport, rq.return_airport) for _, rq, _, _ in rows}
+    )
     out: defaultdict[int, list[TripOption]] = defaultdict(list)
     for c, rq, link, obs in rows:
         dest = geo.destination(by_id[c.tracker_id].destination_code)
@@ -126,7 +130,7 @@ def _options(
                 carrier=obs.carrier if obs else None,
                 stops=obs.stops if obs else None,
                 overnight=obs.overnight_layover if obs else None,
-                deep_link=obs.deep_link if obs else None,
+                deep_link=web_link(obs.deep_link) if obs else None,
                 deal_level=c.deal_level,
                 go_now=c.go_now,
                 state=c.state,
@@ -203,9 +207,10 @@ def destination_summaries(
                     name=dest.name,
                     palette=palette(dest),
                     stay=(t.min_stay_days, t.max_stay_days),
-                    best=next((o for o in mine if not o.dimmed), mine[0] if mine else None),
+                    best=next((o for o in mine if not o.dimmed), None),
                     snoozed_until=t.snoozed_until if t.snoozed_until and t.snoozed_until >= today else None,
                     next_good_month=next_good_month(seasons, (dest.code, dest.country), today),
+                    ruled_out=bool(mine) and all(o.dimmed for o in mine),
                 )
             )
     priced = sorted((x for x in summaries if x.best), key=lambda x: (x.best.price, x.tracker_id))

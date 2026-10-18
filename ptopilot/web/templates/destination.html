@@ -28,7 +28,7 @@
       <tr{% if o.dimmed %} class="dimmed"{% endif %}>
         <td><b>{{ o.depart_date | day }} → {{ o.return_date | day }}</b>
           <div class="meta">{{ o.origin }} → {% if o.open_jaw %}into {{ o.dest_airport }} · home from {{ o.return_airport }}{% else %}{{ o.dest_airport }}{% endif %}{% if o.evening_departure %} · leave after work{% endif %}</div></td>
-        <td class="nowrap"><span class="price" style="font-size:18px;">{{ o.price | money(o.currency) }}</span><div>{{ vs_typical(o) }}</div></td>
+        <td class="nowrap"><span class="price price-sm">{{ o.price | money(o.currency) }}</span><div>{{ vs_typical(o) }}</div></td>
         <td class="bar-cell">{{ price_bar(o.bar) }}</td>
         <td class="num nowrap"><b>{{ o.pto_cost }}</b> <span class="meta">for {{ o.days_away }} days</span></td>
         <td class="flights">
@@ -41,7 +41,7 @@
       </tbody>
     </table>
     {% else %}
-    <p class="muted" style="margin:0;">{% if snoozed_until %}Not watching while snoozed.{% else %}First prices after the next daily scan.{% endif %}</p>
+    <p class="muted m-0">{% if snoozed_until %}Not watching while snoozed.{% else %}First prices after the next daily scan.{% endif %}</p>
     {% endif %}
   </section>
 
@@ -52,7 +52,7 @@
     {{ chart.svg }}
     <div class="trend-axis"><span>{{ chart.first | day }} · low {{ chart.low | money }}</span><span>{{ chart.last | day }}</span></div>
     {% else %}
-    <p class="muted" style="margin:0;">Price history fills in after a few daily scans.</p>
+    <p class="muted m-0">Price history fills in after a few daily scans.</p>
     {% endif %}
   </section>
 </div>

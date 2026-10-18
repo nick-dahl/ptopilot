@@ -56,8 +56,16 @@ main.wrap { padding-bottom: 56px; }
 .panel { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
 .panel > h2:first-child, .panel > h3:first-child { margin-bottom: 10px; }
 .panel-narrow { max-width: 460px; margin: 32px auto 0; }
-.notice { border-left: 4px solid var(--ok); }
-.notice-error { border-left: 4px solid var(--danger); }
+.notice { border-left: 4px solid var(--ok); margin-bottom: 14px; }
+.notice-error { border-left: 4px solid var(--danger); margin-bottom: 14px; }
+.error-title { margin-bottom: 6px; }
+.error-list { margin: 0; padding-left: 20px; }
+
+/* Spacing utilities: fixed spacing lives here, never in a template's style attribute */
+.m-0 { margin: 0; }
+.mt-sm { margin-top: 10px; }
+.mb { margin-bottom: 14px; }
+.card-action { margin: 8px 4px 0; }
 
 /* Buttons and forms */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; border-radius: var(--radius-sm); border: 1px solid var(--btn); background: var(--btn); color: #fff; font: 600 14px/1.2 var(--sans); text-decoration: none; cursor: pointer; }
@@ -106,6 +114,7 @@ a.dest-card:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, .1); transform: transla
 .dest-head h2, .dest-head h3 { color: #fff; }
 .dest-body { padding: 14px 18px 16px; }
 .price { font: 700 24px/1.1 var(--sans); font-variant-numeric: tabular-nums; }
+.price-sm { font-size: 18px; }
 .price-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .meta { color: var(--muted); font-size: 13px; }
 .dimmed { opacity: .55; }
@@ -147,5 +156,6 @@ a.dest-card:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, .1); transform: transla
 .steps { display: grid; gap: 12px; grid-template-columns: 1fr; counter-reset: step; }
 @media (min-width: 768px) { .steps { grid-template-columns: repeat(3, 1fr); } }
 .step { counter-increment: step; }
+.step p { margin: 6px 0 0; }
 .step::before { content: counter(step); display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--btn); color: #fff; font: 700 13px/1 var(--sans); margin-bottom: 10px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

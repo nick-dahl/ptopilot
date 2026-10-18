@@ -22,6 +22,7 @@ from ptopilot.db.models import (
     User,
 )
 from ptopilot.db.session import session_scope
+from ptopilot.links import web_link
 from ptopilot.pipeline.queries import load_baselines, rq_baseline_key
 
 LEVELS = {"none": 0, "good": 1, "great": 2}
@@ -225,7 +226,7 @@ def build_digests(
                 duration_min=obs.duration_min if obs else None,
                 outbound_departure=obs.outbound_departure if obs else None,
                 flight_numbers=tuple(obs.flight_numbers or ()) if obs else (),
-                deep_link=obs.deep_link if obs else None,
+                deep_link=web_link(obs.deep_link) if obs else None,
                 observed_at=obs.observed_at if obs else None,
                 palette=palette(dest),
                 sigma=b.sigma if b else None,

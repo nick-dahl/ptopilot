@@ -9,9 +9,9 @@
   </div>
 </div>
 {% if errors %}
-<div class="panel notice-error" style="margin-bottom:14px;">
-  <p class="error" style="margin-bottom:6px;"><b>Please fix {{ errors | length }} thing{{ "s" if errors | length != 1 }}:</b></p>
-  <ul class="error" style="margin:0;padding-left:20px;">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+<div class="panel notice-error">
+  <p class="error error-title"><b>Please fix {{ errors | length }} thing{{ "s" if errors | length != 1 }}:</b></p>
+  <ul class="error error-list">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
 </div>
 {% endif %}
 <form method="post" action="/profile" class="stack">
@@ -46,7 +46,7 @@
       {{ field("window_end_%d" % i, "To", form["window_end_%d" % i], type="date") }}
     </div>
     {% endfor %}
-    <p class="muted small" style="margin:0;">Leave a row blank to remove it.</p>
+    <p class="muted small m-0">Leave a row blank to remove it.</p>
   </section>
 
   <section class="panel">
@@ -65,7 +65,7 @@
       {{ field("tracker_price_%d" % i, "Max price", form["tracker_price_%d" % i], attrs='inputmode="numeric" placeholder="any"') }}
     </div>
     {% endfor %}
-    <p class="muted small" style="margin:0;">Missing a destination? It has to be added to the app's data first.</p>
+    <p class="muted small m-0">Missing a destination? It has to be added to the app's data first.</p>
   </section>
 
   <section class="panel">

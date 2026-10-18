@@ -49,7 +49,9 @@ log = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).parent
 TEMPLATES = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 TEMPLATES.env.filters.update(money=money, day=day, dates=date_range, stops=stops)
-TRACKER_ID = Annotated[int, PathParam(ge=1, le=2**31 - 1)]  # Postgres int4; larger ids would be a 500
+# Postgres int4 range: anything inside it is looked up (0 or negative are simply not found, a 404); ids
+# beyond it would make the database raise, so they're a styled 400 instead.
+TRACKER_ID = Annotated[int, PathParam(ge=-(2**31), le=2**31 - 1)]
 TRACKER_URL = re.compile(r"/trackers/\d+")
 SESSION_MAX_AGE_S = 30 * 24 * 3600
 LOGIN_COOLDOWN_S = 120  # at most one sign-in email per address per 2 minutes
@@ -122,17 +124,21 @@ def create_app(
 
     @app.exception_handler(StarletteHTTPException)
     def http_error(request: Request, exc: StarletteHTTPException):
-        """Unknown URLs and other HTTP errors get a page, not FastAPI's JSON."""
+        """Unknown URLs and other HTTP errors get a page, not FastAPI's JSON (headers such as Allow kept)."""
         if exc.status_code == 404:
-            return page(
+            response = page(
                 request, "message.html", 404, title="Not found", message="There's nothing at this address."
             )
-        title = (
-            HTTPStatus(exc.status_code).phrase
-            if exc.status_code in HTTPStatus._value2member_map_
-            else "Error"
-        )
-        return page(request, "message.html", exc.status_code, title=title, message="That didn't work.")
+        else:
+            try:
+                title = HTTPStatus(exc.status_code).phrase
+            except ValueError:
+                title = "Error"
+            response = page(
+                request, "message.html", exc.status_code, title=title, message="That didn't work."
+            )
+        response.headers.update(exc.headers or {})
+        return response
 
     @app.get("/healthz")
     def healthz():

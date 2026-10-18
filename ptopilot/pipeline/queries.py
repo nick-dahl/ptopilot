@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
 from ptopilot import config
@@ -94,10 +94,17 @@ def estimate(rq: RouteQuery, exact: dict, monthly: dict) -> CachedPrice | None:
     )
 
 
-def load_baselines(s: Session) -> dict[BaselineKey, Baseline]:
+def load_baselines(s: Session, routes: set[Route] | None = None) -> dict[BaselineKey, Baseline]:
+    """Every baseline, or only those for the given (origin, dest_airport, return_airport) routes."""
+    query = select(RouteBaseline)
+    if routes is not None:
+        if not routes:
+            return {}
+        route = tuple_(RouteBaseline.origin, RouteBaseline.dest_airport, RouteBaseline.return_airport)
+        query = query.where(route.in_(sorted(routes)))
     return {
         (b.origin, b.dest_airport, b.return_airport, b.month, b.length_bucket): Baseline(
             float(b.median), float(b.sigma), b.n, b.confidence
         )
-        for b in s.scalars(select(RouteBaseline))
+        for b in s.scalars(query)
     }
