@@ -6,7 +6,7 @@ import yaml
 from sqlalchemy import select
 
 from ptopilot.data import load_geo
-from ptopilot.db.models import Invite, Tracker, TravelWindow, User
+from ptopilot.db.models import Invite, PlannedTrip, PlanningYear, Tracker, TravelWindow, User
 from ptopilot.profiles import apply_profile, parse_profile
 
 GEO = load_geo()
@@ -127,3 +127,32 @@ def test_malformed_shapes_are_validation_errors_not_crashes(overrides):
 def test_non_mapping_file_is_a_validation_error():
     with pytest.raises(ValueError, match="invalid profile"):
         parse_profile(["just", "a", "list"], GEO)
+
+
+def test_profile_load_writes_planning_years_and_trips(session):
+    profile = parse_profile(EXAMPLE, GEO)
+    apply_profile(session, profile)
+
+    def state():
+        years = {(y.year, y.pto_days, y.other_time_off) for y in session.scalars(mine(PlanningYear))}
+        trips = {(p.year, p.tracker_id) for p in session.scalars(mine(PlannedTrip))}
+        return years, trips
+
+    years, trips = state()
+    total, committed = profile.user["pto_days_total"], profile.user["pto_committed"]
+    assert years == {(2027, total, committed)}
+    assert len(trips) == len(profile.trackers)
+    apply_profile(session, profile)
+    assert state() == (years, trips)
+
+
+def test_profile_load_updates_existing_planning_years_and_keeps_others(session):
+    profile = parse_profile(EXAMPLE, GEO)
+    apply_profile(session, profile)
+    user = session.scalar(select(User).where(User.email == EMAIL))
+    session.get(PlanningYear, (user.id, 2027)).pto_days = 8
+    session.add(PlanningYear(user_id=user.id, year=2030, pto_days=5, other_time_off=0))
+    session.flush()
+    apply_profile(session, profile)
+    years = {y.year: y.pto_days for y in session.scalars(mine(PlanningYear))}
+    assert years == {2027: profile.user["pto_days_total"], 2030: 5}

@@ -373,7 +373,9 @@ def create_app(
         with session_scope(engine) as s:  # a short read first: the slow climate lookup holds no transaction
             fetched = prefetch_climate(s, match, chosen, climate)
         with session_scope(engine) as s:
-            add_destination(s, s.get(User, user_id), match, chosen, target_days, climate=fetched)
+            add_destination(
+                s, s.get(User, user_id), match, chosen, target_days, climate=fetched, today=today()
+            )
         return redirect("/destinations")
 
     @app.post("/destinations/{tracker_id}/remove")

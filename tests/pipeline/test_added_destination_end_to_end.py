@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ptopilot.core.airports import AirportCatalog
-from ptopilot.db.models import RouteQuery, TrackerRouteLink, TravelWindow
+from ptopilot.db.models import PlanningYear, RouteQuery, TrackerRouteLink, TravelWindow
 from ptopilot.db.session import session_scope
 from ptopilot.destinations import add_destination
 from ptopilot.pipeline import context as context_module
@@ -30,8 +30,9 @@ def test_a_destination_added_on_the_website_is_planned_scanned_and_dated_by_its_
     with Session(clean_engine) as s:
         user = make_user(s, home_airport="JFK")
         s.add(TravelWindow(user_id=user.id, start_date=date(2027, 10, 1), end_date=date(2027, 10, 31)))
+        s.add(PlanningYear(user_id=user.id, year=2027, pto_days=15))
         osaka = AirportCatalog.load().search("Osaka")[0]
-        add_destination(s, user, osaka, ["KIX", "ITM"], 12, climate=lambda lat, lon: TOKYO)
+        add_destination(s, user, osaka, ["KIX", "ITM"], 12, climate=lambda lat, lon: TOKYO, today=RUN)
         s.commit()
 
     monkeypatch.setattr(context_module, "make_engine", lambda url: clean_engine)

@@ -27,8 +27,9 @@ from sqlalchemy.orm import Session
 from ptopilot.core.calendar import WorkCalendar
 from ptopilot.core.geo import Geo, UnknownCodeError
 from ptopilot.data import load_geo
-from ptopilot.db.models import Invite, Tracker, TravelWindow, User
+from ptopilot.db.models import Invite, PlanningYear, Tracker, TravelWindow, User
 from ptopilot.db.session import make_engine
+from ptopilot.planning import plan_trip
 from ptopilot.settings import Settings
 
 USER_FIELDS = {
@@ -264,8 +265,17 @@ def apply_profile(s: Session, p: Profile) -> dict[str, int | str]:
     s.add_all(TravelWindow(user_id=user.id, start_date=a, end_date=b) for a, b in p.windows)
     summary["windows"] = len(p.windows)
 
+    window_years = sorted({start.year for start, _ in p.windows})
+    for year in window_years:
+        row = s.get(PlanningYear, (user.id, year))
+        if row is None:
+            row = PlanningYear(user_id=user.id, year=year)
+            s.add(row)
+        row.pto_days, row.other_time_off = user.pto_days_total, user.pto_committed
+
     existing = {t.destination_code: t for t in s.scalars(select(Tracker).where(Tracker.user_id == user.id))}
     added = updated = 0
+    listed = []
     for row in p.trackers:
         t = existing.pop(row.destination, None)
         if t is None:
@@ -276,6 +286,11 @@ def apply_profile(s: Session, p: Profile) -> dict[str, int | str]:
             updated += 1
         t.min_stay_days, t.max_stay_days = row.min_stay, row.max_stay
         t.priority, t.max_price, t.active = row.priority, row.max_price, True
+        listed.append(t)
+    s.flush()
+    for tracker in listed:
+        for year in window_years:
+            plan_trip(s, user, tracker, year)
     deactivated = 0
     for t in existing.values():
         if t.active:

@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from ptopilot.db.models import RouteQuery, TrackerExclusion, TrackerRouteLink
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline import expand
-from tests.pipeline.conftest import RUN, add_tracker, add_user
+from tests.pipeline.conftest import RUN, add_tracker, add_user, set_planning_year
 
 JUNETEENTH_TRIP = (date(2027, 6, 12), date(2027, 6, 20))
 
@@ -100,3 +100,45 @@ def test_a_bad_tracker_does_not_stop_the_others(make_ctx):
     counts = expand.run(ctx)
     assert counts["tracker_errors"] == 1
     assert {lk.tracker_id for *_, lk in links(ctx.engine)} == {good}
+
+
+TWO_YEARS = ((date(2027, 6, 1), date(2027, 6, 30)), (date(2028, 6, 1), date(2028, 6, 30)))
+
+
+def test_a_trip_is_searched_only_in_its_years_ranges(make_ctx):
+    ctx = make_ctx()
+    tid = add_tracker(ctx.engine, add_user(ctx.engine, windows=TWO_YEARS), years=[2027])
+    expand.run(ctx)
+    rows = links(ctx.engine, tid)
+    assert rows
+    assert {dep.year for _, _, dep, _, _ in rows} == {2027}
+
+
+def test_each_years_pto_limits_its_own_trips(make_ctx):
+    ctx = make_ctx()
+    uid = add_user(ctx.engine, windows=TWO_YEARS)
+    set_planning_year(ctx.engine, uid, 2027, pto_days=0)
+    set_planning_year(ctx.engine, uid, 2028, pto_days=20)
+    tid = add_tracker(ctx.engine, uid)
+    expand.run(ctx)
+    by_year = {2027: [], 2028: []}
+    for _, _, dep, _, link in links(ctx.engine, tid):
+        by_year[dep.year].append(link.pto_cost)
+    assert all(cost == 0 for cost in by_year[2027])  # with no PTO, only free trips (if any) are found
+    assert any(cost > 0 for cost in by_year[2028])
+
+
+def test_a_tracker_with_no_planned_trip_is_not_searched(make_ctx):
+    ctx = make_ctx()
+    add_tracker(ctx.engine, add_user(ctx.engine), years=[])
+    counts = expand.run(ctx)
+    assert counts["trackers_without_windows"] == 1
+    assert count(ctx.engine, TrackerRouteLink) == 0
+
+
+def test_a_range_in_a_year_without_a_planning_year_is_ignored(make_ctx):
+    ctx = make_ctx()
+    uid = add_user(ctx.engine, windows=TWO_YEARS, years=[2027])
+    tid = add_tracker(ctx.engine, uid, years=[2027, 2028])  # planned in 2028, which has no planning year
+    expand.run(ctx)
+    assert {dep.year for _, _, dep, _, _ in links(ctx.engine, tid)} == {2027}

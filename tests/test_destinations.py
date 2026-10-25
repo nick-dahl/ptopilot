@@ -1,16 +1,17 @@
 """User-added destinations: stored in the database, merged into geo and seasons, added and removed."""
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ptopilot.core.airports import AirportCatalog
 from ptopilot.data import load_geo, load_seasons
-from ptopilot.db.models import Base, Destination, DestinationSeason, Tracker
+from ptopilot.db.models import Base, Destination, DestinationSeason, PlannedTrip, PlanningYear, Tracker
 from ptopilot.destinations import add_destination, remove_destination
 from ptopilot.sources.base import SourceUnavailable
 from tests.db.test_models import make_user
@@ -224,3 +225,20 @@ def test_the_climate_fetch_uses_a_ten_second_timeout(monkeypatch):
         climate.fetch_climate(0.0, 0.0)
     assert seen["timeout"] == config.CLIMATE_TIMEOUT_S == 10
     assert httpx  # imported for the patched module
+
+
+def test_adding_a_destination_plans_it_in_open_years(session):
+    user = make_user(session)
+    session.add_all(PlanningYear(user_id=user.id, year=y, pto_days=10) for y in (2026, 2027, 2028))
+    session.flush()
+    t = add_destination(
+        session,
+        user,
+        CAT.search("Osaka")[0],
+        ["KIX", "ITM"],
+        12,
+        climate=tokyo_climate,
+        today=date(2027, 2, 1),
+    )
+    planned = session.scalars(select(PlannedTrip.year).where(PlannedTrip.tracker_id == t.id)).all()
+    assert sorted(planned) == [2027, 2028]

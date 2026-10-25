@@ -17,18 +17,27 @@ from sqlalchemy.orm import Session
 from ptopilot.core.calendar import WorkCalendar
 from ptopilot.core.geo import UnknownCodeError
 from ptopilot.core.planner import PlannedItinerary, TrackerSpec, TravelerProfile, Window, plan_itineraries
-from ptopilot.db.models import RouteQuery, Tracker, TrackerExclusion, TrackerRouteLink, TravelWindow, User
+from ptopilot.db.models import (
+    PlannedTrip,
+    PlanningYear,
+    RouteQuery,
+    Tracker,
+    TrackerExclusion,
+    TrackerRouteLink,
+    TravelWindow,
+    User,
+)
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext
 
 log = logging.getLogger(__name__)
 
 
-def profile_for(user: User) -> TravelerProfile:
+def profile_for(user: User, pto_available: int | None = None) -> TravelerProfile:
     return TravelerProfile(
         home_airports=(user.home_airport, *user.nearby_airports),
         calendar=WorkCalendar.from_code(user.holiday_calendar, user.extra_days_off, user.ignored_holidays),
-        pto_available=user.pto_days_total - user.pto_committed,
+        pto_available=user.pto_days_total - user.pto_committed if pto_available is None else pto_available,
         min_trip_days=user.min_trip_days,
         max_trip_days=user.max_trip_days,
         weather_tolerance=user.weather_tolerance,  # type: ignore[arg-type]
@@ -61,15 +70,24 @@ def run(ctx: RunContext) -> dict[str, int]:
             )
             .order_by(Tracker.id)
         ).all()
-        windows: defaultdict[int, list[Window]] = defaultdict(list)
+        pto_left = {
+            (py.user_id, py.year): py.pto_days - py.other_time_off for py in s.scalars(select(PlanningYear))
+        }
+        planned: defaultdict[int, set[int]] = defaultdict(set)
+        for pt in s.scalars(select(PlannedTrip)):
+            planned[pt.tracker_id].add(pt.year)
+        windows: defaultdict[tuple[int, int], list[Window]] = defaultdict(list)  # (user, year of the range)
         for w in s.scalars(select(TravelWindow).where(TravelWindow.end_date >= tomorrow)):
-            windows[w.user_id].append(Window(max(w.start_date, tomorrow), w.end_date))
+            windows[w.user_id, w.start_date.year].append(Window(max(w.start_date, tomorrow), w.end_date))
         excluded = {(e.tracker_id, e.depart_date, e.return_date) for e in s.scalars(select(TrackerExclusion))}
 
         cache: dict = {}
         for tracker, user in rows:
             counts["trackers"] += 1
-            if not windows[user.id]:
+            years = sorted(
+                y for y in planned[tracker.id] if (user.id, y) in pto_left and windows.get((user.id, y))
+            )
+            if not years:
                 counts["trackers_without_windows"] += 1
                 continue
             try:
@@ -79,9 +97,17 @@ def run(ctx: RunContext) -> dict[str, int]:
                     tracker.max_stay_days,
                     tracker.target_days,
                 )
-                itineraries = plan_itineraries(
-                    profile_for(user), spec, windows[user.id], ctx.geo, ctx.seasons
-                )
+                itineraries = [
+                    it
+                    for y in years
+                    for it in plan_itineraries(
+                        profile_for(user, pto_left[user.id, y]),
+                        spec,
+                        windows[user.id, y],
+                        ctx.geo,
+                        ctx.seasons,
+                    )
+                ]
             except (UnknownCodeError, ValueError) as exc:
                 counts["tracker_errors"] += 1
                 log.warning("tracker %s skipped: %s", tracker.id, exc)

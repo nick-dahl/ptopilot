@@ -9,7 +9,16 @@ import pytest
 from sqlalchemy import select
 
 from ptopilot.data import load_geo, load_seasons
-from ptopilot.db.models import LiveCheck, PriceObservation, RouteQuery, Tracker, TravelWindow, User
+from ptopilot.db.models import (
+    LiveCheck,
+    PlannedTrip,
+    PlanningYear,
+    PriceObservation,
+    RouteQuery,
+    Tracker,
+    TravelWindow,
+    User,
+)
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext
 from ptopilot.sources.base import ExactQuery, ExactResult, FareQuote, FlightOption, SourceUnavailable
@@ -81,8 +90,9 @@ def quote(origin, dest, depart, ret, price) -> FareQuote:
 
 
 def add_user(
-    engine, email="nick@example.com", windows=((date(2027, 6, 1), date(2027, 6, 30)),), **fields
+    engine, email="nick@example.com", windows=((date(2027, 6, 1), date(2027, 6, 30)),), years=None, **fields
 ) -> int:
+    """A user with open ranges and, by default, a planning year for each year those ranges start in."""
     values = {
         "email": email,
         "home_airport": "ORD",
@@ -97,16 +107,35 @@ def add_user(
         s.flush()
         for start, end in windows:
             s.add(TravelWindow(user_id=user.id, start_date=start, end_date=end))
+        for year in sorted({start.year for start, _ in windows}) if years is None else years:
+            s.add(
+                PlanningYear(
+                    user_id=user.id,
+                    year=year,
+                    pto_days=user.pto_days_total,
+                    other_time_off=user.pto_committed or 0,
+                )
+            )
         return user.id
 
 
-def add_tracker(engine, user_id, code="LIS", min_stay=5, max_stay=9, **fields) -> int:
+def set_planning_year(engine, user_id, year, pto_days, other_time_off=0) -> None:
+    with session_scope(engine) as s:
+        s.merge(PlanningYear(user_id=user_id, year=year, pto_days=pto_days, other_time_off=other_time_off))
+
+
+def add_tracker(engine, user_id, code="LIS", min_stay=5, max_stay=9, years=None, **fields) -> int:
+    """A tracker planned in every one of the user's planning years (or only in `years`)."""
     with session_scope(engine) as s:
         t = Tracker(
             user_id=user_id, destination_code=code, min_stay_days=min_stay, max_stay_days=max_stay, **fields
         )
         s.add(t)
         s.flush()
+        if years is None:
+            years = list(s.scalars(select(PlanningYear.year).where(PlanningYear.user_id == user_id)))
+        for year in years:
+            s.add(PlannedTrip(user_id=user_id, year=year, tracker_id=t.id))
         return t.id
 
 

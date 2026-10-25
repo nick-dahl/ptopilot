@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,6 +13,7 @@ from ptopilot.core.airports import PlaceMatch
 from ptopilot.core.climate import monthly_climate, rate_months
 from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import Destination, DestinationSeason, Tracker, User
+from ptopilot.planning import plan_trip, planning_years
 from ptopilot.sources.base import SourceUnavailable
 from ptopilot.sources.climate import fetch_climate
 
@@ -86,6 +88,7 @@ def add_destination(
     target_days: int,
     name: str | None = None,
     climate: Callable[[float, float], dict] = fetch_climate,
+    today: date | None = None,
 ) -> Tracker:
     code = destination_code(match, airports, s)
     if code not in {d.code for d in load_geo().destinations()}:
@@ -113,6 +116,10 @@ def add_destination(
     tracker.max_stay_days = target_days + 2
     tracker.active = True
     s.flush()
+    first_year = (today or date.today()).year
+    for py in planning_years(s, user):
+        if py.year >= first_year:
+            plan_trip(s, user, tracker, py.year)
     return tracker
 
 
