@@ -60,8 +60,8 @@ def test_two_users_share_route_queries(make_ctx):
 def test_snoozed_and_inactive_trackers_are_skipped(make_ctx):
     ctx = make_ctx()
     uid = add_user(ctx.engine)
-    add_tracker(ctx.engine, uid, snoozed_until=RUN)
-    add_tracker(ctx.engine, uid, active=False)
+    add_tracker(ctx.engine, uid, "PRG", snoozed_until=RUN)
+    add_tracker(ctx.engine, uid, "ATH", active=False)
     expired = add_tracker(ctx.engine, uid, snoozed_until=date(2027, 2, 28))
     assert expand.run(ctx)["trackers"] == 1
     assert {lk.tracker_id for *_, lk in links(ctx.engine)} == {expired}

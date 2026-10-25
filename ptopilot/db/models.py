@@ -103,6 +103,7 @@ class Tracker(Base):
         CheckConstraint("0 < min_stay_days AND min_stay_days <= max_stay_days", name="stay_days"),
         CheckConstraint("priority BETWEEN 1 AND 3", name="priority"),
         CheckConstraint("target_days IS NULL OR target_days BETWEEN 2 AND 60", name="target_days"),
+        UniqueConstraint("user_id", "destination_code"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -115,6 +116,36 @@ class Tracker(Base):
     snoozed_until: Mapped[date | None]
     target_days: Mapped[int | None] = mapped_column(SmallInteger)  # days away; None: use the stay range
     active: Mapped[bool] = mapped_column(server_default="true")
+    created_at: Mapped[datetime] = created_at()
+
+
+class PlanningYear(Base):
+    """A year a user is planning: its PTO budget and the days off already spoken for."""
+
+    __tablename__ = "planning_years"
+    __table_args__ = (
+        CheckConstraint(
+            "pto_days >= 0 AND other_time_off >= 0 AND other_time_off <= pto_days", name="pto_days"
+        ),
+    )
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    year: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    pto_days: Mapped[int] = mapped_column(SmallInteger)
+    other_time_off: Mapped[int] = mapped_column(SmallInteger, server_default="0")  # PTO already committed
+    created_at: Mapped[datetime] = created_at()
+
+
+class PlannedTrip(Base):
+    """A tracker's destination picked for a planning year."""
+
+    __tablename__ = "planned_trips"
+    __table_args__ = (UniqueConstraint("tracker_id", "year"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    year: Mapped[int] = mapped_column(SmallInteger)
+    tracker_id: Mapped[int] = mapped_column(ForeignKey("trackers.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = created_at()
 
 

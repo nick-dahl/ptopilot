@@ -7,6 +7,8 @@ from sqlalchemy.exc import IntegrityError
 
 from ptopilot.db.models import (
     DigestSend,
+    PlannedTrip,
+    PlanningYear,
     PriceObservation,
     RouteQuery,
     Tracker,
@@ -140,3 +142,44 @@ def test_digest_items_json_round_trip(session):
     session.flush()
     session.expire_all()
     assert session.get(DigestSend, send.id).items == [{"candidate_id": 1, "price": 612.0}]
+
+
+def test_trackers_are_unique_per_user_and_destination(session):
+    user = make_user(session)
+    session.add(Tracker(user_id=user.id, destination_code="TH", min_stay_days=5, max_stay_days=9))
+    session.flush()
+    session.add(Tracker(user_id=user.id, destination_code="TH", min_stay_days=7, max_stay_days=12))
+    with pytest.raises(IntegrityError):
+        session.flush()
+
+
+def test_planned_trip_is_unique_per_tracker_and_year(session):
+    user = make_user(session)
+    tracker = Tracker(user_id=user.id, destination_code="TH", min_stay_days=5, max_stay_days=9)
+    session.add_all([tracker, PlanningYear(user_id=user.id, year=2027, pto_days=15)])
+    session.flush()
+    session.add(PlannedTrip(user_id=user.id, year=2027, tracker_id=tracker.id))
+    session.flush()
+    session.add(PlannedTrip(user_id=user.id, year=2027, tracker_id=tracker.id))
+    with pytest.raises(IntegrityError):
+        session.flush()
+
+
+@pytest.mark.parametrize("pto_days, other_time_off", [(10, 11), (-1, 0), (10, -1)])
+def test_other_time_off_cannot_exceed_pto_days(session, pto_days, other_time_off):
+    user = make_user(session)
+    session.add(PlanningYear(user_id=user.id, year=2027, pto_days=pto_days, other_time_off=other_time_off))
+    with pytest.raises(IntegrityError):
+        session.flush()
+
+
+def test_deleting_a_tracker_removes_its_planned_trips(session):
+    user = make_user(session)
+    tracker = Tracker(user_id=user.id, destination_code="TH", min_stay_days=5, max_stay_days=9)
+    session.add_all([tracker, PlanningYear(user_id=user.id, year=2027, pto_days=15)])
+    session.flush()
+    session.add(PlannedTrip(user_id=user.id, year=2027, tracker_id=tracker.id))
+    session.flush()
+    session.delete(tracker)
+    session.flush()
+    assert session.scalar(select(func.count()).select_from(PlannedTrip)) == 0
