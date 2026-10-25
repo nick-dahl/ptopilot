@@ -8,10 +8,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ptopilot.db.models import Tracker, TravelWindow, User
+from ptopilot.db.models import User
 
 INT_FIELDS = (
     "pto_days_total", "pto_committed", "min_trip_days", "max_trip_days", "max_stops_short", "max_stops_long",
@@ -19,7 +18,6 @@ INT_FIELDS = (
 OPTIONAL_INT_FIELDS = ("ideal_trip_days",)  # blank means "no preference"
 TEXT_FIELDS = ("home_airport", "country", "holiday_calendar", "weather_tolerance")
 BOOL_FIELDS = ("allow_overnight_layover", "friday_evening_departure")
-EXTRA_ROWS = 2  # blank rows offered for new windows and trackers
 
 
 def _int(value: str):
@@ -79,20 +77,20 @@ def form_to_profile(form: Mapping[str, str], email: str) -> dict:
 
 
 def profile_to_form(s: Session, user: User | None) -> dict[str, str]:
-    """Current values as form fields (empty defaults for a new traveler)."""
+    """Current values as form fields (empty defaults for a new traveler).
+
+    Windows and the bucket list are not on the web form: the planner and destinations pages own them."""
     if user is None:
         form = {
             "weather_tolerance": "normal",
             "holiday_calendar": "US",
             "country": "US",
-            "pto_committed": "0",
             "min_trip_days": "3",
             "max_stops_short": "1",
             "max_stops_long": "2",
             "friday_evening_min_time": "17:00",
             "ideal_trip_days": "",
         }
-        windows, trackers = [], []
     else:
         form = {key: str(getattr(user, key)) for key in INT_FIELDS} | {
             "ideal_trip_days": str(user.ideal_trip_days) if user.ideal_trip_days is not None else "",
@@ -108,33 +106,4 @@ def profile_to_form(s: Session, user: User | None) -> dict[str, str]:
         for key in BOOL_FIELDS:
             if getattr(user, key):
                 form[key] = "on"
-        windows = list(
-            s.scalars(
-                select(TravelWindow).where(TravelWindow.user_id == user.id).order_by(TravelWindow.start_date)
-            )
-        )
-        trackers = list(
-            s.scalars(
-                select(Tracker)
-                .where(Tracker.user_id == user.id, Tracker.active.is_(True))
-                .order_by(Tracker.id)
-            )
-        )
-    for i, w in enumerate([*windows, *([None] * EXTRA_ROWS)]):
-        form[f"window_start_{i}"] = w.start_date.isoformat() if w else ""
-        form[f"window_end_{i}"] = w.end_date.isoformat() if w else ""
-    for i, t in enumerate([*trackers, *([None] * EXTRA_ROWS)]):
-        form[f"tracker_dest_{i}"] = t.destination_code if t else ""
-        form[f"tracker_min_{i}"] = str(t.min_stay_days) if t else ""
-        form[f"tracker_max_{i}"] = str(t.max_stay_days) if t else ""
-        form[f"tracker_priority_{i}"] = str(t.priority) if t else "2"
-        form[f"tracker_price_{i}"] = f"{t.max_price:.0f}" if t and t.max_price is not None else ""
     return form
-
-
-def row_count(form: Mapping[str, str], prefix: str) -> int:
-    """How many numbered rows the form has (so templates can render them, plus re-rendering after errors)."""
-    i = 0
-    while f"{prefix}_{'start' if prefix == 'window' else 'dest'}_{i}" in form:
-        i += 1
-    return i

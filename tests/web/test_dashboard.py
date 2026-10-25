@@ -2,17 +2,17 @@
 
 from sqlalchemy import select
 
-from ptopilot.db.models import Tracker
+from ptopilot.db.models import PlanningYear, Tracker
 from ptopilot.db.session import session_scope
 from tests.digest.conftest import add_baseline, add_candidate
-from tests.web.conftest import PROFILE_FORM, TODAY, sign_in
+from tests.web.conftest import PROFILE_FORM, TODAY, seed_profile, sign_in
 
 TWO_DESTINATIONS = {**PROFILE_FORM, "tracker_dest_1": "MADEIRA", "tracker_min_1": "6", "tracker_max_1": "9"}
 
 
 def setup(client, emailer, engine, form=TWO_DESTINATIONS) -> dict[str, int]:
     sign_in(client, emailer, engine)
-    client.post("/profile", data=form)
+    seed_profile(engine, form)
     with session_scope(engine) as s:
         return {t.destination_code: t.id for t in s.scalars(select(Tracker))}
 
@@ -50,8 +50,38 @@ def test_pto_bar_shows_days_left_and_committed(client, emailer, clean_engine):
     assert "15</b> PTO days left" in page and "7 of 22 committed" in page
 
 
-def test_no_trackers_points_to_the_profile(client, emailer, clean_engine):
+def test_dashboard_pto_bar_uses_the_current_planning_year(client, emailer, clean_engine):
+    setup(client, emailer, clean_engine, PROFILE_FORM)
+    with session_scope(clean_engine) as s:
+        row = s.scalar(select(PlanningYear).where(PlanningYear.year == TODAY.year))
+        row.pto_days, row.other_time_off = 30, 4
+    page = client.get("/").text
+    assert "26</b> PTO days left" in page and "4 of 30 committed" in page
+    with session_scope(clean_engine) as s:
+        s.delete(s.scalar(select(PlanningYear)))  # no year: fall back to the user's own fields
+    assert "15</b> PTO days left" in client.get("/").text
+
+
+def test_dashboard_card_says_building_price_history(client, emailer, clean_engine):
+    ids = setup(client, emailer, clean_engine, PROFILE_FORM)
+    add_candidate(clean_engine, ids["AZORES"], 603, run_date=TODAY)
+    assert "Building price history" in client.get("/").text
+    add_baseline(clean_engine, 700)
+    assert "Building price history" not in client.get("/").text
+
+
+def test_dashboard_card_eyebrow_shows_the_target_days(client, emailer, clean_engine):
+    ids = setup(client, emailer, clean_engine, PROFILE_FORM)
+    assert "7–10 days on the ground" in client.get("/").text
+    with session_scope(clean_engine) as s:
+        s.get(Tracker, ids["AZORES"]).target_days = 9
+    page = client.get("/").text
+    assert "~9 days away" in page and "days on the ground" not in page
+
+
+def test_empty_dashboard_points_to_destinations_and_plan(client, emailer, clean_engine):
     ids = setup(client, emailer, clean_engine, PROFILE_FORM)
     with session_scope(clean_engine) as s:
         s.get(Tracker, ids["AZORES"]).active = False
-    assert 'No destinations yet. <a href="/profile">' in client.get("/").text
+    page = client.get("/").text
+    assert '<a href="/destinations">' in page and '<a href="/plan">' in page

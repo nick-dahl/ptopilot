@@ -30,42 +30,11 @@
   <section class="panel">
     <h2>PTO and trip length</h2>
     <div class="fields">
-      {{ field("pto_days_total", "PTO days this year", form.pto_days_total, attrs='inputmode="numeric" required') }}
-      {{ field("pto_committed", "Already committed", form.pto_committed, attrs='inputmode="numeric"') }}
+      {{ field("pto_days_total", "PTO days per year", form.pto_days_total, hint="Used to start each new planning year.", attrs='inputmode="numeric" required') }}
       {{ field("min_trip_days", "Shortest trip", form.min_trip_days, hint="Days away from home", attrs='inputmode="numeric"') }}
       {{ field("max_trip_days", "Longest trip", form.max_trip_days, hint="Days away from home", attrs='inputmode="numeric" required') }}
       {{ field("ideal_trip_days", "Ideal trip", form.ideal_trip_days, hint="Optional. Trips near it are priced first.", attrs='inputmode="numeric" placeholder="no preference"') }}
     </div>
-  </section>
-
-  <section class="panel">
-    <h2>Travel windows</h2>
-    {% for i in range(windows) %}
-    <div class="fields-2">
-      {{ field("window_start_%d" % i, "From", form["window_start_%d" % i], type="date") }}
-      {{ field("window_end_%d" % i, "To", form["window_end_%d" % i], type="date") }}
-    </div>
-    {% endfor %}
-    <p class="muted small m-0">Leave a row blank to remove it.</p>
-  </section>
-
-  <section class="panel">
-    <h2>Bucket list</h2>
-    <p class="muted small">Days on the ground, after travel days. Priority 1 is checked first.</p>
-    {% for i in range(trackers) %}
-    <div class="row-fields">
-      <label class="field"><span>Destination</span>
-        <select id="tracker_dest_{{ i }}" name="tracker_dest_{{ i }}">
-          <option value=""></option>
-          {% for d in destinations %}<option value="{{ d.code }}" {{ "selected" if form['tracker_dest_%d' % i] == d.code }}>{{ d.name }}</option>{% endfor %}
-        </select></label>
-      {{ field("tracker_min_%d" % i, "Min days", form["tracker_min_%d" % i], attrs='inputmode="numeric"') }}
-      {{ field("tracker_max_%d" % i, "Max days", form["tracker_max_%d" % i], attrs='inputmode="numeric"') }}
-      {{ field("tracker_priority_%d" % i, "Priority", form["tracker_priority_%d" % i], attrs='inputmode="numeric"') }}
-      {{ field("tracker_price_%d" % i, "Max price", form["tracker_price_%d" % i], attrs='inputmode="numeric" placeholder="any"') }}
-    </div>
-    {% endfor %}
-    <p class="muted small m-0">Missing a destination? It has to be added to the app's data first.</p>
   </section>
 
   <section class="panel">

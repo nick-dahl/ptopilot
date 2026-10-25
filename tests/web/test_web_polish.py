@@ -19,7 +19,7 @@ from ptopilot.pipeline.queries import load_baselines
 from ptopilot.web.history import destination_summaries, trip_options
 from tests.digest.conftest import RUN, add_baseline, add_candidate, add_tracker, add_user
 from tests.digest.test_render import NOW, ROW, card
-from tests.web.conftest import PROFILE_FORM, TODAY, sign_in
+from tests.web.conftest import PROFILE_FORM, TODAY, seed_profile, sign_in
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = ROOT / "ptopilot" / "web" / "templates"
@@ -78,7 +78,7 @@ def test_a_destination_with_every_trip_ruled_out_says_so(clean_engine):
 
 def test_the_dashboard_card_shows_the_ruled_out_note(client, emailer, clean_engine):
     sign_in(client, emailer, clean_engine)
-    client.post("/profile", data=PROFILE_FORM)
+    seed_profile(clean_engine)
     with session_scope(clean_engine) as s:
         tracker_id = s.scalar(select(Tracker.id))
     c = add_candidate(clean_engine, tracker_id, 603, run_date=TODAY)

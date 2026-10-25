@@ -6,7 +6,7 @@ from ptopilot.db.models import Tracker, TravelWindow, User
 from ptopilot.db.session import session_scope
 from ptopilot.web.forms import form_to_profile
 from tests.digest.conftest import add_candidate
-from tests.web.conftest import PROFILE_FORM, TODAY, sign_in
+from tests.web.conftest import PROFILE_FORM, TODAY, seed_profile, sign_in
 
 
 def test_form_to_profile_maps_fields_and_skips_blank_rows():
@@ -21,28 +21,26 @@ def test_form_to_profile_maps_fields_and_skips_blank_rows():
     )
 
 
-def test_new_traveler_fills_in_the_profile_and_lands_on_the_dashboard(client, emailer, clean_engine):
+def test_new_traveler_fills_in_the_profile_and_is_sent_to_start_planning(client, emailer, clean_engine):
     sign_in(client, emailer, clean_engine)
     form_page = client.get("/profile")
     assert form_page.status_code == 200 and "Your travel profile" in form_page.text
     saved = client.post("/profile", data=PROFILE_FORM)
-    assert (saved.status_code, saved.headers["location"]) == (303, "/?saved=1")
+    assert (saved.status_code, saved.headers["location"]) == (303, "/plan/new")
     with session_scope(clean_engine) as s:
         user = s.scalar(select(User).where(User.email == "nick@example.com"))
-        assert (user.home_airport, user.pto_days_total, user.pto_committed) == ("JFK", 22, 7)
-        assert [t.destination_code for t in s.scalars(select(Tracker))] == ["AZORES"]
-        assert len(list(s.scalars(select(TravelWindow)))) == 1
+        assert (user.home_airport, user.pto_days_total, user.pto_committed) == ("JFK", 22, 0)
+        assert list(s.scalars(select(Tracker))) == [] and list(s.scalars(select(TravelWindow))) == []
     dashboard = client.get("/?saved=1")
-    assert "Profile saved" in dashboard.text and "15</b> PTO days left" in dashboard.text
-    assert "Azores" in dashboard.text and "First prices after the next daily scan" in dashboard.text
+    assert "Profile saved" in dashboard.text and "22</b> PTO days left" in dashboard.text
 
 
 def test_invalid_profile_lists_every_problem_and_saves_nothing(client, emailer, clean_engine):
     sign_in(client, emailer, clean_engine)
-    bad = {**PROFILE_FORM, "pto_committed": "30", "home_airport": "XXX", "window_end_0": "2027-02-01"}
+    bad = {**PROFILE_FORM, "pto_days_total": "-3", "home_airport": "XXX", "max_trip_days": "2"}
     response = client.post("/profile", data=bad)
     assert response.status_code == 400
-    for fragment in ("Please fix 3 things", "pto_committed", "XXX", "before it starts"):
+    for fragment in ("Please fix 3 things", "pto_days_total", "XXX", "min_trip_days/max_trip_days"):
         assert fragment in response.text
     assert 'value="XXX"' in response.text  # the submitted values are kept
     with session_scope(clean_engine) as s:
@@ -51,15 +49,14 @@ def test_invalid_profile_lists_every_problem_and_saves_nothing(client, emailer, 
 
 def test_existing_profile_is_prefilled(client, emailer, clean_engine):
     sign_in(client, emailer, clean_engine)
-    client.post("/profile", data=PROFILE_FORM)
+    seed_profile(clean_engine)
     page = client.get("/profile").text
-    assert 'value="JFK"' in page and 'value="EWR, PHL"' in page and 'value="2027-03-01"' in page
-    assert '<option value="AZORES" selected>' in page
+    assert 'value="JFK"' in page and 'value="EWR, PHL"' in page and 'value="22"' in page
 
 
 def test_dashboard_shows_prices_and_snooze_controls(client, emailer, clean_engine):
     sign_in(client, emailer, clean_engine)
-    client.post("/profile", data=PROFILE_FORM)
+    seed_profile(clean_engine)
     with session_scope(clean_engine) as s:
         tracker_id = s.scalar(select(Tracker.id))
     add_candidate(clean_engine, tracker_id, 603, level="good", run_date=TODAY)
@@ -77,7 +74,7 @@ def test_dashboard_shows_prices_and_snooze_controls(client, emailer, clean_engin
 
 def test_cannot_touch_someone_elses_tracker(client, emailer, clean_engine):
     sign_in(client, emailer, clean_engine, "owner@example.com")
-    client.post("/profile", data=PROFILE_FORM)
+    seed_profile(clean_engine, email="owner@example.com")
     with session_scope(clean_engine) as s:
         tracker_id = s.scalar(select(Tracker.id))
     client.post("/logout")

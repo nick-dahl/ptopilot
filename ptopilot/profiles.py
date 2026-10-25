@@ -84,8 +84,10 @@ def _as_date(value, where: str, problems: list[str]) -> date | None:
         return None
 
 
-def parse_profile(data: dict, geo: Geo) -> Profile:
-    """Validate a profile mapping. Raises ValueError listing every problem found."""
+def parse_profile(data: dict, geo: Geo, require_plan: bool = True) -> Profile:
+    """Validate a profile mapping. Raises ValueError listing every problem found.
+
+    With require_plan=False (the web profile form) windows and trackers may be missing."""
     problems: list[str] = []
     if data is None:
         data = {}
@@ -190,7 +192,7 @@ def parse_profile(data: dict, geo: Geo) -> Profile:
             if end < start:
                 problems.append(f"windows[{i}]: ends {end} before it starts {start}")
             windows.append((start, end))
-    if not windows:
+    if require_plan and not windows:
         problems.append("at least one travel window is required")
 
     trackers = []
@@ -227,7 +229,7 @@ def parse_profile(data: dict, geo: Geo) -> Profile:
                 problems.append(f"trackers[{i}] ({code}): max_price must be a positive number, got {price!r}")
                 continue
         trackers.append(TrackerSpecRow(code, lo, hi, prio, max_price))
-    if not trackers and not any("trackers[" in p for p in problems):
+    if require_plan and not trackers and not any("trackers[" in p for p in problems):
         problems.append("at least one tracker is required")
 
     if problems:
@@ -244,8 +246,10 @@ def parse_profile(data: dict, geo: Geo) -> Profile:
     )
 
 
-def apply_profile(s: Session, p: Profile) -> dict[str, int | str]:
-    """Upsert the profile in the given session (caller commits or rolls back). Returns a change summary."""
+def apply_profile(s: Session, p: Profile, replace_plan: bool = True) -> dict[str, int | str]:
+    """Upsert the profile in the given session (caller commits or rolls back). Returns a change summary.
+
+    With replace_plan=False the travel windows, trackers, planning years and planned trips are left alone."""
     summary: dict[str, int | str] = {}
     user = s.scalar(select(User).where(User.email == p.email))
     summary["user"] = "updated" if user else "created"
@@ -260,7 +264,15 @@ def apply_profile(s: Session, p: Profile) -> dict[str, int | str]:
     if p.friday_evening_min_time is not None:
         user.friday_evening_min_time = p.friday_evening_min_time
     s.flush()
+    if replace_plan:
+        summary |= _apply_plan(s, user, p)
+    s.execute(insert(Invite).values(email=p.email).on_conflict_do_nothing())
+    s.flush()
+    return summary
 
+
+def _apply_plan(s: Session, user: User, p: Profile) -> dict[str, int | str]:
+    summary: dict[str, int | str] = {}
     s.execute(delete(TravelWindow).where(TravelWindow.user_id == user.id))
     s.add_all(TravelWindow(user_id=user.id, start_date=a, end_date=b) for a, b in p.windows)
     summary["windows"] = len(p.windows)
@@ -297,9 +309,6 @@ def apply_profile(s: Session, p: Profile) -> dict[str, int | str]:
             t.active = False
             deactivated += 1
     summary |= {"trackers_added": added, "trackers_updated": updated, "trackers_deactivated": deactivated}
-
-    s.execute(insert(Invite).values(email=p.email).on_conflict_do_nothing())
-    s.flush()
     return summary
 
 

@@ -7,10 +7,13 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.dialects.postgresql import insert
 
+from ptopilot.data import load_geo
 from ptopilot.db.models import Invite
 from ptopilot.db.session import session_scope
+from ptopilot.profiles import apply_profile, parse_profile
 from ptopilot.settings import Settings
 from ptopilot.web.app import create_app
+from ptopilot.web.forms import form_to_profile
 
 TODAY = date(2027, 3, 4)
 KEY = "test-secret-key"
@@ -68,7 +71,6 @@ PROFILE_FORM = {
     "ignored_holidays": "Columbus Day, Veterans Day",
     "extra_days_off": "",
     "pto_days_total": "22",
-    "pto_committed": "7",
     "min_trip_days": "7",
     "max_trip_days": "16",
     "weather_tolerance": "normal",
@@ -92,3 +94,15 @@ PROFILE_FORM = {
     "tracker_priority_1": "2",
     "tracker_price_1": "",
 }
+
+
+def seed_profile(engine, form=None, email="nick@example.com"):
+    """Save a full profile (windows, planning years, trackers) the way the YAML loader does.
+
+    The web profile form no longer carries windows or the bucket list, so tests that need a
+    planned year go through apply_profile directly.
+    """
+    form = {**PROFILE_FORM, "pto_committed": "7", **(form or {})}
+    profile = parse_profile(form_to_profile(form, email), load_geo(engine))
+    with session_scope(engine) as s:
+        apply_profile(s, profile)

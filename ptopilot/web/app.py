@@ -28,6 +28,7 @@ from sqlalchemy import Engine, select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
+from ptopilot import config
 from ptopilot.core.airports import AirportCatalog, PlaceMatch
 from ptopilot.core.geo import Geo, UnknownCodeError, palette
 from ptopilot.core.seasons import SeasonTable
@@ -39,12 +40,21 @@ from ptopilot.digest.render import date_range, day, money, stops
 from ptopilot.digest.select import latest_run_date
 from ptopilot.links import ACTION_LABELS, TokenError, login_token, read_action_token, read_login_token
 from ptopilot.notify.email import Emailer, EmailError, ResendEmailer
-from ptopilot.planning import current_year, set_ranges, set_target, set_year_pto, unplan_trip
+from ptopilot.planning import (
+    current_year,
+    default_new_year,
+    planning_years,
+    set_ranges,
+    set_target,
+    set_year_pto,
+    start_year,
+    unplan_trip,
+)
 from ptopilot.profiles import apply_profile, parse_profile
 from ptopilot.settings import Settings
 from ptopilot.sources.climate import fetch_climate
 from ptopilot.trackers import apply_action, snooze, unsnooze
-from ptopilot.web.forms import form_to_profile, profile_to_form, row_count
+from ptopilot.web.forms import form_to_profile, profile_to_form
 from ptopilot.web.history import destination_summaries, trend, trip_options, typical_band
 from ptopilot.web.planner_view import plan_context, too_short
 from ptopilot.web.samples import sample_cards
@@ -228,7 +238,11 @@ def create_app(
             user = signed_in_user(s, request)
             if user is None:
                 return redirect("/profile")
-            user_id, pto_total, pto_committed = user.id, user.pto_days_total, user.pto_committed
+            user_id = user.id
+            py = current_year(s, user, today())
+            pto_total, pto_committed = (
+                (py.pto_days, py.other_time_off) if py else (user.pto_days_total, user.pto_committed)
+            )
         # Every current trip counts, including deals already emailed.
         geo = current_geo()
         return page(
@@ -417,6 +431,92 @@ def create_app(
             py = current_year(s, user, today())
             return redirect(f"/plan/{py.year}" if py else "/plan/new")
 
+    def new_year_page(request: Request, user_id: int, status: int = 200, error=None, form=None):
+        with session_scope(engine) as s:
+            user = s.get(User, user_id)
+            taken = {py.year for py in planning_years(s, user)}
+            years = [
+                y for y in range(today().year, today().year + config.PLAN_YEARS_AHEAD + 1) if y not in taken
+            ]
+            if not years:
+                return redirect("/plan")
+            default_year = default_new_year(s, user, today())
+            latest = max(taken, default=None)
+            pto_days = s.get(PlanningYear, (user_id, latest)).pto_days if latest else user.pto_days_total
+            geo = current_geo()
+            trips = [
+                {
+                    "id": t.id,
+                    "name": geo.destination(t.destination_code).name,
+                    "target": f"~{t.target_days} days"
+                    if t.target_days
+                    else f"{t.min_stay_days}–{t.max_stay_days} days",
+                }
+                for t in s.scalars(
+                    select(Tracker)
+                    .where(Tracker.user_id == user_id, Tracker.active.is_(True))
+                    .order_by(Tracker.id)
+                )
+            ]
+        form = form or {}
+        year = int(form.get("year", default_year if default_year in years else years[0]))
+        return page(
+            request,
+            "plan_new.html",
+            status,
+            active="plan",
+            error=error,
+            years=years,
+            year=year,
+            pto_days=form.get("pto_days", pto_days),
+            other_time_off=form.get("other_time_off", 0),
+            trips=trips,
+            checked=form.get("checked", {t["id"] for t in trips}),
+        )
+
+    @app.get("/plan/new")
+    def plan_new_form(request: Request):
+        if not current_email(request):
+            return redirect("/")
+        with session_scope(engine) as s:
+            user = signed_in_user(s, request)
+            if user is None:
+                return redirect("/profile")
+            user_id = user.id
+        return new_year_page(request, user_id)
+
+    @app.post("/plan/new")
+    def plan_new_start(
+        request: Request,
+        year: int = Form(...),
+        pto_days: int = Form(...),
+        other_time_off: int = Form(...),
+        tracker_ids: Annotated[list[int] | None, Form()] = None,
+    ):
+        if not current_email(request):
+            return redirect("/")
+        with session_scope(engine) as s:
+            user = signed_in_user(s, request)
+            if user is None:
+                return redirect("/profile")
+            user_id = user.id
+            try:
+                start_year(s, user, year, pto_days, other_time_off, tracker_ids or [], today=today())
+            except ValueError as exc:
+                s.rollback()
+                error = str(exc)
+            else:
+                error = None
+        if error is None:
+            return redirect(f"/plan/{year}")
+        form = {
+            "year": year,
+            "pto_days": pto_days,
+            "other_time_off": other_time_off,
+            "checked": set(tracker_ids or []),
+        }
+        return new_year_page(request, user_id, 400, error, form)
+
     @app.get("/plan/{year}")
     def plan_view(request: Request, year: PLAN_YEAR):
         user_id = plan_user_id(request, year)
@@ -534,9 +634,6 @@ def create_app(
             active="profile",
             form=form,
             errors=errors,
-            destinations=current_geo().destinations(),
-            windows=row_count(form, "window"),
-            trackers=row_count(form, "tracker"),
         )
 
     @app.get("/profile")
@@ -553,14 +650,16 @@ def create_app(
         if not email:
             return redirect("/")
         form = {k: str(v) for k, v in (await request.form()).items()}
+        form.pop("pto_committed", None)  # lives on the planner now; saving the profile never changes it
         try:
-            profile = parse_profile(form_to_profile(form, email), current_geo())
+            profile = parse_profile(form_to_profile(form, email), current_geo(), require_plan=False)
         except ValueError as exc:
             errors = [line.removeprefix("  - ") for line in str(exc).splitlines()[1:]]
             return profile_page(request, form, errors, 400)
         with session_scope(engine) as s:
-            apply_profile(s, profile)
-        return redirect("/?saved=1")
+            is_new = s.scalar(select(User.id).where(User.email == profile.email)) is None
+            apply_profile(s, profile, replace_plan=False)
+        return redirect("/plan/new" if is_new else "/?saved=1")
 
     # --- snooze links from the digest ------------------------------------------------------------
 

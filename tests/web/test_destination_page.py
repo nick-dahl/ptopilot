@@ -7,14 +7,14 @@ from sqlalchemy import select
 from ptopilot.db.models import Candidate, Tracker
 from ptopilot.db.session import session_scope
 from tests.digest.conftest import add_baseline, add_candidate
-from tests.web.conftest import PROFILE_FORM, TODAY, sign_in
+from tests.web.conftest import PROFILE_FORM, TODAY, seed_profile, sign_in
 
 CAMINO = {**PROFILE_FORM, "tracker_dest_0": "CAMINO_PORTUGUES", "tracker_min_0": "11", "tracker_max_0": "14"}
 
 
 def setup(client, emailer, engine, form=PROFILE_FORM, email="nick@example.com") -> int:
     sign_in(client, emailer, engine, email)
-    client.post("/profile", data=form)
+    seed_profile(engine, form, email)
     with session_scope(engine) as s:
         return s.scalar(select(Tracker.id).order_by(Tracker.id.desc()))
 

@@ -11,7 +11,16 @@ from ptopilot.links import Action, action_token
 from ptopilot.settings import Settings
 from ptopilot.web.app import create_app
 from tests.digest.conftest import add_candidate, add_tracker, add_user
-from tests.web.conftest import KEY, PROFILE_FORM, TODAY, CapturingEmailer, invite, is_landing, sign_in
+from tests.web.conftest import (
+    KEY,
+    PROFILE_FORM,
+    TODAY,
+    CapturingEmailer,
+    invite,
+    is_landing,
+    seed_profile,
+    sign_in,
+)
 
 
 def test_dashboard_still_shows_deals_after_they_were_emailed(client, emailer, clean_engine):
@@ -19,7 +28,7 @@ def test_dashboard_still_shows_deals_after_they_were_emailed(client, emailer, cl
     from ptopilot.digest.select import build_digests
 
     sign_in(client, emailer, clean_engine)
-    client.post("/profile", data=PROFILE_FORM)
+    seed_profile(clean_engine)
     with session_scope(clean_engine) as s:
         tracker_id = s.scalar(select(Tracker.id))
     add_candidate(clean_engine, tracker_id, 700, level="good", go_now=90, run_date=TODAY)

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_components.html" import field %}
+{% block title %}Start planning {{ year }} · ptopilot{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Start planning {{ year }}</h1>
+    <p class="muted small">Open ranges start empty. You'll drag them on the next page.</p>
+  </div>
+</div>
+{% if error %}
+<div class="panel notice-error"><p class="error error-title m-0">{{ error }}</p></div>
+{% endif %}
+<form method="post" action="/plan/new" class="stack">
+  <section class="panel">
+    <h2>The year</h2>
+    <label class="field"><span>Year</span>
+      <select id="year" name="year">
+        {% for y in years %}<option value="{{ y }}" {{ "selected" if y == year }}>{{ y }}</option>{% endfor %}
+      </select></label>
+    <div class="fields-2">
+      {{ field("pto_days", "PTO days", pto_days, "number", attrs='min="0" max="365" required') }}
+      {{ field("other_time_off", "Other time off (not trips)", other_time_off, "number", "PTO days already spoken for", attrs='min="0" max="365" required') }}
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Trips to carry over</h2>
+    {% if trips %}
+    {% for t in trips %}
+    <label class="check"><input type="checkbox" name="tracker_ids" value="{{ t.id }}" {{ "checked" if t.id in checked }}> {{ t.name }}, {{ t.target }}</label>
+    {% endfor %}
+    {% else %}
+    <p class="muted small m-0">No destinations yet.</p>
+    {% endif %}
+    <p class="muted small m-0">Want somewhere new? Add destinations any time. <a href="/destinations">Go to destinations</a></p>
+  </section>
+
+  <div class="form-actions"><button class="btn" type="submit">Start planning {{ year }}</button><a class="muted small" href="/">Cancel</a></div>
+</form>
+{% endblock %}
