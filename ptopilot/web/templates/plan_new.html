@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% from "_components.html" import field %}
-{% block title %}Start planning {{ year }} · ptopilot{% endblock %}
+{% block title %}Start planning · ptopilot{% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>Start planning {{ year }}</h1>
+    <h1>Start planning</h1>
     <p class="muted small">Open ranges start empty. You'll drag them on the next page.</p>
   </div>
 </div>
@@ -36,6 +36,6 @@
     <p class="muted small m-0">Want somewhere new? Add destinations any time. <a href="/destinations">Go to destinations</a></p>
   </section>
 
-  <div class="form-actions"><button class="btn" type="submit">Start planning {{ year }}</button><a class="muted small" href="/">Cancel</a></div>
+  <div class="form-actions"><button class="btn" type="submit">Start planning</button><a class="muted small" href="/">Cancel</a></div>
 </form>
 {% endblock %}

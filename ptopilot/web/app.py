@@ -444,20 +444,20 @@ def create_app(
             latest = max(taken, default=None)
             pto_days = s.get(PlanningYear, (user_id, latest)).pto_days if latest else user.pto_days_total
             geo = current_geo()
-            trips = [
-                {
-                    "id": t.id,
-                    "name": geo.destination(t.destination_code).name,
-                    "target": f"~{t.target_days} days"
-                    if t.target_days
-                    else f"{t.min_stay_days}–{t.max_stay_days} days",
-                }
-                for t in s.scalars(
-                    select(Tracker)
-                    .where(Tracker.user_id == user_id, Tracker.active.is_(True))
-                    .order_by(Tracker.id)
+            trips = []
+            for t in s.scalars(
+                select(Tracker)
+                .where(Tracker.user_id == user_id, Tracker.active.is_(True))
+                .order_by(Tracker.id)
+            ):
+                try:
+                    name = geo.destination(t.destination_code).name
+                except UnknownCodeError:
+                    continue
+                target = (
+                    f"~{t.target_days} days" if t.target_days else f"{t.min_stay_days}–{t.max_stay_days} days"
                 )
-            ]
+                trips.append({"id": t.id, "name": name, "target": target})
         form = form or {}
         year = int(form.get("year", default_year if default_year in years else years[0]))
         return page(

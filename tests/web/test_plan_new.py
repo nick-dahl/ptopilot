@@ -62,7 +62,7 @@ def test_new_year_page_defaults_and_prefills(client, emailer, clean_engine):
     sign_in(client, emailer, clean_engine)
     seed_profile(clean_engine, TWO_TRIPS)  # has a 2027 year with 22 PTO days
     page = client.get("/plan/new").text
-    assert "Start planning 2028" in page
+    assert "<h1>Start planning</h1>" in page and "Start planning 2028" not in page
     assert '<option value="2028" selected>' in page and 'value="2027"' not in page
     assert 'name="pto_days"' in page and 'value="22"' in page
     assert 'name="other_time_off"' in page and 'value="0"' in page
@@ -78,7 +78,8 @@ def test_new_traveler_goes_from_profile_to_start_planning(client, emailer, clean
     saved = client.post("/profile", data=PROFILE_FORM)
     assert (saved.status_code, saved.headers["location"]) == (303, "/plan/new")
     page = client.get("/plan/new").text  # no years yet: this year, PTO from the profile
-    assert "Start planning 2027" in page and 'value="22"' in page
+    assert "<h1>Start planning</h1>" in page and "Start planning 2027" not in page
+    assert 'value="22"' in page
     again = client.post("/profile", data=PROFILE_FORM)
     assert again.headers["location"] == "/?saved=1"
 
@@ -89,3 +90,14 @@ def test_a_tampered_year_is_a_400_page(client, emailer, clean_engine):
     for year in ("40000", str(10**20)):
         response = client.post("/plan/new", data={"year": year, "pto_days": "5", "other_time_off": "0"})
         assert response.status_code == 400, year
+
+
+def test_new_year_page_skips_a_tracker_with_an_unknown_code(client, emailer, clean_engine):
+    sign_in(client, emailer, clean_engine)
+    seed_profile(clean_engine, TWO_TRIPS)
+    with session_scope(clean_engine) as s:
+        t = s.scalars(select(Tracker)).first()
+        s.add(Tracker(user_id=t.user_id, destination_code="ZZZ", min_stay_days=5, max_stay_days=8))
+    response = client.get("/plan/new")
+    assert response.status_code == 200
+    assert "ZZZ" not in response.text and response.text.count('name="tracker_ids"') == 2
