@@ -82,3 +82,9 @@ DISTANCE_BANDS_KM = [  # (up to km, overhead_days, min_trip_days)
     (10000, 2.5, 7),
     (float("inf"), 3.0, 9),
 ]
+
+# Planning year (Plan 10)
+PLAN_YEARS_AHEAD = 1  # a new planning year may be this year or up to 1 year ahead
+PLAN_NEXT_YEAR_FROM_MONTH = 10  # from October on, "Start planning" defaults to next year
+MAX_PTO_DAYS = 365
+EXTRA_RANGE_ROWS = 2  # blank range rows on the no-JavaScript form
