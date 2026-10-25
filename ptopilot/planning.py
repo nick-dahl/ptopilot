@@ -14,6 +14,7 @@ from collections.abc import Iterable
 from datetime import date
 
 from sqlalchemy import delete, exists, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from ptopilot import config
@@ -63,22 +64,34 @@ def start_year(
     *,
     today: date,
 ) -> PlanningYear:
+    if not today.year <= year <= today.year + config.PLAN_YEARS_AHEAD:
+        raise ValueError(f"year must be {today.year} to {today.year + config.PLAN_YEARS_AHEAD}")
     existing = s.get(PlanningYear, (user.id, year))
     if existing is not None:
         return existing
-    if not today.year <= year <= today.year + config.PLAN_YEARS_AHEAD:
-        raise ValueError(f"year must be {today.year} to {today.year + config.PLAN_YEARS_AHEAD}")
     _check_pto(pto_days, other_time_off)
-    row = PlanningYear(user_id=user.id, year=year, pto_days=pto_days, other_time_off=other_time_off)
-    s.add(row)
-    ids = set(carry_tracker_ids)
-    if ids:
-        trackers = s.scalars(
-            select(Tracker).where(Tracker.id.in_(ids), Tracker.user_id == user.id, Tracker.active.is_(True))
-        )
-        s.add_all(PlannedTrip(user_id=user.id, year=year, tracker_id=t.id) for t in trackers)
+    # A double submit races the check above: let the database settle it, and the loser keeps the winner's row.
+    inserted = s.execute(
+        insert(PlanningYear)
+        .values(user_id=user.id, year=year, pto_days=pto_days, other_time_off=other_time_off)
+        .on_conflict_do_nothing()
+    ).rowcount
+    if inserted:
+        ids = set(carry_tracker_ids)
+        if ids:
+            trackers = s.scalars(
+                select(Tracker.id).where(
+                    Tracker.id.in_(ids), Tracker.user_id == user.id, Tracker.active.is_(True)
+                )
+            ).all()
+            if trackers:
+                s.execute(
+                    insert(PlannedTrip)
+                    .values([{"user_id": user.id, "year": year, "tracker_id": tid} for tid in trackers])
+                    .on_conflict_do_nothing()
+                )
     s.flush()
-    return row
+    return s.get(PlanningYear, (user.id, year))
 
 
 def set_year_pto(s: Session, user: User, year: int, pto_days: int, other_time_off: int) -> None:
@@ -116,6 +129,8 @@ def set_ranges(
             raise ValueError(f"range {i + 1}: ends {end} before it starts {start}")
         if start.year != year:
             raise ValueError(f"range {i + 1}: starts {start}, which is not in {year}")
+        if end > date(year + 1, 12, 31):
+            raise ValueError(f"range {i + 1}: ends {end}, which is more than a year past {year}")
     merged = merge_ranges(ranges)
     s.execute(delete(TravelWindow).where(*_year_windows(user, year)))
     s.add_all(TravelWindow(user_id=user.id, start_date=a, end_date=b) for a, b in merged)

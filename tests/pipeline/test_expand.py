@@ -102,6 +102,25 @@ def test_a_bad_tracker_does_not_stop_the_others(make_ctx):
     assert {lk.tracker_id for *_, lk in links(ctx.engine)} == {good}
 
 
+def test_an_overflow_in_one_tracker_does_not_stop_the_others(make_ctx, monkeypatch):
+    ctx = make_ctx()
+    uid = add_user(ctx.engine)
+    bad = add_tracker(ctx.engine, uid, code="MADEIRA")
+    good = add_tracker(ctx.engine, uid)
+    real = expand.plan_itineraries
+
+    def flaky(profile, spec, *args):
+        if spec.destination_code == "MADEIRA":
+            raise OverflowError("date value out of range")
+        return real(profile, spec, *args)
+
+    monkeypatch.setattr(expand, "plan_itineraries", flaky)
+    counts = expand.run(ctx)
+    assert counts["tracker_errors"] == 1
+    assert {lk.tracker_id for *_, lk in links(ctx.engine)} == {good}
+    assert bad not in {lk.tracker_id for *_, lk in links(ctx.engine)}
+
+
 TWO_YEARS = ((date(2027, 6, 1), date(2027, 6, 30)), (date(2028, 6, 1), date(2028, 6, 30)))
 
 

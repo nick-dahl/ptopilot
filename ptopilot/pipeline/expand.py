@@ -108,7 +108,7 @@ def run(ctx: RunContext) -> dict[str, int]:
                         ctx.seasons,
                     )
                 ]
-            except (UnknownCodeError, ValueError) as exc:
+            except (UnknownCodeError, ValueError, ArithmeticError) as exc:
                 counts["tracker_errors"] += 1
                 log.warning("tracker %s skipped: %s", tracker.id, exc)
                 continue

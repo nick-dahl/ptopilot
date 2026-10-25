@@ -327,3 +327,19 @@ def test_rows_as_the_script_posts_them_are_accepted(signed_in, clean_engine):
     assert signed_in.post(f"/plan/{YEAR}/ranges", data={}).status_code == 303
     with session_scope(clean_engine) as s:
         assert s.scalar(select(TravelWindow.id).where(TravelWindow.user_id == uid)) is None
+
+
+def test_a_far_range_end_is_a_400_naming_the_row(signed_in, clean_engine):
+    start_year(clean_engine)
+    r = signed_in.post(
+        f"/plan/{YEAR}/ranges",
+        data={
+            "range_start_0": "2027-02-01",
+            "range_end_0": "2027-02-03",
+            "range_start_1": "2027-03-01",
+            "range_end_1": "9999-12-31",
+        },
+    )
+    assert r.status_code == 400
+    assert "range 2" in r.text
+    assert signed_in.get(f"/plan/{YEAR}").status_code == 200

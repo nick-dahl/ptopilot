@@ -1,13 +1,16 @@
 """Planning years: starting one, open ranges, planned trips, targets, and the target conversion."""
 
+import threading
+import time
 from datetime import date
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from ptopilot import planning
 from ptopilot.data import load_geo
-from ptopilot.db.models import PlannedTrip, Tracker, TravelWindow
+from ptopilot.db.models import PlannedTrip, PlanningYear, Tracker, TravelWindow, User
 from tests.db.test_models import make_user
 
 TODAY = date(2026, 10, 25)
@@ -172,3 +175,64 @@ def test_convert_targets_sets_the_midpoint_of_days_away(session):
     assert todo.target_days == 11  # floor((7 + 11) / 2 + 2.0 + 0.5)
     assert done.target_days == 5
     assert unknown.target_days is None
+
+
+def test_set_ranges_rejects_an_end_far_beyond_the_year(session):
+    user = make_user(session)
+    for end in (date(9999, 12, 31), date(2072, 3, 15), date(2029, 1, 1)):
+        with pytest.raises(ValueError, match="range 1"):
+            planning.set_ranges(session, user, 2027, [(date(2027, 3, 1), end)])
+    assert planning.set_ranges(session, user, 2027, [(date(2027, 12, 18), date(2028, 1, 3))]) == [
+        (date(2027, 12, 18), date(2028, 1, 3))
+    ]
+
+
+def test_start_year_rejects_a_wild_year_before_querying(session):
+    user = make_user(session)
+    for year in (40000, 2**40, 10**20):
+        with pytest.raises(ValueError, match="year must be"):
+            planning.start_year(session, user, year, 5, 0, [], today=TODAY)
+
+
+def test_a_concurrent_second_start_returns_the_existing_year(clean_engine):
+    with Session(clean_engine) as s:
+        s.add(
+            User(
+                email="race@example.com",
+                home_airport="ORD",
+                country="US",
+                holiday_calendar="US",
+                pto_days_total=15,
+                max_trip_days=16,
+            )
+        )
+        s.commit()
+        uid = s.scalar(select(User.id))
+    out = {}
+
+    def first():
+        with Session(clean_engine) as s:
+            planning.start_year(s, s.get(User, uid), 2027, 20, 0, [], today=TODAY)
+            out["flushed"] = True
+            time.sleep(1.0)
+            s.commit()
+
+    def second():
+        while not out.get("flushed"):
+            time.sleep(0.01)
+        with Session(clean_engine) as s:
+            try:
+                row = planning.start_year(s, s.get(User, uid), 2027, 5, 0, [], today=TODAY)
+                s.commit()
+                out["second"] = (row.year, row.pto_days)
+            except Exception as exc:  # noqa: BLE001
+                out["second"] = type(exc).__name__
+
+    threads = [threading.Thread(target=first), threading.Thread(target=second)]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+    assert out["second"] == (2027, 20)
+    with Session(clean_engine) as s:
+        assert s.scalar(select(PlanningYear.pto_days)) == 20

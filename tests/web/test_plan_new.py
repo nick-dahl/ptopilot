@@ -81,3 +81,11 @@ def test_new_traveler_goes_from_profile_to_start_planning(client, emailer, clean
     assert "Start planning 2027" in page and 'value="22"' in page
     again = client.post("/profile", data=PROFILE_FORM)
     assert again.headers["location"] == "/?saved=1"
+
+
+def test_a_tampered_year_is_a_400_page(client, emailer, clean_engine):
+    sign_in(client, emailer, clean_engine)
+    seed_profile(clean_engine)
+    for year in ("40000", str(10**20)):
+        response = client.post("/plan/new", data={"year": year, "pto_days": "5", "other_time_off": "0"})
+        assert response.status_code == 400, year
