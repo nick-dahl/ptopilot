@@ -64,7 +64,7 @@
 
   <div class="panel" id="calendar-panel">
     <h2>When you're open to travel</h2>
-    <p class="muted small">Dates ptopilot may build trips from. Add ranges below.</p>
+    <p class="muted small">Dates ptopilot may build trips from. Drag across days to open or close them, or press Enter on a day, then save. Without JavaScript, use the date fields below.</p>
     <ul class="legend small" aria-label="Legend">
       <li><span class="key day hol"></span>Holiday</li>
       <li><span class="key day we"></span>Weekend</li>
@@ -72,7 +72,7 @@
       <li><span class="key day open"></span>Open to travel</li>
       <li><span class="key day open hol"></span>Holiday in a range</li>
     </ul>
-    <div class="months">
+    <div class="months" id="year-calendar">
       {% for name, weeks in months %}
       <table class="month" aria-label="{{ name }} {{ year }}">
         <caption>{{ name }}</caption>
@@ -81,7 +81,7 @@
         {% for week in weeks %}
         <tr>
           {% for c in week %}
-          {% if c %}<td class="day{{ ' we' if c.weekend }}{{ ' hol' if c.holiday }}{{ ' off' if c.day_off }}{{ ' open' if c.open }}" data-date="{{ c.date.isoformat() }}"{% if c.holiday %} title="{{ c.holiday }}"{% endif %}>{{ c.date.day }}</td>
+          {% if c %}<td class="day{{ ' we' if c.weekend }}{{ ' hol' if c.holiday }}{{ ' off' if c.day_off }}{{ ' open' if c.open }}" data-date="{{ c.date.isoformat() }}" tabindex="0"{% if c.holiday %} title="{{ c.holiday }}"{% endif %}>{{ c.date.day }}</td>
           {% else %}<td class="pad"></td>{% endif %}
           {% endfor %}
         </tr>
@@ -91,7 +91,7 @@
       {% endfor %}
     </div>
 
-    <form method="post" action="/plan/{{ year }}/ranges" class="range-form mt-sm" id="range-form">
+    <form method="post" action="/plan/{{ year }}/ranges" class="range-form mt-sm" id="ranges-form">
       {% for r in ranges %}
       <div class="range-row fields-2">
         <label class="field"><span>Open from</span><input name="range_start_{{ loop.index0 }}" type="date" value="{{ r.start }}"></label>
@@ -99,7 +99,9 @@
       </div>
       {% endfor %}
       <button class="btn" type="submit">Save ranges</button>
+      <span class="unsaved small" id="unsaved" role="status" hidden>Unsaved changes</span>
     </form>
   </div>
 </div>
 {% endblock %}
+{% block scripts %}<script src="/static/planner.js" defer></script>{% endblock %}

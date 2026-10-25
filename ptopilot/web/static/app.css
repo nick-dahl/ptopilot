@@ -192,5 +192,13 @@ a.dest-card:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, .1); transform: transla
 .day.open { background: var(--open-tint); }
 .day.open.hol { box-shadow: inset 0 0 0 2px #dc2626; }
 .day.off { outline: 1px dashed var(--off-line); outline-offset: -2px; }
+#year-calendar { touch-action: none; user-select: none; }
+.day[data-date] { cursor: pointer; }
+.day[data-date]:focus-visible { outline: 2px solid var(--ink, #111); outline-offset: 1px; }
+.day.drag-open, .day.open.drag-open { background: var(--open-tint); filter: brightness(0.9); }
+.day.drag-close, .day.open.drag-close { background: var(--surface); filter: none; }
+.day.we.drag-close { background: var(--we-tint); }
+.day.hol.drag-close { background: var(--hol-tint); }
+.unsaved { margin-left: 10px; color: var(--muted); }
 .month td.pad { background: none; }
 .range-row { max-width: 480px; }

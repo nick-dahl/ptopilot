@@ -283,3 +283,47 @@ def test_out_of_range_years_and_too_many_ranges_are_400s(signed_in, clean_engine
     r = signed_in.post(f"/plan/{YEAR}/ranges", data=many)
     assert r.status_code == 400
     assert "Too many ranges" in r.text
+
+
+def test_plan_page_loads_the_planner_script(signed_in, clean_engine):
+    start_year(clean_engine)
+    html = signed_in.get(f"/plan/{YEAR}").text
+    assert '<script src="/static/planner.js" defer></script>' in html
+    assert 'id="year-calendar"' in html
+    assert 'id="ranges-form"' in html
+    assert 'class="day' in html and 'tabindex="0"' in html
+    assert html.count("tabindex=") == html.count("data-date=")
+
+
+def test_the_planner_script_is_served(client):
+    r = client.get("/static/planner.js")
+    assert r.status_code == 200
+    assert r.headers["content-type"].split(";")[0] in ("application/javascript", "text/javascript")
+
+
+def test_rows_as_the_script_posts_them_are_accepted(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    r = signed_in.post(
+        f"/plan/{YEAR}/ranges",
+        data={
+            "range_start_0": "2027-03-01",
+            "range_end_0": "2027-03-09",
+            "range_start_1": "2027-03-13",
+            "range_end_1": "2027-03-21",
+        },
+    )
+    assert r.status_code == 303
+    with session_scope(clean_engine) as s:
+        rows = s.execute(
+            select(TravelWindow.start_date, TravelWindow.end_date)
+            .where(TravelWindow.user_id == uid)
+            .order_by(TravelWindow.start_date)
+        ).all()
+    assert [tuple(x) for x in rows] == [
+        (date(2027, 3, 1), date(2027, 3, 9)),
+        (date(2027, 3, 13), date(2027, 3, 21)),
+    ]
+    # closing every day posts no rows at all, which clears the ranges
+    assert signed_in.post(f"/plan/{YEAR}/ranges", data={}).status_code == 303
+    with session_scope(clean_engine) as s:
+        assert s.scalar(select(TravelWindow.id).where(TravelWindow.user_id == uid)) is None
