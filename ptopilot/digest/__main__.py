@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     today = args.date or datetime.now(UTC).date()
     engine = make_engine(settings.database_url)
-    digests = build_digests(engine, load_geo(), load_seasons(), today, args.min_level)
+    digests = build_digests(engine, load_geo(engine), load_seasons(engine), today, args.min_level)
     if args.min_level == "none" and args.preview is None:
         # Tuning digests include non-deals: send them to the admin only, never to other travelers.
         if not settings.admin_email:

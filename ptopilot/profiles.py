@@ -309,12 +309,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"invited {email}")
         return 0
 
+    engine = make_engine(Settings.from_env().database_url)
     try:
-        profile = parse_profile(yaml.safe_load(args.path.read_text(encoding="utf-8")), load_geo())
+        profile = parse_profile(yaml.safe_load(args.path.read_text(encoding="utf-8")), load_geo(engine))
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 2
-    engine = make_engine(Settings.from_env().database_url)
     try:
         with Session(engine) as s:
             summary = apply_profile(s, profile)

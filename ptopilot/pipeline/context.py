@@ -55,11 +55,12 @@ def build_context(settings: Settings, run_date: date, dry_run: bool = False) -> 
     live: list[ExactSearchSource] = [GoogleFlightsSource()]
     if settings.serpapi_key:
         live.append(SerpApiSource(settings.serpapi_key))
+    engine = make_engine(settings.database_url)
     return RunContext(
         run_date=run_date,
-        engine=make_engine(settings.database_url),
-        geo=load_geo(),
-        seasons=load_seasons(),
+        engine=engine,
+        geo=load_geo(engine),  # built-ins plus places users added on the website
+        seasons=load_seasons(engine),
         month_source=TravelpayoutsSource(settings.travelpayouts_token)
         if settings.travelpayouts_token
         else None,

@@ -4,7 +4,7 @@ V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](do
 
 ## V2: begin once V1 runs end to end
 
-- [ ] **Year-plan view.** Combine several deals into a single plan that fits the annual PTO budget, e.g. "Lisbon in April plus Thailand in September uses 14 of 20 PTO days." Replace the V1 manual `pto_committed` with booked trips that are tracked.
+- [ ] **Year-plan view.** (Your own destinations, searched and added on the website, are done: Plan 9.) Combine several deals into a single plan that fits the annual PTO budget, e.g. "Lisbon in April plus Thailand in September uses 14 of 20 PTO days." Replace the V1 manual `pto_committed` with booked trips that are tracked.
 - [x] **Open-jaw itineraries.** Fly into one city and home from another (Plan 4: Camino Portugués, Porto → Santiago, priced through SerpApi). Multi-city with more than two legs is still open.
 - [ ] **"Buy now or wait" advice.** Use price-trend history per route and lead time to recommend booking now or holding.
 - [ ] **Related destinations.** Suggest places similar to the bucket list (Thailand → Vietnam). This is also the hook for sponsored or affiliate placements.
