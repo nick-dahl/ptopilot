@@ -64,3 +64,20 @@ TREND_BAND = 0.03  # week-over-week change smaller than this shows as flat
 MIN_TREND_POINTS = 3  # the destination page draws a price trend from this many scan days
 DIGEST_WEEKDAYS = (0, 3)  # Monday, Thursday: must match the cron in .github/workflows/digest.yml
 QUIET_DIGEST_WEEKDAY = 0  # Monday: when there are no deals, only this day's digest is sent
+
+# Destinations you control (Plan 9)
+TARGET_TOLERANCE_DAYS = 2
+SEARCH_LIMIT = 12
+NEARBY_KM = 100  # other airports offered with a picked one
+CLIMATE_YEARS = (2011, 2020)  # Open-Meteo climate normals period
+CLIMATE_MODEL = "EC_Earth3P_HR"
+WET_DAY_MM = 1.0
+SEASON_GOOD = {"tmax_min": 18, "tmax_max": 30, "wet_days_max": 13}
+SEASON_AVOID = {"tmax_below": 10, "tmax_above": 34, "wet_days_min": 18}
+DISTANCE_BANDS_KM = [  # (up to km, overhead_days, min_trip_days)
+    (1500, 1.0, 3),
+    (4000, 1.5, 4),
+    (7000, 2.0, 5),
+    (10000, 2.5, 7),
+    (float("inf"), 3.0, 9),
+]
