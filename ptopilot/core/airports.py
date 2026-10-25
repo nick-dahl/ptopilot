@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import math
 import re
+import unicodedata
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
@@ -49,6 +50,12 @@ def zone_for(country: str, continent: str) -> str:
     if continent == "AS":
         return "E_ASIA" if country in _E_ASIA else "SE_ASIA"
     return _CONTINENT_ZONES.get(continent, "OTHER")
+
+
+def _fold(text: str) -> str:
+    """Lower-case and strip accents, so "cancun" finds "Cancún"."""
+    decomposed = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
 
 
 def _read_rows(name: str) -> list[dict[str, str]]:
@@ -104,27 +111,33 @@ class AirportCatalog:
         """0 code, 1 city, 2 country, 3 airport name; None when the airport doesn't match."""
         if a.code.lower() == q:
             return 0
-        if a.city.lower().startswith(q):
+        if _fold(a.city).startswith(q):
             return 1
-        if self.country_name(a.country).lower().startswith(q):
+        if _fold(self.country_name(a.country)).startswith(q):
             return 2
-        if word.search(a.name.lower()):
+        if word.search(_fold(a.name)):
             return 3
         return None
 
     def search(self, query: str, limit: int = config.SEARCH_LIMIT) -> list[PlaceMatch]:
-        q = query.strip().lower()
+        q = _fold(query.strip())
         if not q:
             return []
-        word = re.compile(r"\b" + re.escape(q))
+        word = re.compile(r"\b" + re.escape(q) + r"\b")
         ranked = []
         for a in self._by_code.values():
             kind = self._match_kind(a, q, word)
             if kind is not None:
-                # An exact code always leads; otherwise bigger airports outrank match kind, and
-                # "International" airports lead within a size (the catalog has no traffic data).
+                # An exact code leads, then an exact city name ("Porto" before "Porto Velho"),
+                # then bigger airports outrank match kind, and "International" airports lead
+                # within a size. A country search ("Japan") relies on that last ordering to
+                # surface HND and NRT among 28 large airports: the catalog has no traffic data.
+                # Several airports in one exact city (LHR/LGW) need no tiebreak: each lists
+                # the others as its nearby options.
                 intl = 0 if "international" in a.name.lower() else 1
-                ranked.append(((kind > 0, _SIZE_ORDER[a.size], kind, intl, a.name, a.code), a))
+                ranked.append(
+                    ((kind > 0, _fold(a.city) != q, _SIZE_ORDER[a.size], kind, intl, a.name, a.code), a)
+                )
         ranked.sort(key=lambda t: t[0])
         return [
             PlaceMatch(a, tuple(self.nearby(a.code)), self.country_name(a.country)) for _, a in ranked[:limit]

@@ -40,3 +40,23 @@ def test_distance_and_zones():
     assert zone_for("JP", "AS") == "E_ASIA" and zone_for("TH", "AS") == "SE_ASIA"
     assert zone_for("BM", "NA") == "NA" and zone_for("PT", "EU") == "EUROPE"
     assert zone_for("CL", "SA") == "S_AMERICA" and zone_for("ZA", "AF") == "AFRICA"
+
+
+def test_search_ignores_accents():
+    assert CAT.search("cancun")[0].airport.code == "CUN"
+    assert "GRU" in {m.airport.code for m in CAT.search("sao paulo")}
+    assert CAT.search("sao")
+
+
+def test_exact_city_match_beats_longer_city_names():
+    assert CAT.search("Porto")[0].airport.code == "OPO"
+    for query, code in [("Tokyo", "HND"), ("Lisbon", "LIS"), ("Paris", "CDG")]:
+        assert CAT.search(query)[0].airport.code == code
+
+
+def test_name_matches_need_a_whole_word():
+    assert "SAL" not in {m.airport.code for m in CAT.search("Rome")}
+
+
+def test_place_match_carries_country_name():
+    assert CAT.search("HND")[0].country_name == "Japan"
