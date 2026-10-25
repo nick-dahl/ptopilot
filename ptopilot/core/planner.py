@@ -47,6 +47,7 @@ class TrackerSpec:
     destination_code: str
     min_stay_days: int
     max_stay_days: int
+    target_days: int | None = None  # days away; with it, trips of target +/- tolerance qualify
 
     def __post_init__(self) -> None:
         if not 0 < self.min_stay_days <= self.max_stay_days:
@@ -92,22 +93,34 @@ def plan_itineraries(
     else:
         airport_pairs = [(a, a) for a in dest.airports]
 
+    target = tracker.target_days
+    longest = profile.max_trip_days
+    if target is not None:
+        longest = max(longest, target + config.TARGET_TOLERANCE_DAYS)
+
     for window in windows:
         shapes = generate_shapes(
             profile.calendar,
             window.start,
             window.end,
-            profile.max_trip_days,
+            longest,
             friday_evening=profile.friday_evening_departure,
             slack_days=config.WINDOW_SLACK_DAYS,
         )
         for origin in profile.home_airports:
             rule = geo.travel_rule(origin, dest)
+            if target is None:
+                days_away = (max(profile.min_trip_days, rule.min_trip_days), profile.max_trip_days)
+                ground = (tracker.min_stay_days, tracker.max_stay_days)
+            else:
+                high = target + config.TARGET_TOLERANCE_DAYS
+                days_away = (max(rule.min_trip_days, target - config.TARGET_TOLERANCE_DAYS), high)
+                ground = (0, high)
             constraints = ShapeConstraints(
-                min_days_away=max(profile.min_trip_days, rule.min_trip_days),
-                max_days_away=profile.max_trip_days,
-                min_ground_days=tracker.min_stay_days,
-                max_ground_days=tracker.max_stay_days,
+                min_days_away=days_away[0],
+                max_days_away=days_away[1],
+                min_ground_days=ground[0],
+                max_ground_days=ground[1],
                 travel_overhead_days=rule.overhead_days,
                 pto_available=pto_available,
             )
@@ -125,7 +138,7 @@ def plan_itineraries(
                 n=top_n,
                 max_per_length=config.MAX_SHAPES_PER_LENGTH,
                 max_per_week=config.MAX_SHAPES_PER_WEEK,
-                ideal_days=profile.ideal_trip_days,
+                ideal_days=target if target is not None else profile.ideal_trip_days,
             ):
                 month, rating = season_of[s]
                 for airport, home_from in airport_pairs:

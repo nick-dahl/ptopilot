@@ -73,7 +73,12 @@ def run(ctx: RunContext) -> dict[str, int]:
                 counts["trackers_without_windows"] += 1
                 continue
             try:
-                spec = TrackerSpec(tracker.destination_code, tracker.min_stay_days, tracker.max_stay_days)
+                spec = TrackerSpec(
+                    tracker.destination_code,
+                    tracker.min_stay_days,
+                    tracker.max_stay_days,
+                    tracker.target_days,
+                )
                 itineraries = plan_itineraries(
                     profile_for(user), spec, windows[user.id], ctx.geo, ctx.seasons
                 )

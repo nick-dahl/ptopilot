@@ -126,7 +126,7 @@ def run(ctx: RunContext) -> dict[str, int]:
                         link.efficiency,
                         (rq.depart_date - ctx.run_date).days,
                         ctx.geo.is_international(rq.origin, dest),
-                        length_fit=length_fit(link.days_away, user.ideal_trip_days),
+                        length_fit=length_fit(link.days_away, tracker.target_days or user.ideal_trip_days),
                     ),
                     confidence=b.confidence if b else "low",
                     verified=is_verified,
