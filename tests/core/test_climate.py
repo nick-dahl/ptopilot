@@ -32,3 +32,24 @@ def test_fetch_failures_are_source_unavailable():
     client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(503)))
     with pytest.raises(SourceUnavailable):
         fetch_climate(35.5, 139.8, client)
+
+
+def _trimmed(keep):
+    daily = TOKYO["daily"]
+    idx = [i for i, d in enumerate(daily["time"]) if keep(d)]
+    return {"daily": {k: [v[i] for i in idx] for k, v in daily.items()}}
+
+
+def test_a_payload_missing_months_is_source_unavailable():
+    with pytest.raises(SourceUnavailable):
+        monthly_climate(_trimmed(lambda d: int(d[5:7]) <= 6))
+
+
+def test_a_month_with_all_null_temperatures_is_source_unavailable():
+    payload = _trimmed(lambda d: True)
+    daily = payload["daily"]
+    for i, d in enumerate(daily["time"]):
+        if d[5:7] == "03":
+            daily["temperature_2m_max"][i] = None
+    with pytest.raises(SourceUnavailable):
+        monthly_climate(payload)

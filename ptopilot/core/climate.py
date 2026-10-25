@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import calendar
 from dataclasses import dataclass
 
 from ptopilot import config
 from ptopilot.core.seasons import Rating
+from ptopilot.sources.base import SourceUnavailable
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,9 @@ def monthly_climate(payload: dict) -> list[MonthlyClimate]:
             temp_n[m] += 1
         if rain is not None and rain >= config.WET_DAY_MM:
             wet[m] += 1
+    for m in range(12):
+        if temp_n[m] == 0 or not years[m]:
+            raise SourceUnavailable(f"open-meteo: no climate data for {calendar.month_name[m + 1]}")
     return [MonthlyClimate(temp_sum[m] / temp_n[m], wet[m] / len(years[m])) for m in range(12)]
 
 
