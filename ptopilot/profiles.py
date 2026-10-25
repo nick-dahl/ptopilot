@@ -3,10 +3,11 @@
     python -m ptopilot.profiles load profiles/me.yaml [--dry-run]
     python -m ptopilot.profiles invite friend@example.com
 
-A stopgap until the web app's onboarding (Plan 6) exists. Loading is idempotent and keyed on email:
-the user is created or updated, travel windows are replaced, trackers are matched by destination
-code (updated in place, so their history and snoozes survive), and trackers missing from the file are
-deactivated rather than deleted. The email is also added to `invites`.
+Loading is idempotent and keyed on email: the user is created or updated, travel windows replace only
+those of the years the file lists (other years' ranges are left alone), and trackers are matched by
+destination code and updated in place, so their history and snoozes survive. Trackers are managed on
+the web (/destinations), so a load only adds or updates the ones it lists and never deactivates others.
+The email is also added to `invites`.
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ from ptopilot.core.geo import Geo, UnknownCodeError
 from ptopilot.data import load_geo
 from ptopilot.db.models import Invite, PlanningYear, Tracker, TravelWindow, User
 from ptopilot.db.session import make_engine
-from ptopilot.planning import plan_trip
+from ptopilot.planning import default_target_days, plan_trip
 from ptopilot.settings import Settings
 
 USER_FIELDS = {
@@ -246,7 +247,9 @@ def parse_profile(data: dict, geo: Geo, require_plan: bool = True) -> Profile:
     )
 
 
-def apply_profile(s: Session, p: Profile, replace_plan: bool = True) -> dict[str, int | str]:
+def apply_profile(
+    s: Session, p: Profile, replace_plan: bool = True, geo: Geo | None = None
+) -> dict[str, int | str]:
     """Upsert the profile in the given session (caller commits or rolls back). Returns a change summary.
 
     With replace_plan=False the travel windows, trackers, planning years and planned trips are left alone."""
@@ -265,19 +268,26 @@ def apply_profile(s: Session, p: Profile, replace_plan: bool = True) -> dict[str
         user.friday_evening_min_time = p.friday_evening_min_time
     s.flush()
     if replace_plan:
-        summary |= _apply_plan(s, user, p)
+        summary |= _apply_plan(s, user, p, geo or load_geo())
     s.execute(insert(Invite).values(email=p.email).on_conflict_do_nothing())
     s.flush()
     return summary
 
 
-def _apply_plan(s: Session, user: User, p: Profile) -> dict[str, int | str]:
+def _apply_plan(s: Session, user: User, p: Profile, geo: Geo) -> dict[str, int | str]:
     summary: dict[str, int | str] = {}
-    s.execute(delete(TravelWindow).where(TravelWindow.user_id == user.id))
+    window_years = sorted({start.year for start, _ in p.windows})
+    for year in window_years:  # only the years the file lists; ranges edited on the web for others stay
+        s.execute(
+            delete(TravelWindow).where(
+                TravelWindow.user_id == user.id,
+                TravelWindow.start_date >= date(year, 1, 1),
+                TravelWindow.start_date <= date(year, 12, 31),
+            )
+        )
     s.add_all(TravelWindow(user_id=user.id, start_date=a, end_date=b) for a, b in p.windows)
     summary["windows"] = len(p.windows)
 
-    window_years = sorted({start.year for start, _ in p.windows})
     for year in window_years:
         row = s.get(PlanningYear, (user.id, year))
         if row is None:
@@ -298,17 +308,14 @@ def _apply_plan(s: Session, user: User, p: Profile) -> dict[str, int | str]:
             updated += 1
         t.min_stay_days, t.max_stay_days = row.min_stay, row.max_stay
         t.priority, t.max_price, t.active = row.priority, row.max_price, True
+        if t.target_days is None:
+            t.target_days = default_target_days(geo, user.home_airport, t)
         listed.append(t)
     s.flush()
     for tracker in listed:
         for year in window_years:
             plan_trip(s, user, tracker, year)
-    deactivated = 0
-    for t in existing.values():
-        if t.active:
-            t.active = False
-            deactivated += 1
-    summary |= {"trackers_added": added, "trackers_updated": updated, "trackers_deactivated": deactivated}
+    summary |= {"trackers_added": added, "trackers_updated": updated}
     return summary
 
 
@@ -335,13 +342,14 @@ def main(argv: list[str] | None = None) -> int:
 
     engine = make_engine(Settings.from_env().database_url)
     try:
-        profile = parse_profile(yaml.safe_load(args.path.read_text(encoding="utf-8")), load_geo(engine))
+        geo = load_geo(engine)
+        profile = parse_profile(yaml.safe_load(args.path.read_text(encoding="utf-8")), geo)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 2
     try:
         with Session(engine) as s:
-            summary = apply_profile(s, profile)
+            summary = apply_profile(s, profile, geo=geo)
             if args.dry_run:
                 s.rollback()
             else:

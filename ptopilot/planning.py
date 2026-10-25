@@ -185,6 +185,16 @@ def set_target(s: Session, user: User, tracker_id: int, target_days: int) -> boo
     return True
 
 
+def default_target_days(geo: Geo, home: str, tracker: Tracker) -> int | None:
+    """The midpoint of a tracker's stay range as days away from home; None for a place the geo lacks."""
+    try:
+        rule = geo.travel_rule(home, geo.destination(tracker.destination_code))
+    except UnknownCodeError:
+        return None
+    days = math.floor((tracker.min_stay_days + tracker.max_stay_days) / 2 + rule.overhead_days + 0.5)
+    return min(max(days, MIN_TARGET_DAYS), MAX_TARGET_DAYS)
+
+
 def convert_targets(s: Session, geo: Geo) -> int:
     """Give every tracker without a target the midpoint of its stay range, as days away from home."""
     changed = 0
@@ -194,12 +204,10 @@ def convert_targets(s: Session, geo: Geo) -> int:
         .where(Tracker.target_days.is_(None))
     ).all()
     for tracker, home in rows:
-        try:
-            rule = geo.travel_rule(home, geo.destination(tracker.destination_code))
-        except UnknownCodeError:
+        days = default_target_days(geo, home, tracker)
+        if days is None:
             continue
-        days = math.floor((tracker.min_stay_days + tracker.max_stay_days) / 2 + rule.overhead_days + 0.5)
-        tracker.target_days = min(max(days, MIN_TARGET_DAYS), MAX_TARGET_DAYS)
+        tracker.target_days = days
         changed += 1
     s.flush()
     return changed

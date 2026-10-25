@@ -5,6 +5,7 @@ import pytest
 import yaml
 from sqlalchemy import select
 
+from ptopilot import planning
 from ptopilot.data import load_geo
 from ptopilot.db.models import Invite, PlannedTrip, PlanningYear, Tracker, TravelWindow, User
 from ptopilot.profiles import apply_profile, parse_profile
@@ -62,7 +63,6 @@ def test_apply_creates_then_updates_idempotently(session):
         "windows": 2,
         "trackers_added": 4,
         "trackers_updated": 0,
-        "trackers_deactivated": 0,
     }
     first_ids = {t.destination_code: t.id for t in session.scalars(mine(Tracker))}
     assert apply_profile(session, profile)["user"] == "updated"
@@ -75,13 +75,54 @@ def test_apply_creates_then_updates_idempotently(session):
     assert session.scalar(select(Invite.email).where(Invite.email == EMAIL)) == EMAIL
 
 
-def test_trackers_removed_from_the_file_are_deactivated_not_deleted(session):
+def test_trackers_missing_from_the_file_are_left_alone(session):
     apply_profile(session, parse_profile(EXAMPLE, GEO))
     fewer = {**EXAMPLE, "trackers": EXAMPLE["trackers"][:2]}
     summary = apply_profile(session, parse_profile(fewer, GEO))
-    assert summary["trackers_deactivated"] == 2
+    assert "trackers_deactivated" not in summary
     active = {t.destination_code: t.active for t in session.scalars(mine(Tracker))}
-    assert active == {"PATAGONIA": True, "AZORES": True, "MADEIRA": False, "CAMINO_PORTUGUES": False}
+    assert active == {"PATAGONIA": True, "AZORES": True, "MADEIRA": True, "CAMINO_PORTUGUES": True}
+
+
+def test_a_tracker_added_on_the_web_survives_a_load_that_does_not_list_it(session):
+    profile = parse_profile(EXAMPLE, GEO)
+    apply_profile(session, profile)
+    user = session.scalar(select(User).where(User.email == EMAIL))
+    session.add(Tracker(user_id=user.id, destination_code="LIS", min_stay_days=5, max_stay_days=9))
+    session.flush()
+    apply_profile(session, profile)
+    assert session.scalar(
+        select(Tracker.active).where(Tracker.user_id == user.id, Tracker.destination_code == "LIS")
+    )
+
+
+def test_a_load_leaves_other_years_ranges_alone(session):
+    profile = parse_profile(EXAMPLE, GEO)
+    apply_profile(session, profile)
+    user = session.scalar(select(User).where(User.email == EMAIL))
+    session.add(TravelWindow(user_id=user.id, start_date=date(2028, 3, 1), end_date=date(2028, 3, 5)))
+    session.flush()
+    apply_profile(session, profile)
+    starts = sorted(w.start_date for w in session.scalars(mine(TravelWindow)))
+    assert date(2028, 3, 1) in starts
+    assert len(starts) == len(profile.windows) + 1
+
+
+def test_a_load_replaces_the_ranges_of_the_years_it_lists(session):
+    profile = parse_profile(EXAMPLE, GEO)
+    apply_profile(session, profile)
+    user = session.scalar(select(User).where(User.email == EMAIL))
+    session.add(TravelWindow(user_id=user.id, start_date=date(2027, 11, 1), end_date=date(2027, 11, 5)))
+    session.flush()
+    apply_profile(session, profile)
+    assert len(list(session.scalars(mine(TravelWindow)))) == len(profile.windows)
+
+
+def test_a_new_tracker_from_a_load_gets_the_midpoint_target(session):
+    apply_profile(session, parse_profile(EXAMPLE, GEO))
+    targets = {t.destination_code: t.target_days for t in session.scalars(mine(Tracker))}
+    assert targets and all(isinstance(v, int) and 2 <= v <= 60 for v in targets.values())
+    assert planning.convert_targets(session, GEO) == 0  # nothing is left without a target
 
 
 def test_value_mistakes_are_all_reported_before_anything_is_written():

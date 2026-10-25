@@ -72,6 +72,8 @@ def test_dashboard_card_says_building_price_history(client, emailer, clean_engin
 
 def test_dashboard_card_eyebrow_shows_the_target_days(client, emailer, clean_engine):
     ids = setup(client, emailer, clean_engine, PROFILE_FORM)
+    with session_scope(clean_engine) as s:  # a YAML load now gives new trackers a target; clear it
+        s.get(Tracker, ids["AZORES"]).target_days = None
     assert "7–10 days on the ground" in client.get("/").text
     with session_scope(clean_engine) as s:
         s.get(Tracker, ids["AZORES"]).target_days = 9
