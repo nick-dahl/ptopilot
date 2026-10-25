@@ -117,3 +117,61 @@ def test_target_days_must_be_between_2_and_60(session, bad):
     )
     with pytest.raises(IntegrityError):
         session.flush()
+
+
+def add_orphan(engine, code="ZQX_PT", airports=("ZZZ",)):
+    with Session(engine) as s:
+        s.add(Destination(code=code, name="Lost Place", kind="city", airports=list(airports)))
+        s.commit()
+
+
+def test_a_place_whose_airports_left_the_catalog_still_loads(committed_engine):
+    add_orphan(committed_engine)
+    dest = load_geo(committed_engine).destination("ZQX_PT")
+    assert (dest.name, dest.country, dest.zone) == ("Lost Place", "PT", "OTHER")
+    assert load_geo(committed_engine).travel_rule("JFK", dest).min_trip_days >= 2  # default rule
+
+
+def test_a_place_keeps_the_airports_the_catalog_still_has(committed_engine):
+    add_orphan(committed_engine, "ITM_JP", ("ZZZ", "KIX"))
+    dest = load_geo(committed_engine).destination("ITM_JP")
+    assert (dest.country, dest.zone) == ("JP", "E_ASIA")
+
+
+def test_digests_still_build_for_every_user_with_an_orphaned_place(committed_engine):
+    from datetime import date
+
+    from ptopilot.digest.select import build_digests
+    from tests.digest.conftest import RUN, add_candidate, add_tracker, add_user
+
+    add_orphan(committed_engine)
+    t1 = add_tracker(committed_engine, add_user(committed_engine), code="ZQX_PT")
+    add_candidate(committed_engine, t1, 600, dest="ZZZ")
+    t2 = add_tracker(committed_engine, add_user(committed_engine, "b@example.com"))
+    add_candidate(committed_engine, t2, 600, depart=date(2027, 3, 5))
+    build_digests(committed_engine, load_geo(committed_engine), load_seasons(committed_engine), RUN)
+
+
+def test_geo_yaml_wins_over_a_database_place_with_the_same_code(committed_engine):
+    add_orphan(committed_engine, "AZORES", ("KIX",))
+    assert load_geo(committed_engine).destination("AZORES").airports == ("PDL",)
+
+
+def test_seasons_yaml_wins_over_a_database_season_with_the_same_code(committed_engine):
+    add_orphan(committed_engine, "AZORES", ("KIX",))
+    with Session(committed_engine) as s:
+        s.add(DestinationSeason(code="AZORES", months=["avoid"] * 12, notes={}, source="open-meteo"))
+        s.commit()
+    assert load_seasons(committed_engine).rating(("AZORES",), 7) == load_seasons().rating(("AZORES",), 7)
+    assert load_seasons().rating(("AZORES",), 7) != "avoid"
+
+
+def test_a_malformed_season_row_is_skipped(committed_engine):
+    add_orphan(committed_engine, "BAD_XX")
+    add_orphan(committed_engine, "OK_XX")
+    with Session(committed_engine) as s:
+        s.add(DestinationSeason(code="BAD_XX", months=["good"] * 5, notes={}, source="open-meteo"))
+        s.add(DestinationSeason(code="OK_XX", months=["good"] * 12, notes={}, source="open-meteo"))
+        s.commit()
+    table = load_seasons(committed_engine)
+    assert "BAD_XX" not in table.ratings and "OK_XX" in table.ratings

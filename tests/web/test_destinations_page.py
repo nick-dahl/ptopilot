@@ -189,3 +189,16 @@ def test_the_search_text_is_echoed_escaped(signed_in):
     html = signed_in.get("/destinations?q=<script>").text
     assert "<script>" not in html
     assert "&lt;script&gt;" in html
+
+
+def test_an_orphaned_place_is_listed_and_removable(signed_in, clean_engine):
+    with session_scope(clean_engine) as s:
+        uid = s.scalar(select(User.id))
+        s.add(Destination(code="ZQX_PT", name="Lost Place", kind="city", airports=["ZZZ"]))
+        s.flush()
+        s.add(Tracker(user_id=uid, destination_code="ZQX_PT", target_days=9, min_stay_days=6, max_stay_days=11))
+    html = signed_in.get("/destinations").text
+    assert "Lost Place · 9 days away" in html
+    tracker_id = tracker_for(clean_engine, "ZQX_PT")[0]
+    assert signed_in.post(f"/destinations/{tracker_id}/remove").status_code == 303
+    assert "Lost Place" not in signed_in.get("/destinations").text
