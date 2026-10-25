@@ -8,7 +8,6 @@ from ptopilot import config
 from ptopilot.sources.base import SourceUnavailable, snippet
 
 API_URL = "https://climate-api.open-meteo.com/v1/climate"
-TIMEOUT_S = 60
 
 
 def fetch_climate(lat: float, lon: float, client: httpx.Client | None = None) -> dict:
@@ -23,7 +22,7 @@ def fetch_climate(lat: float, lon: float, client: httpx.Client | None = None) ->
     }
     try:
         if client is None:
-            with httpx.Client(timeout=TIMEOUT_S) as own:
+            with httpx.Client(timeout=config.CLIMATE_TIMEOUT_S) as own:
                 response = own.get(API_URL, params=params)
         else:
             response = client.get(API_URL, params=params)

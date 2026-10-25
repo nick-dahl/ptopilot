@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 
-import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,7 @@ from ptopilot.db.models import Destination, DestinationSeason, Tracker, User
 from ptopilot.sources.base import SourceUnavailable
 from ptopilot.sources.climate import fetch_climate
 
+log = logging.getLogger(__name__)
 DEFAULT_PRIORITY = 2
 SEASON_SOURCE = "open-meteo"
 
@@ -37,13 +38,44 @@ def _generate_seasons(
 ) -> None:
     try:
         ratings, notes = rate_months(monthly_climate(climate(match.airport.lat, match.airport.lon)))
-    except (SourceUnavailable, httpx.HTTPError):
-        return  # the place is still usable: it just has no seasonal filtering
+    except Exception as exc:  # noqa: BLE001 - the place is still usable without seasonal filtering
+        log.warning("climate lookup failed for %s: %s", code, type(exc).__name__)
+        return
     s.add(
         DestinationSeason(
             code=code, months=list(ratings), notes={str(k): v for k, v in notes.items()}, source=SEASON_SOURCE
         )
     )
+
+
+def _needs_seasons(s: Session, code: str) -> bool:
+    return code not in {d.code for d in load_geo().destinations()} and (
+        s.get(DestinationSeason, code) is None and code not in load_seasons().ratings
+    )
+
+
+def prefetch_climate(
+    s: Session, match: PlaceMatch, airports: list[str], climate: Callable[[float, float], dict]
+) -> Callable[[float, float], dict]:
+    """Look the climate up now, so the caller can do it before opening the transaction that saves the place.
+
+    Returns a stand-in for `climate` to hand to add_destination: it answers with what was fetched, or
+    raises SourceUnavailable when nothing was needed or the lookup failed (no seasons are saved).
+    """
+    code = destination_code(match, airports, s)
+    result: dict | None = None
+    if _needs_seasons(s, code):
+        try:
+            result = climate(match.airport.lat, match.airport.lon)
+        except Exception as exc:  # noqa: BLE001 - reported again, harmlessly, by _generate_seasons
+            log.warning("climate lookup failed for %s: %s", code, type(exc).__name__)
+
+    def fetched(lat: float, lon: float) -> dict:
+        if result is None:
+            raise SourceUnavailable("climate was not fetched")
+        return result
+
+    return fetched
 
 
 def add_destination(

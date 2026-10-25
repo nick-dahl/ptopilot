@@ -134,9 +134,7 @@ WIDE = Window(date(2027, 5, 1), date(2027, 10, 31))
 
 
 def wide_profile(**overrides):
-    return profile(
-        home_airports=("JFK",), pto_available=30, weather_tolerance="relaxed", **overrides
-    )
+    return profile(home_airports=("JFK",), pto_available=30, weather_tolerance="relaxed", **overrides)
 
 
 def test_a_too_short_target_for_a_far_place_searches_from_the_minimum():

@@ -34,7 +34,7 @@ from ptopilot.core.seasons import SeasonTable
 from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import Invite, Tracker, User
 from ptopilot.db.session import make_engine, session_scope
-from ptopilot.destinations import add_destination, remove_destination
+from ptopilot.destinations import add_destination, prefetch_climate, remove_destination
 from ptopilot.digest.render import date_range, day, money, stops
 from ptopilot.digest.select import latest_run_date
 from ptopilot.links import ACTION_LABELS, TokenError, login_token, read_action_token, read_login_token
@@ -219,7 +219,7 @@ def create_app(
     @app.get("/")
     def dashboard(request: Request, saved: int = 0):
         if not current_email(request):
-            return page(request, "landing.html", samples=sample_cards(current_geo()))
+            return page(request, "landing.html", samples=sample_cards(fixed_geo or load_geo()))
         with session_scope(engine) as s:
             user = signed_in_user(s, request)
             if user is None:
@@ -297,7 +297,8 @@ def create_app(
     ):
         geo = current_geo()
         with session_scope(engine) as s:
-            home = s.get(User, user_id).home_airport
+            user = s.get(User, user_id)
+            homes = [user.home_airport, *user.nearby_airports]
             trackers = s.scalars(
                 select(Tracker).where(Tracker.user_id == user_id, Tracker.active.is_(True))
             ).all()
@@ -310,7 +311,7 @@ def create_app(
                 min_trip = None
                 if t.target_days is not None:
                     try:
-                        needed = geo.travel_rule(home, dest).min_trip_days
+                        needed = min(geo.travel_rule(h, dest).min_trip_days for h in homes)
                     except UnknownCodeError:
                         needed = 0
                     min_trip = needed if t.target_days < needed else None
@@ -369,8 +370,10 @@ def create_app(
         if not 2 <= target_days <= 60:
             return destinations_page(request, user_id, code, "Days away must be between 2 and 60.", 400)
         match = PlaceMatch(picked, (), catalog.country_name(picked.country))
+        with session_scope(engine) as s:  # a short read first: the slow climate lookup holds no transaction
+            fetched = prefetch_climate(s, match, chosen, climate)
         with session_scope(engine) as s:
-            add_destination(s, s.get(User, user_id), match, chosen, target_days, climate=climate)
+            add_destination(s, s.get(User, user_id), match, chosen, target_days, climate=fetched)
         return redirect("/destinations")
 
     @app.post("/destinations/{tracker_id}/remove")

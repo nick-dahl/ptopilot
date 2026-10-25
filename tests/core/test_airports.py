@@ -60,3 +60,17 @@ def test_name_matches_need_a_whole_word():
 
 def test_place_match_carries_country_name():
     assert CAT.search("HND")[0].country_name == "Japan"
+
+
+def test_west_south_and_central_asia_use_distance_bands_not_the_se_asia_rule():
+    others = "IL AE QA SA TR IN PK LK KZ UZ IR JO OM KW BH NP BD MV".split()
+    for country in others:
+        assert zone_for(country, "AS") == "OTHER", country
+    for country in ("TH", "VN", "KH", "LA", "MY", "SG", "ID", "PH", "MM", "BN", "TL"):
+        assert zone_for(country, "AS") == "SE_ASIA", country
+    assert zone_for("IL", "AS") == "OTHER" and zone_for("TH", "AS") == "SE_ASIA"
+
+
+def test_search_finds_built_in_place_names():
+    assert CAT.search("Azores")[0].airport.code == "PDL"
+    assert CAT.search("Patagonia")[0].airport.code == "PUQ"

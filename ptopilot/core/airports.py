@@ -10,10 +10,13 @@ from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
 
+import yaml
+
 from ptopilot import config
 
 _SIZE_ORDER = {"large": 0, "medium": 1, "small": 2}
 _E_ASIA = {"JP", "KR", "CN", "TW", "HK", "MO", "MN"}
+_SE_ASIA = {"TH", "VN", "KH", "LA", "MY", "SG", "ID", "PH", "MM", "BN", "TL"}
 _CONTINENT_ZONES = {"EU": "EUROPE", "NA": "NA", "SA": "S_AMERICA", "AF": "AFRICA", "OC": "OCEANIA"}
 _EARTH_RADIUS_KM = 6371.0088
 
@@ -46,9 +49,11 @@ def distance_km(a: CatalogAirport, b: CatalogAirport) -> float:
 
 
 def zone_for(country: str, continent: str) -> str:
-    """Travel-rule zone for a country; Asia splits into East and Southeast."""
+    """Travel-rule zone for a country; Asia splits into East and Southeast, the rest "OTHER"."""
     if continent == "AS":
-        return "E_ASIA" if country in _E_ASIA else "SE_ASIA"
+        if country in _E_ASIA:
+            return "E_ASIA"
+        return "SE_ASIA" if country in _SE_ASIA else "OTHER"
     return _CONTINENT_ZONES.get(continent, "OTHER")
 
 
@@ -63,8 +68,23 @@ def _read_rows(name: str) -> list[dict[str, str]]:
     return list(csv.DictReader(text.splitlines()))
 
 
+def _built_in_place_names() -> dict[str, tuple[str, ...]]:
+    """geo.yaml place names by first airport, so "Azores" finds PDL and "Patagonia" finds PUQ."""
+    text = resources.files("ptopilot.data").joinpath("geo.yaml").read_text(encoding="utf-8")
+    names: dict[str, list[str]] = {}
+    for d in yaml.safe_load(text)["destinations"].values():
+        names.setdefault(d["airports"][0], []).append(_fold(re.sub(r"\s*\(.*\)", "", d["name"])))
+    return {code: tuple(v) for code, v in names.items()}
+
+
 class AirportCatalog:
-    def __init__(self, airports: list[CatalogAirport], country_names: dict[str, str]):
+    def __init__(
+        self,
+        airports: list[CatalogAirport],
+        country_names: dict[str, str],
+        place_names: dict[str, tuple[str, ...]] | None = None,
+    ):
+        self._place_names = place_names or {}  # airport code -> folded names of built-in places it opens
         self._by_code = {a.code: a for a in airports}
         self._country_names = country_names
         self._by_country: dict[str, list[CatalogAirport]] = {}
@@ -87,7 +107,9 @@ class AirportCatalog:
             )
             for r in _read_rows("airports.csv")
         ]
-        return AirportCatalog(airports, {r["code"]: r["name"] for r in _read_rows("countries.csv")})
+        return AirportCatalog(
+            airports, {r["code"]: r["name"] for r in _read_rows("countries.csv")}, _built_in_place_names()
+        )
 
     def get(self, code: str) -> CatalogAirport | None:
         return self._by_code.get(code.strip().upper())
@@ -111,7 +133,7 @@ class AirportCatalog:
         """0 code, 1 city, 2 country, 3 airport name; None when the airport doesn't match."""
         if a.code.lower() == q:
             return 0
-        if _fold(a.city).startswith(q):
+        if _fold(a.city).startswith(q) or any(n.startswith(q) for n in self._place_names.get(a.code, ())):
             return 1
         if _fold(self.country_name(a.country)).startswith(q):
             return 2
@@ -135,9 +157,8 @@ class AirportCatalog:
                 # Several airports in one exact city (LHR/LGW) need no tiebreak: each lists
                 # the others as its nearby options.
                 intl = 0 if "international" in a.name.lower() else 1
-                ranked.append(
-                    ((kind > 0, _fold(a.city) != q, _SIZE_ORDER[a.size], kind, intl, a.name, a.code), a)
-                )
+                exact = _fold(a.city) == q or q in self._place_names.get(a.code, ())
+                ranked.append(((kind > 0, not exact, _SIZE_ORDER[a.size], kind, intl, a.name, a.code), a))
         ranked.sort(key=lambda t: t[0])
         return [
             PlaceMatch(a, tuple(self.nearby(a.code)), self.country_name(a.country)) for _, a in ranked[:limit]

@@ -196,9 +196,25 @@ def test_an_orphaned_place_is_listed_and_removable(signed_in, clean_engine):
         uid = s.scalar(select(User.id))
         s.add(Destination(code="ZQX_PT", name="Lost Place", kind="city", airports=["ZZZ"]))
         s.flush()
-        s.add(Tracker(user_id=uid, destination_code="ZQX_PT", target_days=9, min_stay_days=6, max_stay_days=11))
+        s.add(
+            Tracker(user_id=uid, destination_code="ZQX_PT", target_days=9, min_stay_days=6, max_stay_days=11)
+        )
     html = signed_in.get("/destinations").text
     assert "Lost Place · 9 days away" in html
     tracker_id = tracker_for(clean_engine, "ZQX_PT")[0]
     assert signed_in.post(f"/destinations/{tracker_id}/remove").status_code == 303
     assert "Lost Place" not in signed_in.get("/destinations").text
+
+
+def test_same_city_airports_are_prechecked(signed_in):
+    html = signed_in.get("/destinations?q=Rome").text
+    forms = html.split('<form class="match"')[1:]
+    assert any('value="FCO" checked' in f and 'value="CIA" checked' in f for f in forms)
+
+
+def test_the_trip_minimum_warning_uses_the_smallest_minimum_across_home_airports(signed_in, clean_engine):
+    add_tokyo(signed_in, "5")
+    assert "Trips here start at 7 days away" in signed_in.get("/destinations").text
+    with session_scope(clean_engine) as s:
+        s.scalar(select(User)).nearby_airports = ["HND"]  # next door to Tokyo: a short trip is fine
+    assert "Trips here start" not in signed_in.get("/destinations").text

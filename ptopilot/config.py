@@ -71,6 +71,7 @@ SEARCH_LIMIT = 12
 NEARBY_KM = 100  # other airports offered with a picked one
 CLIMATE_YEARS = (2011, 2020)  # Open-Meteo climate normals period
 CLIMATE_MODEL = "EC_Earth3P_HR"
+CLIMATE_TIMEOUT_S = 10  # a slow Open-Meteo must not hold a request (or a transaction) for long
 WET_DAY_MM = 1.0
 SEASON_GOOD = {"tmax_min": 18, "tmax_max": 30, "wet_days_max": 13}
 SEASON_AVOID = {"tmax_below": 10, "tmax_above": 34, "wet_days_min": 18}

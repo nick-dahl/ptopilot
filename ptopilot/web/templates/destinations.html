@@ -50,7 +50,7 @@
         <div class="airports">
           <label class="check"><input type="checkbox" name="airports" value="{{ m.airport.code }}" checked>{{ m.airport.code }} · {{ m.airport.name }}</label>
           {% for n in m.nearby %}
-          <label class="check"><input type="checkbox" name="airports" value="{{ n.code }}">{{ n.code }} · {{ n.name }}</label>
+          <label class="check"><input type="checkbox" name="airports" value="{{ n.code }}"{% if n.city == m.airport.city %} checked{% endif %}>{{ n.code }} · {{ n.name }}</label>
           {% endfor %}
         </div>
         <div class="search-row">

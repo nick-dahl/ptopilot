@@ -175,3 +175,52 @@ def test_a_malformed_season_row_is_skipped(committed_engine):
         s.commit()
     table = load_seasons(committed_engine)
     assert "BAD_XX" not in table.ratings and "OK_XX" in table.ratings
+
+
+def test_any_error_from_the_climate_lookup_still_adds_the_place(session):
+    def broken(lat, lon):
+        raise ValueError("bad payload")
+
+    t = add_destination(session, make_user(session), CAT.search("Bermuda")[0], ["BDA"], 5, climate=broken)
+    assert t.active and session.get(DestinationSeason, t.destination_code) is None
+
+
+def test_prefetched_climate_is_looked_up_once_before_the_add(session):
+    from ptopilot.destinations import prefetch_climate
+
+    calls = []
+
+    def counting(lat, lon):
+        calls.append((lat, lon))
+        return TOKYO
+
+    osaka = CAT.search("Osaka")[0]
+    fetched = prefetch_climate(session, osaka, ["KIX", "ITM"], counting)
+    assert len(calls) == 1
+    add_destination(session, make_user(session), osaka, ["KIX", "ITM"], 12, climate=fetched)
+    assert len(calls) == 1 and session.get(DestinationSeason, "KIX_JP") is not None
+    # nothing to fetch for a built-in place
+    assert prefetch_climate(session, CAT.search("Tokyo")[0], ["HND", "NRT"], fail_if_called)
+
+
+def test_the_climate_fetch_uses_a_ten_second_timeout(monkeypatch):
+    import httpx
+
+    from ptopilot import config
+    from ptopilot.sources import climate
+
+    seen = {}
+
+    class Boom(Exception):
+        pass
+
+    class FakeClient:
+        def __init__(self, timeout):
+            seen["timeout"] = timeout
+            raise Boom
+
+    monkeypatch.setattr(climate.httpx, "Client", FakeClient)
+    with pytest.raises(Boom):
+        climate.fetch_climate(0.0, 0.0)
+    assert seen["timeout"] == config.CLIMATE_TIMEOUT_S == 10
+    assert httpx  # imported for the patched module
