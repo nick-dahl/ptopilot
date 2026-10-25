@@ -116,7 +116,9 @@ def test_a_trip_is_searched_only_in_its_years_ranges(make_ctx):
 
 def test_each_years_pto_limits_its_own_trips(make_ctx):
     ctx = make_ctx()
-    uid = add_user(ctx.engine, windows=TWO_YEARS)
+    # extra days off on Jun 14-17 2027 make a free Sat Jun 12 - Sun Jun 20 trip
+    free_days = [date(2027, 6, d) for d in (14, 15, 16, 17)]
+    uid = add_user(ctx.engine, windows=TWO_YEARS, extra_days_off=free_days)
     set_planning_year(ctx.engine, uid, 2027, pto_days=0)
     set_planning_year(ctx.engine, uid, 2028, pto_days=20)
     tid = add_tracker(ctx.engine, uid)
@@ -124,7 +126,7 @@ def test_each_years_pto_limits_its_own_trips(make_ctx):
     by_year = {2027: [], 2028: []}
     for _, _, dep, _, link in links(ctx.engine, tid):
         by_year[dep.year].append(link.pto_cost)
-    assert all(cost == 0 for cost in by_year[2027])  # with no PTO, only free trips (if any) are found
+    assert by_year[2027] and all(cost == 0 for cost in by_year[2027])
     assert any(cost > 0 for cost in by_year[2028])
 
 
@@ -142,3 +144,14 @@ def test_a_range_in_a_year_without_a_planning_year_is_ignored(make_ctx):
     tid = add_tracker(ctx.engine, uid, years=[2027, 2028])  # planned in 2028, which has no planning year
     expand.run(ctx)
     assert {dep.year for _, _, dep, _, _ in links(ctx.engine, tid)} == {2027}
+
+
+def test_overlapping_years_do_not_duplicate_links(make_ctx):
+    ctx = make_ctx()
+    windows = ((date(2027, 12, 20), date(2028, 1, 10)), (date(2028, 1, 1), date(2028, 1, 20)))
+    tid = add_tracker(ctx.engine, add_user(ctx.engine, windows=windows, years=[2027, 2028]))
+    expand.run(ctx)
+    rows = links(ctx.engine, tid)
+    assert rows
+    keys = [(rq_dep, ret, lk.evening_departure) for _, _, rq_dep, ret, lk in rows]
+    assert len(keys) == len(set(keys))

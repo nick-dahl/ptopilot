@@ -112,6 +112,7 @@ def run(ctx: RunContext) -> dict[str, int]:
                 counts["tracker_errors"] += 1
                 log.warning("tracker %s skipped: %s", tracker.id, exc)
                 continue
+            linked: set[tuple[int, bool]] = set()  # years' ranges can overlap: keep the first of a repeat
             for it in itineraries:
                 shape = it.shape
                 if shape.depart_date < tomorrow:
@@ -119,10 +120,14 @@ def run(ctx: RunContext) -> dict[str, int]:
                 if (tracker.id, shape.depart_date, shape.return_date) in excluded:
                     counts["excluded"] += 1
                     continue
+                route_query_id = _route_query_id(s, it, cache)
+                if (route_query_id, shape.evening_departure) in linked:
+                    continue
+                linked.add((route_query_id, shape.evening_departure))
                 s.add(
                     TrackerRouteLink(
                         tracker_id=tracker.id,
-                        route_query_id=_route_query_id(s, it, cache),
+                        route_query_id=route_query_id,
                         run_date=ctx.run_date,
                         evening_departure=shape.evening_departure,
                         pto_cost=shape.pto_cost,
