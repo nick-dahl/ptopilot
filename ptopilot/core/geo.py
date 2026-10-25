@@ -8,6 +8,9 @@ from pathlib import Path
 
 import yaml
 
+from ptopilot import config
+from ptopilot.core.airports import AirportCatalog, distance_km, zone_for
+
 # Destination colors for the web app and digest: a destination's own `color`, else its zone's default.
 ZONE_COLORS = {
     "EUROPE": "#0e7490",
@@ -77,6 +80,13 @@ class TravelRule:
     min_trip_days: int  # shortest trip worth taking between these zones
 
 
+def _from_catalog(catalog: AirportCatalog | None, code: str) -> Airport:
+    found = catalog.get(code) if catalog else None
+    if found is None:
+        raise UnknownCodeError(f"Unknown airport: {code!r}")
+    return Airport(found.code, found.country, zone_for(found.country, found.continent))
+
+
 class Geo:
     def __init__(
         self,
@@ -84,26 +94,28 @@ class Geo:
         destinations: dict[str, Destination],
         rules: dict[frozenset[str], TravelRule],
         default_rule: TravelRule,
+        catalog: AirportCatalog | None = None,
     ):
         self._airports = airports
         self._destinations = destinations
         self._rules = rules
         self._default_rule = default_rule
+        self._catalog = catalog
 
     @classmethod
-    def from_dict(cls, data: dict) -> Geo:
+    def from_dict(cls, data: dict, catalog: AirportCatalog | None = None) -> Geo:
         airports = {code: Airport(code, a["country"], a["zone"]) for code, a in data["airports"].items()}
         destinations: dict[str, Destination] = {}
         for code, d in data["destinations"].items():
             codes = tuple(d["airports"])
             returns = tuple(d.get("return_airports") or ())
-            missing = [c for c in codes + returns if c not in airports]
+            missing = [c for c in codes + returns if c not in airports and not (catalog and catalog.get(c))]
             if missing:
                 raise ValueError(f"Destination {code!r} uses unknown airports {missing}")
             color = d.get("color")
             if color is not None and not (isinstance(color, str) and _HEX.fullmatch(color)):
                 raise ValueError(f"Destination {code!r} has an invalid color {color!r} (expected #rrggbb)")
-            first = airports[codes[0]]
+            first = airports.get(codes[0]) or _from_catalog(catalog, codes[0])
             destinations[code] = Destination(
                 code, d["name"], d["kind"], codes, first.country, first.zone, returns,
                 color.lower() if color else None,
@@ -116,17 +128,18 @@ class Geo:
         default = TravelRule(
             float(travel["default"]["overhead_days"]), int(travel["default"]["min_trip_days"])
         )
-        return cls(airports, destinations, rules, default)
+        return cls(airports, destinations, rules, default, catalog)
 
     @classmethod
-    def from_yaml(cls, path: Path) -> Geo:
-        return cls.from_dict(yaml.safe_load(Path(path).read_text(encoding="utf-8")))
+    def from_yaml(cls, path: Path, catalog: AirportCatalog | None = None) -> Geo:
+        return cls.from_dict(yaml.safe_load(Path(path).read_text(encoding="utf-8")), catalog)
 
     def airport(self, code: str) -> Airport:
-        try:
+        if code in self._airports:
             return self._airports[code]
-        except KeyError:
-            raise UnknownCodeError(f"Unknown airport: {code!r}") from None
+        if self._catalog is not None and (found := self._catalog.get(code)):
+            return _from_catalog(self._catalog, found.code)
+        raise UnknownCodeError(f"Unknown airport: {code!r}")
 
     def destinations(self) -> list[Destination]:
         """Every known destination, sorted by name."""
@@ -140,7 +153,22 @@ class Geo:
 
     def travel_rule(self, origin: str, dest: Destination) -> TravelRule:
         key = frozenset({self.airport(origin).zone, dest.zone})
-        return self._rules.get(key, self._default_rule)
+        if key in self._rules:
+            return self._rules[key]
+        km = self._distance_km(origin, dest)
+        if km is None:
+            return self._default_rule
+        for up_to, overhead, min_trip in config.DISTANCE_BANDS_KM:
+            if km <= up_to:
+                return TravelRule(float(overhead), int(min_trip))
+        return self._default_rule
+
+    def _distance_km(self, origin: str, dest: Destination) -> float | None:
+        """Origin airport to the destination's first airport, when both have coordinates."""
+        if self._catalog is None:
+            return None
+        a, b = self._catalog.get(origin), self._catalog.get(dest.airports[0])
+        return distance_km(a, b) if a and b else None
 
     def is_international(self, origin: str, dest: Destination) -> bool:
         return self.airport(origin).country != dest.country
