@@ -15,7 +15,9 @@ from ptopilot.web.app import create_app
 from tests.web.conftest import KEY, PROFILE_FORM, TODAY, sign_in
 
 TOKYO = json.loads(
-    (Path(__file__).parents[1] / "sources" / "fixtures" / "real_open_meteo_tokyo_2011_2020.json").read_text()
+    (Path(__file__).parents[1] / "sources" / "fixtures" / "real_open_meteo_tokyo_2011_2020.json").read_text(
+        encoding="utf-8"
+    )
 )
 
 

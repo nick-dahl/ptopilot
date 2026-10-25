@@ -23,7 +23,9 @@ def test_pages_use_the_stylesheet_and_fonts(client):
 
 
 def test_stylesheet_ships_with_the_package():
-    package_data = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["setuptools"]["package-data"]
+    package_data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["setuptools"][
+        "package-data"
+    ]
     assert "static/*.css" in package_data["ptopilot.web"]
 
 

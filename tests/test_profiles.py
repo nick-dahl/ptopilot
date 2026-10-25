@@ -10,7 +10,9 @@ from ptopilot.db.models import Invite, Tracker, TravelWindow, User
 from ptopilot.profiles import apply_profile, parse_profile
 
 GEO = load_geo()
-EXAMPLE = yaml.safe_load((Path(__file__).resolve().parents[1] / "profiles" / "example.yaml").read_text())
+EXAMPLE = yaml.safe_load(
+    (Path(__file__).resolve().parents[1] / "profiles" / "example.yaml").read_text(encoding="utf-8")
+)
 EMAIL = "you@example.com"
 
 

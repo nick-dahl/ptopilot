@@ -14,7 +14,9 @@ from ptopilot.web.forms import form_to_profile, profile_to_form
 from tests.web.conftest import PROFILE_FORM
 
 GEO = load_geo()
-EXAMPLE = yaml.safe_load((Path(__file__).resolve().parents[1] / "profiles" / "example.yaml").read_text())
+EXAMPLE = yaml.safe_load(
+    (Path(__file__).resolve().parents[1] / "profiles" / "example.yaml").read_text(encoding="utf-8")
+)
 
 
 def test_ideal_trip_days_is_optional_and_defaults_to_none():

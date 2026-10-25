@@ -13,7 +13,7 @@ from ptopilot.sources.google_flights import GoogleFlightsSource, parse_flights
 
 FIXTURE_TEXT = (
     Path(__file__).parent / "fixtures" / "google_flights_ORD_LIS_2027-06-11_2027-06-20.json"
-).read_text()
+).read_text(encoding="utf-8")
 QUERY = ExactQuery("ORD", "LIS", date(2027, 6, 11), date(2027, 6, 20))
 
 

@@ -10,7 +10,9 @@ import pytest
 from ptopilot.sources.base import SourceUnavailable
 from ptopilot.sources.travelpayouts import API_URL, TravelpayoutsSource, parse_prices_for_dates
 
-FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "travelpayouts_ORD_LIS_2027-06.json").read_text())
+FIXTURE = json.loads(
+    (Path(__file__).parent / "fixtures" / "travelpayouts_ORD_LIS_2027-06.json").read_text(encoding="utf-8")
+)
 
 
 def source_returning(status=200, body=None, text=None, seen=None):

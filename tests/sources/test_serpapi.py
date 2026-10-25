@@ -11,7 +11,9 @@ from ptopilot.sources.base import ExactQuery, SourceUnavailable
 from ptopilot.sources.serpapi import SerpApiSource, parse_google_flights
 
 FIXTURE = json.loads(
-    (Path(__file__).parent / "fixtures" / "serpapi_ORD_LIS_2027-06-11_2027-06-20.json").read_text()
+    (Path(__file__).parent / "fixtures" / "serpapi_ORD_LIS_2027-06-11_2027-06-20.json").read_text(
+        encoding="utf-8"
+    )
 )
 QUERY = ExactQuery("ORD", "LIS", date(2027, 6, 11), date(2027, 6, 20))
 

@@ -5,7 +5,7 @@ from ptopilot.core.geo import Destination, Geo, TravelRule
 from ptopilot.data import DATA_DIR
 
 CATALOG = AirportCatalog.load()
-GEO = Geo.from_dict(yaml.safe_load((DATA_DIR / "geo.yaml").read_text()), CATALOG)
+GEO = Geo.from_dict(yaml.safe_load((DATA_DIR / "geo.yaml").read_text(encoding="utf-8")), CATALOG)
 
 
 def destination_at(code: str) -> Destination:

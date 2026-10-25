@@ -17,7 +17,9 @@ from tests.db.test_models import make_user
 
 CAT = AirportCatalog.load()
 TOKYO = json.loads(
-    (Path(__file__).parent / "sources" / "fixtures" / "real_open_meteo_tokyo_2011_2020.json").read_text()
+    (Path(__file__).parent / "sources" / "fixtures" / "real_open_meteo_tokyo_2011_2020.json").read_text(
+        encoding="utf-8"
+    )
 )
 
 

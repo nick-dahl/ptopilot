@@ -9,7 +9,7 @@ from ptopilot.sources.base import SourceUnavailable
 from ptopilot.sources.climate import fetch_climate
 
 FIXTURES = Path(__file__).parents[1] / "sources" / "fixtures"
-TOKYO = json.loads((FIXTURES / "real_open_meteo_tokyo_2011_2020.json").read_text())
+TOKYO = json.loads((FIXTURES / "real_open_meteo_tokyo_2011_2020.json").read_text(encoding="utf-8"))
 
 
 def test_monthly_climate_from_the_real_tokyo_record():
