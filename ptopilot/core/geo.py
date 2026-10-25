@@ -134,6 +134,11 @@ class Geo:
     def from_yaml(cls, path: Path, catalog: AirportCatalog | None = None) -> Geo:
         return cls.from_dict(yaml.safe_load(Path(path).read_text(encoding="utf-8")), catalog)
 
+    def with_destinations(self, extra: dict[str, Destination]) -> Geo:
+        """A copy that also knows `extra`; destinations already here (geo.yaml) win on a shared code."""
+        merged = {**extra, **self._destinations}
+        return Geo(self._airports, merged, self._rules, self._default_rule, self._catalog)
+
     def airport(self, code: str) -> Airport:
         if code in self._airports:
             return self._airports[code]

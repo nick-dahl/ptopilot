@@ -61,6 +61,12 @@ class SeasonTable:
     def from_yaml(cls, path: Path) -> SeasonTable:
         return cls.from_dict(yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {})
 
+    def merged_with(self, extra: SeasonTable) -> SeasonTable:
+        """This table plus `extra`'s codes; entries already here (seasons.yaml) win on a shared code."""
+        ratings = {**extra.ratings, **self.ratings}
+        notes = {**extra.notes, **self.notes}
+        return SeasonTable(ratings, notes)
+
     def rating(self, codes: Sequence[str], month: int) -> Rating:
         """Rating from the first code that has an entry (e.g. city, then country). Unknown -> "good"."""
         for code in codes:

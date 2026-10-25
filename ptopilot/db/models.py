@@ -102,6 +102,7 @@ class Tracker(Base):
     __table_args__ = (
         CheckConstraint("0 < min_stay_days AND min_stay_days <= max_stay_days", name="stay_days"),
         CheckConstraint("priority BETWEEN 1 AND 3", name="priority"),
+        CheckConstraint("target_days IS NULL OR target_days BETWEEN 2 AND 60", name="target_days"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -112,8 +113,37 @@ class Tracker(Base):
     priority: Mapped[int] = mapped_column(SmallInteger, server_default="2")
     max_price: Mapped[Decimal | None] = mapped_column(Money)
     snoozed_until: Mapped[date | None]
+    target_days: Mapped[int | None] = mapped_column(SmallInteger)  # days away; None: use the stay range
     active: Mapped[bool] = mapped_column(server_default="true")
     created_at: Mapped[datetime] = created_at()
+
+
+class Destination(Base):
+    """A place a user added from the airport catalog; built-in places live in geo.yaml instead."""
+
+    __tablename__ = "destinations"
+    __table_args__ = (CheckConstraint("kind IN ('city', 'region', 'route')", name="kind"),)
+
+    code: Mapped[str] = mapped_column(String(32), primary_key=True)
+    name: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(8))
+    airports: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    return_airports: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    color: Mapped[str | None] = mapped_column(String(7))
+    added_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = created_at()
+
+
+class DestinationSeason(Base):
+    """Season ratings generated from climate data for an added place."""
+
+    __tablename__ = "destination_seasons"
+
+    code: Mapped[str] = mapped_column(ForeignKey("destinations.code", ondelete="CASCADE"), primary_key=True)
+    months: Mapped[list[str]] = mapped_column(ARRAY(Text))  # 12 ratings, January first
+    notes: Mapped[dict] = mapped_column(JSONB, server_default="{}")  # {"1": "~8°C, 6 wet days"}
+    source: Mapped[str] = mapped_column(String(32))
+    computed_at: Mapped[datetime] = created_at()
 
 
 class TrackerExclusion(Base):
