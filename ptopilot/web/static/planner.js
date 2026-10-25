@@ -10,7 +10,8 @@
   days.forEach(function (d, i) { indexOf.set(d, i); });
   var note = document.getElementById("unsaved");
   var dirty = false;
-  var drag = null; // { anchor, current, mode }
+  var drag = null; // { anchor, current, mode }, mouse and pen only
+  var tap = null; // the day a touch started on
 
   function dayAt(x, y) {
     var el = document.elementFromPoint(x, y);
@@ -48,6 +49,11 @@
     if (e.button !== undefined && e.button > 0) return;
     var td = dayAt(e.clientX, e.clientY);
     if (!td) return;
+    if (e.pointerType === "touch") {
+      // Touch scrolls the page; only a tap (down and up on the same day) toggles.
+      tap = td;
+      return;
+    }
     e.preventDefault();
     drag = { anchor: td, current: td, mode: td.classList.contains("open") ? "close" : "open" };
     preview();
@@ -74,10 +80,25 @@
     drag = null;
   }
 
-  window.addEventListener("pointerup", function (e) { finish(e, true); });
-  window.addEventListener("pointercancel", function (e) { finish(e, false); });
+  window.addEventListener("pointerup", function (e) {
+    if (e.pointerType === "touch") {
+      var started = tap;
+      tap = null;
+      if (started && dayAt(e.clientX, e.clientY) === started) {
+        started.classList.toggle("open");
+        markDirty();
+      }
+      return;
+    }
+    finish(e, true);
+  });
+  window.addEventListener("pointercancel", function (e) {
+    tap = null;
+    finish(e, false);
+  });
 
   calendar.addEventListener("keydown", function (e) {
+    if (e.repeat) return;
     if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
     var td = e.target.closest ? e.target.closest("td[data-date]") : null;
     if (!td || !indexOf.has(td)) return;
@@ -107,11 +128,15 @@
     input.type = "hidden";
     input.name = name;
     input.value = value;
+    input.setAttribute("data-planner", "");
     return input;
   }
 
   form.addEventListener("submit", function () {
     if (!dirty) return; // untouched calendar: the typed date fields are what the person meant
+    Array.prototype.slice.call(form.querySelectorAll("input[data-planner]")).forEach(function (i) {
+      i.parentNode.removeChild(i);
+    });
     Array.prototype.slice.call(form.querySelectorAll(".range-row")).forEach(function (row) {
       row.parentNode.removeChild(row);
     });
