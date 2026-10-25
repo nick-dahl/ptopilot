@@ -343,3 +343,18 @@ def test_a_far_range_end_is_a_400_naming_the_row(signed_in, clean_engine):
     assert r.status_code == 400
     assert "range 2" in r.text
     assert signed_in.get(f"/plan/{YEAR}").status_code == 200
+
+
+def test_the_page_exposes_a_range_that_runs_past_the_year_end(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    with session_scope(clean_engine) as s:
+        s.add(TravelWindow(user_id=uid, start_date=date(2027, 12, 18), end_date=date(2028, 1, 3)))
+        s.add(TravelWindow(user_id=uid, start_date=date(2027, 3, 1), end_date=date(2027, 3, 4)))
+    html = signed_in.get(f"/plan/{YEAR}").text
+    assert """data-spill='[["2027-12-18", "2028-01-03"]]'""" in html
+
+
+def test_the_page_hints_that_typed_dates_yield_to_the_calendar(signed_in, clean_engine):
+    start_year(clean_engine)
+    html = signed_in.get(f"/plan/{YEAR}").text
+    assert "Typed dates are replaced by the calendar when you've changed it" in html.replace("&#39;", "'")

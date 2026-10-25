@@ -72,7 +72,7 @@
       <li><span class="key day open"></span>Open to travel</li>
       <li><span class="key day open hol"></span>Holiday in a range</li>
     </ul>
-    <div class="months" id="year-calendar">
+    <div class="months" id="year-calendar" data-spill='{{ spill | tojson }}'>
       {% for name, weeks in months %}
       <table class="month" aria-label="{{ name }} {{ year }}">
         <caption>{{ name }}</caption>
@@ -100,6 +100,7 @@
       {% endfor %}
       <button class="btn" type="submit">Save ranges</button>
       <span class="unsaved small" id="unsaved" role="status" hidden>Unsaved changes</span>
+      <span class="muted small" id="dirty-hint" hidden>Typed dates are replaced by the calendar when you've changed it</span>
     </form>
   </div>
 </div>

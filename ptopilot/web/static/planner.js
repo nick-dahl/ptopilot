@@ -9,6 +9,9 @@
   var indexOf = new Map();
   days.forEach(function (d, i) { indexOf.set(d, i); });
   var note = document.getElementById("unsaved");
+  var hint = document.getElementById("dirty-hint");
+  var spill = [];
+  try { spill = JSON.parse(calendar.dataset.spill || "[]"); } catch (err) { spill = []; }
   var dirty = false;
   var drag = null; // { anchor, current, mode }, mouse and pen only
   var tap = null; // the day a touch started on
@@ -22,6 +25,7 @@
   function markDirty() {
     dirty = true;
     if (note) note.hidden = false;
+    if (hint) hint.hidden = false;
   }
 
   function clearPreview() {
@@ -107,6 +111,17 @@
     markDirty();
   });
 
+  // A saved range may run past Dec 31 into the next year; the calendar can't show that part, so a run
+  // that reaches Dec 31 and holds the start of such a range keeps that range's original end.
+  function runEnd(first, last) {
+    var end = days[last].dataset.date;
+    if (last !== days.length - 1) return end;
+    spill.forEach(function (r) {
+      if (r[0] >= days[first].dataset.date && r[0] <= end && r[1] > end) end = r[1];
+    });
+    return end;
+  }
+
   // Consecutive open days become one range.
   function openRanges() {
     var out = [];
@@ -119,7 +134,7 @@
         start = null;
       }
     });
-    if (start !== null) out.push([days[start].dataset.date, days[days.length - 1].dataset.date]);
+    if (start !== null) out.push([days[start].dataset.date, runEnd(start, days.length - 1)]);
     return out;
   }
 

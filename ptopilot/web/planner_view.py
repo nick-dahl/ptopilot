@@ -118,5 +118,6 @@ def plan_context(
                 "est_pto": sum(e["est_pto"] for e in entries if e["est_pto"] is not None),
             },
             "months": _months(year, cal, saved),
+            "spill": [(a.isoformat(), b.isoformat()) for a, b in saved if b > date(year, 12, 31)],
             "ranges": blank_range_rows([(a.isoformat(), b.isoformat()) for a, b in saved]),
         }
