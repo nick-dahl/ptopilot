@@ -3,7 +3,9 @@ from datetime import date
 import pytest
 
 from ptopilot.core.calendar import WorkCalendar
-from ptopilot.core.planner import TrackerSpec, TravelerProfile, Window, plan_itineraries
+from ptopilot.core.geo import Geo
+from ptopilot.core.planner import TrackerSpec, TravelerProfile, Window, estimate_pto, plan_itineraries
+from ptopilot.core.seasons import SeasonTable
 from ptopilot.core.selection import ground_days
 from ptopilot.data import load_geo, load_seasons
 
@@ -162,3 +164,48 @@ def test_a_target_above_the_profile_maximum_raises_the_length_cap():
     assert its
     assert max(i.shape.days_away for i in its) > 8
     assert all(i.shape.days_away <= 12 for i in its)  # target + tolerance
+
+
+# --- estimate_pto ---------------------------------------------------------------------------------
+
+MEMORIAL = [Window(date(2027, 5, 28), date(2027, 6, 1))]
+EST_GEO = Geo.from_dict(
+    {
+        "airports": {"ORD": {"country": "US", "zone": "NA"}, "DEN": {"country": "US", "zone": "NA"}},
+        "destinations": {"DEN_TRIP": {"name": "Denver", "kind": "city", "airports": ["DEN"]}},
+        "travel": {"pairs": [], "default": {"overhead_days": 1.0, "min_trip_days": 3}},
+    }
+)
+EST_SEASONS = SeasonTable.from_dict({"US": {"months": ["good"] * 12}})
+AVOID_SEASONS = SeasonTable.from_dict({"US": {"months": ["avoid"] * 12}})
+
+
+def estimate(windows=MEMORIAL, target=4, seasons=EST_SEASONS, **overrides):
+    spec = TrackerSpec("DEN_TRIP", min_stay_days=1, max_stay_days=60, target_days=target)
+    return estimate_pto(profile(**overrides), spec, windows, EST_GEO, seasons)
+
+
+def test_estimate_pto_is_the_best_case_in_the_ranges():
+    # Memorial Day 2027 is Mon May 31 (WINDOW_SLACK_DAYS = 2)
+    assert estimate(target=4) == 0  # Sat May 29 -> Mon May 31
+    assert estimate(target=7) == 2  # Fri May 28 -> Tue Jun 1, band 5..9
+
+
+def test_estimate_pto_counts_friday_evening_departures():
+    plain = estimate(target=7)
+    evening = estimate(target=7, friday_evening_departure=True)
+    assert plain is not None and evening == plain - 1
+
+
+def test_estimate_pto_is_none_without_ranges_or_fitting_trips():
+    assert estimate(windows=[]) is None
+    assert estimate(target=40) is None  # nothing that long fits a 5-day range
+
+
+def test_estimate_pto_respects_season_tolerance():
+    assert estimate(seasons=AVOID_SEASONS, weather_tolerance="normal") is None
+    assert estimate(seasons=AVOID_SEASONS, weather_tolerance="relaxed") is not None
+
+
+def test_estimate_pto_ignores_the_pto_limit():
+    assert estimate(target=7, pto_available=0) == 2

@@ -5,9 +5,9 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from ptopilot.data import load_geo, load_seasons
-from ptopilot.db.models import Candidate, Tracker
+from ptopilot.db.models import Candidate, RouteBaseline, Tracker
 from ptopilot.db.session import session_scope
-from ptopilot.web.history import destination_summaries, trend, trip_options, typical_band
+from ptopilot.web.history import building_history, destination_summaries, trend, trip_options, typical_band
 from tests.digest.conftest import RUN, add_baseline, add_candidate, add_tracker, add_user
 
 GEO, SEASONS = load_geo(), load_seasons()
@@ -148,3 +148,34 @@ def test_typical_band_uses_the_same_sigma_floor_as_the_bar(clean_engine):
     (flat,) = [replace(o, sigma=0.0) for o in options(clean_engine, t)]
     low, high = typical_band([flat])
     assert (low, high) == (Decimal(635), Decimal(675))
+
+
+def _baseline_row(origin, dest, ret, confidence):
+    return RouteBaseline(
+        origin=origin, dest_airport=dest, return_airport=ret, month=date(2027, 3, 1),
+        length_bucket="week", median=Decimal(700), sigma=Decimal(50), n=20, confidence=confidence,
+    )  # fmt: skip
+
+
+def test_building_history_until_a_normal_baseline_exists(clean_engine):
+    azores = GEO.destination("AZORES")
+    with session_scope(clean_engine) as s:
+        assert building_history(s, ["JFK", "EWR"], azores) is True
+        s.add(_baseline_row("JFK", "PDL", "PDL", "low"))
+        s.flush()
+        assert building_history(s, ["JFK", "EWR"], azores) is True
+        s.add(_baseline_row("EWR", "PDL", "PDL", "normal"))
+        s.flush()
+        assert building_history(s, ["JFK", "EWR"], azores) is False
+        assert building_history(s, ["JFK"], azores) is True  # that baseline is for another home
+        assert building_history(s, ["EWR"], GEO.destination("MADEIRA")) is True
+
+
+def test_summaries_carry_the_history_signal_and_target(clean_engine):
+    user = add_user(clean_engine)
+    add_tracker(clean_engine, user, target_days=9)
+    (before,) = destination_summaries(clean_engine, GEO, SEASONS, user, RUN)
+    assert before.building_history is True and before.target_days == 9
+    add_baseline(clean_engine, 700)
+    (after,) = destination_summaries(clean_engine, GEO, SEASONS, user, RUN)
+    assert after.building_history is False

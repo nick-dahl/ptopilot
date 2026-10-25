@@ -6,6 +6,7 @@ Read-only. Prices come from `candidates` (one row per trip per scan day), so no 
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
@@ -13,9 +14,17 @@ from decimal import Decimal
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
-from ptopilot.core.geo import Geo, Palette, palette
+from ptopilot.core.geo import Destination, Geo, Palette, palette
 from ptopilot.core.seasons import SeasonTable, trip_month
-from ptopilot.db.models import Candidate, PriceObservation, RouteQuery, Tracker, TrackerRouteLink
+from ptopilot.db.models import (
+    Candidate,
+    PriceObservation,
+    RouteBaseline,
+    RouteQuery,
+    Tracker,
+    TrackerRouteLink,
+    User,
+)
 from ptopilot.db.session import session_scope
 from ptopilot.digest.select import latest_run_date, next_good_month
 from ptopilot.links import web_link
@@ -79,6 +88,8 @@ class DestinationSummary:
     snoozed_until: date | None
     next_good_month: str | None
     ruled_out: bool = False  # it has trips today, but every one is snoozed or excluded
+    building_history: bool = False  # no normal-confidence price baseline yet for any home route
+    target_days: int | None = None
 
 
 def _options(
@@ -182,6 +193,21 @@ def typical_band(options: list[TripOption]) -> tuple[Decimal, Decimal] | None:
     return median - sigma, median + sigma
 
 
+def building_history(s: Session, homes: Sequence[str], dest: Destination) -> bool:
+    """True until some home airport has a normal-confidence price baseline to this destination."""
+    found = s.scalar(
+        select(RouteBaseline.origin)
+        .where(
+            RouteBaseline.confidence == "normal",
+            RouteBaseline.origin.in_(list(homes)),
+            RouteBaseline.dest_airport.in_(dest.airports),
+            RouteBaseline.return_airport.in_(dest.home_from),
+        )
+        .limit(1)
+    )
+    return found is None
+
+
 def destination_summaries(
     engine: Engine, geo: Geo, seasons: SeasonTable, user_id: int, today: date
 ) -> list[DestinationSummary]:
@@ -196,6 +222,8 @@ def destination_summaries(
             )
         )
         options = _options(s, geo, seasons, trackers, run_date) if run_date else {}
+        user = s.get(User, user_id)
+        homes = [user.home_airport, *user.nearby_airports] if user else []
         summaries = []
         for t in trackers:
             dest = geo.destination(t.destination_code)
@@ -211,6 +239,8 @@ def destination_summaries(
                     snoozed_until=t.snoozed_until if t.snoozed_until and t.snoozed_until >= today else None,
                     next_good_month=next_good_month(seasons, (dest.code, dest.country), today),
                     ruled_out=bool(mine) and all(o.dimmed for o in mine),
+                    building_history=building_history(s, homes, dest),
+                    target_days=t.target_days,
                 )
             )
     priced = sorted((x for x in summaries if x.best), key=lambda x: (x.best.price, x.tracker_id))
