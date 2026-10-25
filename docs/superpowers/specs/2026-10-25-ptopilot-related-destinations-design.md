@@ -1,7 +1,7 @@
 # ptopilot — Related Destinations (Design)
 
 **Date:** 2026-10-25
-**Status:** Draft, awaiting review
+**Status:** Approved 2026-10-25
 **Builds on:** [Year plan / your destinations](2026-10-25-ptopilot-year-plan-design.md) (Plan 9: airport catalog, added places, climate seasons), [Buy now or wait](2026-10-25-ptopilot-buy-now-or-wait-design.md) · **Backlog:** [`ROADMAP.md`](../../../ROADMAP.md) "Related destinations"
 
 Third of the user's three V2 features.
@@ -49,9 +49,9 @@ Third of the user's three V2 features.
 ## 3. Decided behavior
 
 ### 3.1 Suggesting links (my calls)
-- **Immediate:** other catalog airports within `RELATED_NEAR_KM` (300, great-circle, measured from the nearest of the destination's airports) of the destination's airports, in any country, that aren't already among its airports. Example: Paris → Brussels (BRU), Beauvais (BVA). Large and medium airports only.
-- **Thematic:** a small bundled `ptopilot/data/related.yaml` of hand-curated groups of similar places, each a list of airport codes with a group name. Examples: "Central European capitals" (BUD, PRG, VIE, KRK), "Atlantic islands" (PDL, FNC, TFS, LPA), "Patagonia" (PUQ, FTE, USH). A destination's thematic suggestions are the other members of any group containing one of its airports.
-- **Cap and order:** at most `RELATED_MAX_SUGGESTIONS` (6) per destination, thematic first, then immediate by distance.
+- **Immediate:** other catalog airports within `RELATED_NEAR_KM` (160, great-circle, measured from the nearest of the destination's airports) of the destination's airports, in any country, that aren't already among its airports. Example: Paris → Brussels (BRU), Beauvais (BVA). Large and medium airports only.
+- **Thematic:** a small bundled `ptopilot/data/related.yaml` of hand-curated groups of similar places, each a list of airport codes with a group name. Groups contain **only major tourist destinations** (the user's rule): second-tier spots such as Kraków are left out. Examples: "Central European capitals" (BUD, PRG, VIE), "Atlantic islands" (PDL, FNC, TFS, LPA), "Patagonia" (PUQ, FTE, USH). A destination's thematic suggestions are the other members of any group containing one of its airports.
+- **Cap and order:** at most `RELATED_MAX_SUGGESTIONS` (5) per destination, thematic first, then immediate by distance.
 - **Accept / Dismiss:** accepted links are stored per user and destination. Dismissed links are remembered so they aren't suggested again.
 
 ### 3.2 The light watch (my calls)
@@ -103,7 +103,7 @@ A related place has no history of its own: that's the point of keeping it light.
 
 ## 5. Left to the builder
 
-- The initial contents of `related.yaml` (a dozen sensible groups that include the user's current places).
+- The initial contents of `related.yaml`: a dozen sensible groups of **major tourist destinations only**, including groups for the user's current places.
 - The data model for accepted and dismissed links.
 - How "to anywhere" results are matched to related airports and dates (exact dates from the cache vs re-deriving the best dates within the open ranges).
 - Exact visual treatment of the digest section and the site panel within the design system.
