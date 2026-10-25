@@ -159,3 +159,16 @@ a.dest-card:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, .1); transform: transla
 .step p { margin: 6px 0 0; }
 .step::before { content: counter(step); display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--btn); color: #fff; font: 700 13px/1 var(--sans); margin-bottom: 10px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* destinations page */
+.dest-list { list-style: none; margin: 0; padding: 0; }
+.dest-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.dest-row:first-child { border-top: 0; }
+.dest-row .grow { flex: 1 1 200px; }
+.swatch { width: 14px; height: 14px; border-radius: 50%; background: var(--dest); flex: none; }
+.search-row { display: flex; gap: 10px; align-items: flex-end; }
+.search-row .field { flex: 1; margin: 0; }
+.match { padding: 12px 0; border-top: 1px solid var(--line); }
+.match:first-child { border-top: 0; }
+.match .airports { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 0; }
+.match .check input { margin-right: 6px; }

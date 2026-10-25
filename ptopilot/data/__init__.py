@@ -1,5 +1,6 @@
 """Bundled reference data (geography, seasons), plus the places users added in the database."""
 
+from functools import cache
 from pathlib import Path
 
 from sqlalchemy import Engine, select
@@ -30,9 +31,19 @@ def _geo_destination(row: Destination, catalog: AirportCatalog) -> GeoDestinatio
     )
 
 
+@cache
+def _yaml_geo() -> Geo:
+    return Geo.from_yaml(DATA_DIR / "geo.yaml", AirportCatalog.load())
+
+
+@cache
+def _yaml_seasons() -> SeasonTable:
+    return SeasonTable.from_yaml(DATA_DIR / "seasons.yaml")
+
+
 def load_geo(engine: Engine | None = None) -> Geo:
     catalog = AirportCatalog.load()
-    geo = Geo.from_yaml(DATA_DIR / "geo.yaml", catalog)
+    geo = _yaml_geo()  # parsed once; Geo and SeasonTable are never mutated, only copied
     if engine is None:
         return geo
     with Session(engine) as s:
@@ -42,7 +53,7 @@ def load_geo(engine: Engine | None = None) -> Geo:
 
 
 def load_seasons(engine: Engine | None = None) -> SeasonTable:
-    table = SeasonTable.from_yaml(DATA_DIR / "seasons.yaml")
+    table = _yaml_seasons()
     if engine is None:
         return table
     with Session(engine) as s:

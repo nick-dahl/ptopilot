@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "_components.html" import dest_style %}
+{% block title %}Destinations · ptopilot{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Destinations</h1>
+    <p class="muted small">The places ptopilot watches for you. Add any city or airport; remove one any time (its price history is kept).</p>
+  </div>
+</div>
+<div class="stack">
+  {% if error %}<div class="panel notice-error" role="alert"><p class="m-0 error">{{ error }}</p></div>{% endif %}
+
+  <div class="panel">
+    <h2>Your destinations</h2>
+    {% if rows %}
+    <ul class="dest-list">
+      {% for r in rows %}
+      <li class="dest-row" style="{{ dest_style(r.palette) }}">
+        <span class="swatch" aria-hidden="true"></span>
+        <div class="grow">
+          <b><a href="/trackers/{{ r.id }}">{{ r.name }}{% if r.target_days %} · {{ r.target_days }} days away{% else %} · {{ r.stay[0] }}–{{ r.stay[1] }} days on the ground{% endif %}</a></b>
+          {% if r.min_trip %}<div class="small error">Trips here start at {{ r.min_trip }} days away, so this target will find nothing shorter.</div>{% endif %}
+        </div>
+        <form class="inline" method="post" action="/destinations/{{ r.id }}/remove">
+          <button class="link-btn small" type="submit">Remove<span class="sr-only"> {{ r.name }}</span></button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="m-0 muted">Nothing tracked yet. Search below to add a place.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Add a place</h2>
+    <form method="get" action="/destinations" class="search-row">
+      <label class="field"><span>City, airport or country</span>
+        <input id="q" name="q" type="search" value="{{ q }}" placeholder="Tokyo, LIS, Portugal" autocomplete="off">
+      </label>
+      <button class="btn" type="submit">Search</button>
+    </form>
+    {% if q %}
+    <div class="mt-sm">
+      {% for m in matches %}
+      <form class="match" method="post" action="/destinations">
+        <input type="hidden" name="code" value="{{ m.airport.code }}">
+        <b>{{ m.airport.city }}</b> <span class="muted small">{{ m.country_name }}</span>
+        <div class="airports">
+          <label class="check"><input type="checkbox" name="airports" value="{{ m.airport.code }}" checked>{{ m.airport.code }} · {{ m.airport.name }}</label>
+          {% for n in m.nearby %}
+          <label class="check"><input type="checkbox" name="airports" value="{{ n.code }}">{{ n.code }} · {{ n.name }}</label>
+          {% endfor %}
+        </div>
+        <div class="search-row">
+          <label class="field"><span>Days away</span>
+            <input name="target_days" type="number" min="2" max="60" value="10">
+          </label>
+          <button class="btn" type="submit">Add<span class="sr-only"> {{ m.airport.city }}</span></button>
+        </div>
+      </form>
+      {% else %}
+      <p class="m-0 muted">No places found for "{{ q }}". Try a city name or an airport code.</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

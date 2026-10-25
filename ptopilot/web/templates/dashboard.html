@@ -8,6 +8,7 @@
     <h1>Your trips</h1>
     <p class="muted small">{% if run_date %}Prices from the {{ run_date | day }} scan.{% else %}Prices appear after the first daily scan (06:00 UTC).{% endif %}</p>
   </div>
+  <a class="btn btn-ghost btn-sm" href="/destinations">Manage destinations</a>
 </div>
 <div class="stack">
   {{ pto_bar(pto_total, pto_committed) }}

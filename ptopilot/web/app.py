@@ -28,17 +28,20 @@ from sqlalchemy import Engine, select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
-from ptopilot.core.geo import Geo, palette
+from ptopilot.core.airports import AirportCatalog, PlaceMatch
+from ptopilot.core.geo import Geo, UnknownCodeError, palette
 from ptopilot.core.seasons import SeasonTable
 from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import Invite, Tracker, User
 from ptopilot.db.session import make_engine, session_scope
+from ptopilot.destinations import add_destination, remove_destination
 from ptopilot.digest.render import date_range, day, money, stops
 from ptopilot.digest.select import latest_run_date
 from ptopilot.links import ACTION_LABELS, TokenError, login_token, read_action_token, read_login_token
 from ptopilot.notify.email import Emailer, EmailError, ResendEmailer
 from ptopilot.profiles import apply_profile, parse_profile
 from ptopilot.settings import Settings
+from ptopilot.sources.climate import fetch_climate
 from ptopilot.trackers import apply_action, snooze, unsnooze
 from ptopilot.web.forms import form_to_profile, profile_to_form, row_count
 from ptopilot.web.history import destination_summaries, trend, trip_options, typical_band
@@ -65,12 +68,16 @@ def create_app(
     seasons: SeasonTable | None = None,
     today: Callable[[], date] | None = None,
     now: Callable[[], float] | None = None,
+    climate: Callable[[float, float], dict] = fetch_climate,
 ) -> FastAPI:
     if not settings.secret_key:
         raise ValueError("SECRET_KEY is required to run the web app")
     engine = engine or make_engine(settings.database_url)
-    geo = geo or load_geo()
-    seasons = seasons or load_seasons()
+    # Places users add live in the database, so geography and seasons are read per request (the YAML and
+    # airport catalog parts are cached; only the small query for added places runs each time).
+    # An injected geo or season table (tests) is used as given.
+    fixed_geo, fixed_seasons = geo, seasons
+    catalog = AirportCatalog.load()
     today = today or (lambda: datetime.now(UTC).date())
     now = now or time.monotonic
     last_link_sent: dict[str, float] = {}  # per process; enough for one small instance
@@ -87,6 +94,12 @@ def create_app(
         same_site="lax",
         https_only=settings.app_base_url.startswith("https://"),
     )
+
+    def current_geo() -> Geo:
+        return fixed_geo or load_geo(engine)
+
+    def current_seasons() -> SeasonTable:
+        return fixed_seasons or load_seasons(engine)
 
     def page(request: Request, name: str, status: int = 200, **context):
         context = {"signed_in": request.session.get("email"), **context}
@@ -206,7 +219,7 @@ def create_app(
     @app.get("/")
     def dashboard(request: Request, saved: int = 0):
         if not current_email(request):
-            return page(request, "landing.html", samples=sample_cards(geo))
+            return page(request, "landing.html", samples=sample_cards(current_geo()))
         with session_scope(engine) as s:
             user = signed_in_user(s, request)
             if user is None:
@@ -217,7 +230,7 @@ def create_app(
             request,
             "dashboard.html",
             active="dashboard",
-            summaries=destination_summaries(engine, geo, seasons, user_id, today()),
+            summaries=destination_summaries(engine, current_geo(), current_seasons(), user_id, today()),
             run_date=latest_run_date(engine, today()),
             pto_total=pto_total,
             pto_committed=pto_committed,
@@ -236,8 +249,8 @@ def create_app(
             snoozed = tracker.snoozed_until
         if snoozed is not None and snoozed < today():
             snoozed = None
-        dest = geo.destination(code)
-        options = trip_options(engine, geo, seasons, tracker_id, today())
+        dest = current_geo().destination(code)
+        options = trip_options(engine, current_geo(), current_seasons(), tracker_id, today())
         band = typical_band(options)
         return page(
             request,
@@ -275,6 +288,96 @@ def create_app(
             unsnooze(tracker)
         return after_snooze(next)
 
+    # --- destinations -----------------------------------------------------------------------------
+
+    def destinations_page(
+        request: Request, user_id: int, q: str, error: str | None = None, status: int = 200
+    ):
+        geo = current_geo()
+        with session_scope(engine) as s:
+            home = s.get(User, user_id).home_airport
+            trackers = s.scalars(
+                select(Tracker).where(Tracker.user_id == user_id, Tracker.active.is_(True))
+            ).all()
+            rows = []
+            for t in trackers:
+                try:
+                    dest = geo.destination(t.destination_code)
+                except UnknownCodeError:
+                    continue
+                min_trip = None
+                if t.target_days is not None:
+                    try:
+                        needed = geo.travel_rule(home, dest).min_trip_days
+                    except UnknownCodeError:
+                        needed = 0
+                    min_trip = needed if t.target_days < needed else None
+                rows.append(
+                    {
+                        "id": t.id,
+                        "name": dest.name,
+                        "palette": palette(dest),
+                        "target_days": t.target_days,
+                        "stay": (t.min_stay_days, t.max_stay_days),
+                        "min_trip": min_trip,
+                    }
+                )
+        rows.sort(key=lambda r: r["name"])
+        q = q.strip()
+        return page(
+            request,
+            "destinations.html",
+            status,
+            active="destinations",
+            rows=rows,
+            q=q,
+            matches=catalog.search(q) if q else [],
+            error=error,
+        )
+
+    def destinations_user_id(request: Request) -> int | RedirectResponse:
+        if not current_email(request):
+            return redirect("/")
+        with session_scope(engine) as s:
+            user = signed_in_user(s, request)
+            return user.id if user else redirect("/profile")
+
+    @app.get("/destinations")
+    def destinations(request: Request, q: str = ""):
+        user_id = destinations_user_id(request)
+        if isinstance(user_id, RedirectResponse):
+            return user_id
+        return destinations_page(request, user_id, q)
+
+    @app.post("/destinations")
+    def add_place(
+        request: Request,
+        code: str = Form(""),
+        airports: Annotated[list[str] | None, Form()] = None,
+        target_days: int = Form(10),
+    ):
+        user_id = destinations_user_id(request)
+        if isinstance(user_id, RedirectResponse):
+            return user_id
+        picked = catalog.get(code)
+        chosen = list(dict.fromkeys(a.strip().upper() for a in airports or [] if a.strip()))
+        if picked is None or not chosen or any(catalog.get(a) is None for a in chosen):
+            return destinations_page(request, user_id, code, "Pick a place and at least one airport.", 400)
+        if not 2 <= target_days <= 60:
+            return destinations_page(request, user_id, code, "Days away must be between 2 and 60.", 400)
+        match = PlaceMatch(picked, (), catalog.country_name(picked.country))
+        with session_scope(engine) as s:
+            add_destination(s, s.get(User, user_id), match, chosen, target_days, climate=climate)
+        return redirect("/destinations")
+
+    @app.post("/destinations/{tracker_id}/remove")
+    def remove_place(request: Request, tracker_id: TRACKER_ID):
+        with session_scope(engine) as s:
+            user = signed_in_user(s, request)
+            if user is None or not remove_destination(s, user, tracker_id):
+                return page(request, "message.html", 404, title="Not found", message="No such destination.")
+        return redirect("/destinations")
+
     # --- profile / onboarding --------------------------------------------------------------------
 
     def profile_page(request: Request, form: dict, errors: list[str], status: int = 200):
@@ -285,7 +388,7 @@ def create_app(
             active="profile",
             form=form,
             errors=errors,
-            destinations=geo.destinations(),
+            destinations=current_geo().destinations(),
             windows=row_count(form, "window"),
             trackers=row_count(form, "tracker"),
         )
@@ -305,7 +408,7 @@ def create_app(
             return redirect("/")
         form = {k: str(v) for k, v in (await request.form()).items()}
         try:
-            profile = parse_profile(form_to_profile(form, email), geo)
+            profile = parse_profile(form_to_profile(form, email), current_geo())
         except ValueError as exc:
             errors = [line.removeprefix("  - ") for line in str(exc).splitlines()[1:]]
             return profile_page(request, form, errors, 400)
@@ -320,7 +423,7 @@ def create_app(
         tracker = s.get(Tracker, action.tracker_id)
         if tracker is None:
             raise TokenError("this tracker no longer exists")
-        return action, tracker, geo.destination(tracker.destination_code).name
+        return action, tracker, current_geo().destination(tracker.destination_code).name
 
     @app.get("/s/{token}")
     def confirm_action(request: Request, token: str):
