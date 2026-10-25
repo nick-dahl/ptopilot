@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from ptopilot.db.models import Tracker, User
+from ptopilot.db.models import Destination, Tracker, User
 from ptopilot.db.session import session_scope
 from ptopilot.settings import Settings
 from ptopilot.web.app import create_app
@@ -141,3 +141,49 @@ def test_users_without_a_profile_are_sent_to_create_one(client, emailer, clean_e
 
 def test_the_dashboard_links_to_destinations(signed_in):
     assert 'href="/destinations"' in signed_in.get("/").text
+
+
+def rows_created(engine):
+    with session_scope(engine) as s:
+        return s.scalars(select(Destination)).all(), s.scalars(select(Tracker)).all()
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"code": "HND", "airports": ["JFK"], "target_days": "10"},  # a foreign airport
+        {"code": "HND", "airports": ["HND", "JFK"], "target_days": "10"},
+        {"code": "HND", "airports": ["NRT"], "target_days": "10"},  # the picked code is missing
+        {"code": "ZZZ", "airports": ["ZZZ"], "target_days": "10"},  # an unknown code
+        {"airports": ["HND"], "target_days": "10"},  # no code
+        {"code": "HND", "target_days": "10"},  # no airports
+    ],
+)
+def test_bad_posts_are_refused_and_create_nothing(signed_in, clean_engine, data):
+    before_dest, before_trackers = rows_created(clean_engine)
+    r = signed_in.post("/destinations", data=data)
+    assert r.status_code == 400
+    after_dest, after_trackers = rows_created(clean_engine)
+    assert len(after_dest) == len(before_dest)
+    assert len(after_trackers) == len(before_trackers)
+
+
+def test_a_non_numeric_target_is_a_400_and_creates_nothing(signed_in, clean_engine):
+    before = rows_created(clean_engine)
+    assert add_tokyo(signed_in, "lots").status_code == 400
+    after = rows_created(clean_engine)
+    assert (len(after[0]), len(after[1])) == (len(before[0]), len(before[1]))
+
+
+def test_re_adding_a_removed_destination_reactivates_it(signed_in, clean_engine):
+    add_tokyo(signed_in)
+    tracker_id = tracker_for(clean_engine, "TYO")[0]
+    signed_in.post(f"/destinations/{tracker_id}/remove")
+    add_tokyo(signed_in, "14")
+    assert tracker_for(clean_engine, "TYO") == (tracker_id, 14, True)
+
+
+def test_the_search_text_is_echoed_escaped(signed_in):
+    html = signed_in.get("/destinations?q=<script>").text
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html

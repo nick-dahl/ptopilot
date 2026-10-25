@@ -226,11 +226,12 @@ def create_app(
                 return redirect("/profile")
             user_id, pto_total, pto_committed = user.id, user.pto_days_total, user.pto_committed
         # Every current trip counts, including deals already emailed.
+        geo = current_geo()
         return page(
             request,
             "dashboard.html",
             active="dashboard",
-            summaries=destination_summaries(engine, current_geo(), current_seasons(), user_id, today()),
+            summaries=destination_summaries(engine, geo, current_seasons(), user_id, today()),
             run_date=latest_run_date(engine, today()),
             pto_total=pto_total,
             pto_committed=pto_committed,
@@ -249,8 +250,9 @@ def create_app(
             snoozed = tracker.snoozed_until
         if snoozed is not None and snoozed < today():
             snoozed = None
-        dest = current_geo().destination(code)
-        options = trip_options(engine, current_geo(), current_seasons(), tracker_id, today())
+        geo = current_geo()
+        dest = geo.destination(code)
+        options = trip_options(engine, geo, current_seasons(), tracker_id, today())
         band = typical_band(options)
         return page(
             request,
@@ -361,7 +363,8 @@ def create_app(
             return user_id
         picked = catalog.get(code)
         chosen = list(dict.fromkeys(a.strip().upper() for a in airports or [] if a.strip()))
-        if picked is None or not chosen or any(catalog.get(a) is None for a in chosen):
+        allowed = {picked.code, *(a.code for a in catalog.nearby(picked.code))} if picked else set()
+        if picked is None or picked.code not in chosen or not set(chosen) <= allowed:
             return destinations_page(request, user_id, code, "Pick a place and at least one airport.", 400)
         if not 2 <= target_days <= 60:
             return destinations_page(request, user_id, code, "Days away must be between 2 and 60.", 400)
