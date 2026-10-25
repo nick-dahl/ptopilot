@@ -57,6 +57,8 @@ TEMPLATES.env.filters.update(money=money, day=day, dates=date_range, stops=stops
 # Postgres int4 range: anything inside it is looked up (0 or negative are simply not found, a 404); ids
 # beyond it would make the database raise, so they're a styled 400 instead.
 TRACKER_ID = Annotated[int, PathParam(ge=-(2**31), le=2**31 - 1)]
+MAX_RANGE_ROWS = 50
+PLAN_YEAR = Annotated[int, PathParam(ge=1900, le=2200)]
 TRACKER_URL = re.compile(r"/trackers/\d+")
 SESSION_MAX_AGE_S = 30 * 24 * 3600
 LOGIN_COOLDOWN_S = 120  # at most one sign-in email per address per 2 minutes
@@ -416,17 +418,19 @@ def create_app(
             return redirect(f"/plan/{py.year}" if py else "/plan/new")
 
     @app.get("/plan/{year}")
-    def plan_view(request: Request, year: int):
+    def plan_view(request: Request, year: PLAN_YEAR):
         user_id = plan_user_id(request, year)
         return plan_page(request, user_id, year) if isinstance(user_id, int) else user_id
 
     @app.post("/plan/{year}/ranges")
-    async def plan_save_ranges(request: Request, year: int):
+    async def plan_save_ranges(request: Request, year: PLAN_YEAR):
         user_id = plan_user_id(request, year)
         if not isinstance(user_id, int):
             return user_id
         form = await request.form()
         indexes = sorted({int(m[1]) for k in form if (m := re.fullmatch(r"range_start_(\d+)", k))})
+        if len(indexes) > MAX_RANGE_ROWS:
+            return plan_page(request, user_id, year, 400, "Too many ranges.")
         rows = [
             {
                 "start": str(form.get(f"range_start_{i}", "")).strip(),
@@ -451,7 +455,14 @@ def create_app(
                     set_ranges(s, signed_in_user(s, request), year, parsed)
                 except ValueError as exc:  # name the row as the form showed it, blank rows included
                     raise ValueError(
-                        re.sub(r"range (\d+)", lambda m: f"range {labels[int(m[1]) - 1]}", str(exc), count=1)
+                        re.sub(
+                            r"range (\d+)",
+                            lambda m: (
+                                f"range {(labels[int(m[1]) - 1] if 0 < int(m[1]) <= len(labels) else m[1])}"
+                            ),
+                            str(exc),
+                            count=1,
+                        )
                     ) from None
         except ValueError as exc:
             return plan_page(request, user_id, year, 400, str(exc), rows)
@@ -459,7 +470,7 @@ def create_app(
 
     @app.post("/plan/{year}/pto")
     def plan_save_pto(
-        request: Request, year: int, pto_days: int = Form(...), other_time_off: int = Form(...)
+        request: Request, year: PLAN_YEAR, pto_days: int = Form(...), other_time_off: int = Form(...)
     ):
         user_id = plan_user_id(request, year)
         if not isinstance(user_id, int):
@@ -487,7 +498,9 @@ def create_app(
         )
 
     @app.post("/plan/{year}/trips/{tracker_id}")
-    def plan_edit_trip(request: Request, year: int, tracker_id: TRACKER_ID, target_days: int = Form(...)):
+    def plan_edit_trip(
+        request: Request, year: PLAN_YEAR, tracker_id: TRACKER_ID, target_days: int = Form(...)
+    ):
         user_id = plan_user_id(request, year)
         if not isinstance(user_id, int):
             return user_id
@@ -501,7 +514,7 @@ def create_app(
         return redirect(f"/plan/{year}?saved=trip")
 
     @app.post("/plan/{year}/trips/{tracker_id}/remove")
-    def plan_remove_trip(request: Request, year: int, tracker_id: TRACKER_ID):
+    def plan_remove_trip(request: Request, year: PLAN_YEAR, tracker_id: TRACKER_ID):
         user_id = plan_user_id(request, year)
         if not isinstance(user_id, int):
             return user_id

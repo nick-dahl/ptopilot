@@ -190,6 +190,7 @@ a.dest-card:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, .1); transform: transla
 .day.we { background: var(--we-tint); }
 .day.hol { background: var(--hol-tint); }
 .day.open { background: var(--open-tint); }
+.day.open.hol { box-shadow: inset 0 0 0 2px #dc2626; }
 .day.off { outline: 1px dashed var(--off-line); outline-offset: -2px; }
 .month td.pad { background: none; }
 .range-row { max-width: 480px; }

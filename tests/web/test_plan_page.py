@@ -1,6 +1,7 @@
 """The year planner page: trips with a bottom line, the year's PTO, the calendar and range rows."""
 
 from datetime import date
+from pathlib import Path
 
 import pytest
 from sqlalchemy import delete, select
@@ -258,3 +259,27 @@ def test_plan_page_shows_building_history_and_too_short_notes(signed_in, clean_e
 def test_pages_other_than_plan_have_no_script_tag(signed_in):
     for url in ("/", "/destinations", "/profile"):
         assert "<script" not in signed_in.get(url).text
+
+
+def test_a_holiday_inside_a_range_is_both_open_and_holiday(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    with session_scope(clean_engine) as s:
+        s.add(TravelWindow(user_id=uid, start_date=date(2027, 7, 1), end_date=date(2027, 7, 9)))
+    html = signed_in.get(f"/plan/{YEAR}").text
+    got = classes(html, "2027-07-05")[0]
+    assert "hol" in got and "open" in got
+    css = (Path(__file__).parents[2] / "ptopilot/web/static/app.css").read_text(encoding="utf-8")
+    assert ".day.open.hol" in css
+
+
+def test_out_of_range_years_and_too_many_ranges_are_400s(signed_in, clean_engine):
+    start_year(clean_engine)
+    assert signed_in.get("/plan/99999999999").status_code == 400
+    assert (
+        signed_in.post("/plan/99999999999/pto", data={"pto_days": "1", "other_time_off": "0"}).status_code
+        == 400
+    )
+    many = {f"range_start_{i}": "" for i in range(51)} | {f"range_end_{i}": "" for i in range(51)}
+    r = signed_in.post(f"/plan/{YEAR}/ranges", data=many)
+    assert r.status_code == 400
+    assert "Too many ranges" in r.text
