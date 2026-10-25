@@ -128,3 +128,39 @@ def test_new_destinations_load_with_seasons():
         assert SEASONS.rating([dest.code, dest.country], 3) in ("good", "shoulder", "avoid")
     assert SEASONS.rating(["PATAGONIA"], 7) == "avoid"  # southern winter
     assert GEO.travel_rule("JFK", GEO.destination("PATAGONIA")).overhead_days == 3
+
+
+WIDE = Window(date(2027, 5, 1), date(2027, 10, 31))
+
+
+def wide_profile(**overrides):
+    return profile(
+        home_airports=("JFK",), pto_available=30, weather_tolerance="relaxed", **overrides
+    )
+
+
+def test_a_too_short_target_for_a_far_place_searches_from_the_minimum():
+    tokyo = TrackerSpec("TYO", min_stay_days=1, max_stay_days=60, target_days=3)
+    its = plan_itineraries(wide_profile(), tokyo, [WIDE], GEO, SEASONS)
+    assert its
+    assert all(i.shape.days_away >= 7 for i in its)  # NA -> E_ASIA minimum
+
+
+def test_a_too_short_target_for_a_distance_band_place_searches_from_the_minimum():
+    from ptopilot.core.geo import Destination
+
+    sydney = Destination("SYD_AU", "Sydney", "city", ("SYD",), "AU", "OCEANIA")
+    geo = GEO.with_destinations({"SYD_AU": sydney})
+    assert geo.travel_rule("JFK", sydney).min_trip_days == 9
+    spec = TrackerSpec("SYD_AU", min_stay_days=1, max_stay_days=60, target_days=4)
+    its = plan_itineraries(wide_profile(), spec, [WIDE], geo, SEASONS)
+    assert its
+    assert all(i.shape.days_away >= 9 for i in its)
+
+
+def test_a_target_above_the_profile_maximum_raises_the_length_cap():
+    tokyo = TrackerSpec("TYO", min_stay_days=1, max_stay_days=60, target_days=10)
+    its = plan_itineraries(wide_profile(max_trip_days=8), tokyo, [WIDE], GEO, SEASONS)
+    assert its
+    assert max(i.shape.days_away for i in its) > 8
+    assert all(i.shape.days_away <= 12 for i in its)  # target + tolerance

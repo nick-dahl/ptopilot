@@ -71,6 +71,15 @@ class PlannedItinerary:
         return self.return_airport != self.dest_airport
 
 
+def _target_band(target: int, tol: int, min_trip_days: int) -> tuple[int, int]:
+    """Days away to search for a target: target +/- tol, but never below the place's minimum.
+
+    A target shorter than the minimum searches from the minimum, a full band wide.
+    """
+    low = max(min_trip_days, target - tol)
+    return low, max(target + tol, low + 2 * tol)
+
+
 def plan_itineraries(
     profile: TravelerProfile,
     tracker: TrackerSpec,
@@ -94,9 +103,11 @@ def plan_itineraries(
         airport_pairs = [(a, a) for a in dest.airports]
 
     target = tracker.target_days
+    tol = config.TARGET_TOLERANCE_DAYS
+    rules = {origin: geo.travel_rule(origin, dest) for origin in profile.home_airports}
     longest = profile.max_trip_days
     if target is not None:
-        longest = max(longest, target + config.TARGET_TOLERANCE_DAYS)
+        longest = max(longest, *(_target_band(target, tol, r.min_trip_days)[1] for r in rules.values()))
 
     for window in windows:
         shapes = generate_shapes(
@@ -108,14 +119,13 @@ def plan_itineraries(
             slack_days=config.WINDOW_SLACK_DAYS,
         )
         for origin in profile.home_airports:
-            rule = geo.travel_rule(origin, dest)
+            rule = rules[origin]
             if target is None:
                 days_away = (max(profile.min_trip_days, rule.min_trip_days), profile.max_trip_days)
                 ground = (tracker.min_stay_days, tracker.max_stay_days)
             else:
-                high = target + config.TARGET_TOLERANCE_DAYS
-                days_away = (max(rule.min_trip_days, target - config.TARGET_TOLERANCE_DAYS), high)
-                ground = (0, high)
+                days_away = _target_band(target, tol, rule.min_trip_days)
+                ground = (0, days_away[1])
             constraints = ShapeConstraints(
                 min_days_away=days_away[0],
                 max_days_away=days_away[1],
