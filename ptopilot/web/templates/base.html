@@ -17,6 +17,7 @@
     <nav class="nav" aria-label="Main">
       {% if signed_in %}
       <a href="/" {% if active == "dashboard" %}aria-current="page"{% endif %}>Dashboard</a>
+      <a href="/plan" {% if active == "plan" %}aria-current="page"{% endif %}>Plan</a>
       <a href="/destinations" {% if active == "destinations" %}aria-current="page"{% endif %}>Destinations</a>
       <a href="/profile" {% if active == "profile" %}aria-current="page"{% endif %}>Profile</a>
       <form class="inline" method="post" action="/logout"><button class="link-btn" type="submit">Sign out</button></form>
@@ -30,5 +31,6 @@
 {% block content %}{% endblock %}
 </main>
 <footer class="site-footer"><div class="wrap">ptopilot · flight prices for the PTO you actually have · invite-only for now</div></footer>
+{% block scripts %}{% endblock %}
 </body>
 </html>

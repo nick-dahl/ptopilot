@@ -32,19 +32,21 @@ from ptopilot.core.airports import AirportCatalog, PlaceMatch
 from ptopilot.core.geo import Geo, UnknownCodeError, palette
 from ptopilot.core.seasons import SeasonTable
 from ptopilot.data import load_geo, load_seasons
-from ptopilot.db.models import Invite, Tracker, User
+from ptopilot.db.models import Invite, PlannedTrip, PlanningYear, Tracker, User
 from ptopilot.db.session import make_engine, session_scope
 from ptopilot.destinations import add_destination, prefetch_climate, remove_destination
 from ptopilot.digest.render import date_range, day, money, stops
 from ptopilot.digest.select import latest_run_date
 from ptopilot.links import ACTION_LABELS, TokenError, login_token, read_action_token, read_login_token
 from ptopilot.notify.email import Emailer, EmailError, ResendEmailer
+from ptopilot.planning import current_year, set_ranges, set_target, set_year_pto, unplan_trip
 from ptopilot.profiles import apply_profile, parse_profile
 from ptopilot.settings import Settings
 from ptopilot.sources.climate import fetch_climate
 from ptopilot.trackers import apply_action, snooze, unsnooze
 from ptopilot.web.forms import form_to_profile, profile_to_form, row_count
 from ptopilot.web.history import destination_summaries, trend, trip_options, typical_band
+from ptopilot.web.planner_view import plan_context, too_short
 from ptopilot.web.samples import sample_cards
 from ptopilot.web.viz import trend_chart
 
@@ -308,13 +310,6 @@ def create_app(
                     dest = geo.destination(t.destination_code)
                 except UnknownCodeError:
                     continue
-                min_trip = None
-                if t.target_days is not None:
-                    try:
-                        needed = min(geo.travel_rule(h, dest).min_trip_days for h in homes)
-                    except UnknownCodeError:
-                        needed = 0
-                    min_trip = needed if t.target_days < needed else None
                 rows.append(
                     {
                         "id": t.id,
@@ -322,7 +317,7 @@ def create_app(
                         "palette": palette(dest),
                         "target_days": t.target_days,
                         "stay": (t.min_stay_days, t.max_stay_days),
-                        "min_trip": min_trip,
+                        "min_trip": too_short(geo, homes, dest, t.target_days),
                     }
                 )
         rows.sort(key=lambda r: r["name"])
@@ -385,6 +380,136 @@ def create_app(
             if user is None or not remove_destination(s, user, tracker_id):
                 return page(request, "message.html", 404, title="Not found", message="No such destination.")
         return redirect("/destinations")
+
+    # --- the year planner ---------------------------------------------------------------------------
+
+    def plan_page(request: Request, user_id: int, year: int, status: int = 200, error=None, ranges=None):
+        ctx = plan_context(engine, current_geo(), current_seasons(), user_id, year, today())
+        if ctx is None:
+            return page(request, "message.html", 404, title="Not found", message="No such planning year.")
+        if ranges is not None:
+            ctx["ranges"] = ranges
+        saved = request.query_params.get("saved")
+        return page(request, "plan.html", status, active="plan", error=error, saved=saved, **ctx)
+
+    def plan_user_id(request: Request, year: int) -> int | Response:
+        """The signed-in user's id when they have this planning year; else a redirect or a 404 page."""
+        if not current_email(request):
+            return redirect("/")
+        with session_scope(engine) as s:
+            user = signed_in_user(s, request)
+            if user is None:
+                return redirect("/profile")
+            if s.get(PlanningYear, (user.id, year)) is None:
+                return page(request, "message.html", 404, title="Not found", message="No such planning year.")
+            return user.id
+
+    @app.get("/plan")
+    def plan_home(request: Request):
+        if not current_email(request):
+            return redirect("/")
+        with session_scope(engine) as s:
+            user = signed_in_user(s, request)
+            if user is None:
+                return redirect("/profile")
+            py = current_year(s, user, today())
+            return redirect(f"/plan/{py.year}" if py else "/plan/new")
+
+    @app.get("/plan/{year}")
+    def plan_view(request: Request, year: int):
+        user_id = plan_user_id(request, year)
+        return plan_page(request, user_id, year) if isinstance(user_id, int) else user_id
+
+    @app.post("/plan/{year}/ranges")
+    async def plan_save_ranges(request: Request, year: int):
+        user_id = plan_user_id(request, year)
+        if not isinstance(user_id, int):
+            return user_id
+        form = await request.form()
+        indexes = sorted({int(m[1]) for k in form if (m := re.fullmatch(r"range_start_(\d+)", k))})
+        rows = [
+            {
+                "start": str(form.get(f"range_start_{i}", "")).strip(),
+                "end": str(form.get(f"range_end_{i}", "")).strip(),
+            }
+            for i in indexes
+        ]
+        parsed, labels = [], []
+        try:
+            for i, row in zip(indexes, rows, strict=True):
+                if not row["start"] and not row["end"]:
+                    continue
+                if not row["start"] or not row["end"]:
+                    raise ValueError(f"range {i + 1}: enter both a start and an end date")
+                try:
+                    parsed.append((date.fromisoformat(row["start"]), date.fromisoformat(row["end"])))
+                except ValueError:
+                    raise ValueError(f"range {i + 1}: those dates aren't valid") from None
+                labels.append(i + 1)
+            with session_scope(engine) as s:
+                try:
+                    set_ranges(s, signed_in_user(s, request), year, parsed)
+                except ValueError as exc:  # name the row as the form showed it, blank rows included
+                    raise ValueError(
+                        re.sub(r"range (\d+)", lambda m: f"range {labels[int(m[1]) - 1]}", str(exc), count=1)
+                    ) from None
+        except ValueError as exc:
+            return plan_page(request, user_id, year, 400, str(exc), rows)
+        return redirect(f"/plan/{year}?saved=ranges")
+
+    @app.post("/plan/{year}/pto")
+    def plan_save_pto(
+        request: Request, year: int, pto_days: int = Form(...), other_time_off: int = Form(...)
+    ):
+        user_id = plan_user_id(request, year)
+        if not isinstance(user_id, int):
+            return user_id
+        try:
+            with session_scope(engine) as s:
+                set_year_pto(s, s.get(User, user_id), year, pto_days, other_time_off)
+        except ValueError as exc:
+            return plan_page(request, user_id, year, 400, str(exc))
+        return redirect(f"/plan/{year}?saved=pto")
+
+    def planned_tracker(s, user_id: int, year: int, tracker_id: int) -> bool:
+        return (
+            s.scalar(
+                select(PlannedTrip.id)
+                .join(Tracker, Tracker.id == PlannedTrip.tracker_id)
+                .where(
+                    PlannedTrip.tracker_id == tracker_id,
+                    PlannedTrip.year == year,
+                    PlannedTrip.user_id == user_id,
+                    Tracker.active.is_(True),
+                )
+            )
+            is not None
+        )
+
+    @app.post("/plan/{year}/trips/{tracker_id}")
+    def plan_edit_trip(request: Request, year: int, tracker_id: TRACKER_ID, target_days: int = Form(...)):
+        user_id = plan_user_id(request, year)
+        if not isinstance(user_id, int):
+            return user_id
+        try:
+            with session_scope(engine) as s:
+                if not planned_tracker(s, user_id, year, tracker_id):
+                    return page(request, "message.html", 404, title="Not found", message="No such trip.")
+                set_target(s, s.get(User, user_id), tracker_id, target_days)
+        except ValueError as exc:
+            return plan_page(request, user_id, year, 400, str(exc))
+        return redirect(f"/plan/{year}?saved=trip")
+
+    @app.post("/plan/{year}/trips/{tracker_id}/remove")
+    def plan_remove_trip(request: Request, year: int, tracker_id: TRACKER_ID):
+        user_id = plan_user_id(request, year)
+        if not isinstance(user_id, int):
+            return user_id
+        with session_scope(engine) as s:
+            if not planned_tracker(s, user_id, year, tracker_id):
+                return page(request, "message.html", 404, title="Not found", message="No such trip.")
+            unplan_trip(s, s.get(User, user_id), tracker_id, year, today=today())
+        return redirect(f"/plan/{year}?saved=removed")
 
     # --- profile / onboarding --------------------------------------------------------------------
 

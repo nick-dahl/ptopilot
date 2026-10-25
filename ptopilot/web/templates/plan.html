@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% from "_components.html" import dest_style, field %}
+{% block title %}{{ year }} plan · ptopilot{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ year }}</h1>
+    <p class="muted small">Pick the trips you want, say when you can travel, and see how far your PTO goes.</p>
+  </div>
+</div>
+<div class="stack">
+  {% if error %}<div class="panel notice-error" role="alert"><p class="m-0 error">{{ error }}</p></div>{% endif %}
+  {% if saved %}<div class="panel notice" role="status"><p class="m-0">Saved.</p></div>{% endif %}
+
+  <div class="panel">
+    <h2>Trips</h2>
+    {% if trips %}
+    <table class="trips plan-trips">
+      <thead><tr><th>Destination</th><th>Days away</th><th>Est. PTO</th><th>Status</th><th><span class="sr-only">Remove</span></th></tr></thead>
+      <tbody>
+      {% for t in trips %}
+      <tr style="{{ dest_style(t.palette) }}">
+        <td><span class="swatch" aria-hidden="true"></span> <b><a href="/trackers/{{ t.tracker_id }}">{{ t.name }}</a></b></td>
+        <td>
+          <form class="inline target-form" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}">
+            <input class="num-input" name="target_days" type="number" min="2" max="60" value="{{ t.target_days if t.target_days is not none else '' }}" aria-label="Days away for {{ t.name }}">
+            <button class="link-btn small" type="submit">Set</button>
+          </form>
+          {% if t.band %}<span class="muted small">searching {{ t.band[0] }}–{{ t.band[1] }}</span>{% endif %}
+        </td>
+        <td class="num">{% if t.est_pto is not none %}{{ t.est_pto }}{% else %}<span class="muted">–</span>{% endif %}</td>
+        <td class="small">
+          {% if t.snoozed_until %}<div>Snoozed until {{ t.snoozed_until | day }}</div>{% else %}<div>Watching</div>{% endif %}
+          {% if t.building_history %}<div class="muted">Building price history</div>{% endif %}
+          {% if t.wont_fit is not none %}<div class="error">Won't fit: {{ t.wont_fit }} PTO left after the others</div>{% endif %}
+          {% if t.min_trip %}<div class="error">Needs at least {{ t.min_trip }} days away</div>{% endif %}
+        </td>
+        <td>
+          <form class="inline" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}/remove">
+            <button class="link-btn small" type="submit">Remove<span class="sr-only"> {{ t.name }}</span></button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="bottom-line mt-sm"><b>{{ totals.trips }} trip{{ "s" if totals.trips != 1 }} · {{ totals.days_away }} days away · {{ totals.est_pto }} PTO</b> <span class="muted">· You have {{ available }}</span></p>
+    {% else %}
+    <p class="m-0 muted">No trips picked for {{ year }} yet.</p>
+    {% endif %}
+    <p class="mt-sm m-0"><a href="/destinations">+ Add a trip</a></p>
+  </div>
+
+  <div class="panel">
+    <h2>Your PTO in {{ year }}</h2>
+    <form method="post" action="/plan/{{ year }}/pto">
+      <div class="fields-2">
+        {{ field("pto_days", "PTO days", pto_days, "number", attrs='min="0" max="365" required') }}
+        {{ field("other_time_off", "Already committed", other_time_off, "number", "PTO days already spoken for", attrs='min="0" max="365" required') }}
+      </div>
+      <button class="btn" type="submit">Save PTO</button>
+    </form>
+  </div>
+
+  <div class="panel" id="calendar-panel">
+    <h2>When you're open to travel</h2>
+    <p class="muted small">Dates ptopilot may build trips from. Add ranges below.</p>
+    <ul class="legend small" aria-label="Legend">
+      <li><span class="key day hol"></span>Holiday</li>
+      <li><span class="key day we"></span>Weekend</li>
+      <li><span class="key day off"></span>Day off</li>
+      <li><span class="key day open"></span>Open to travel</li>
+    </ul>
+    <div class="months">
+      {% for name, weeks in months %}
+      <table class="month" aria-label="{{ name }} {{ year }}">
+        <caption>{{ name }}</caption>
+        <thead><tr>{% for d in ["S","M","T","W","T","F","S"] %}<th scope="col">{{ d }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for week in weeks %}
+        <tr>
+          {% for c in week %}
+          {% if c %}<td class="day{{ ' we' if c.weekend }}{{ ' hol' if c.holiday }}{{ ' off' if c.day_off }}{{ ' open' if c.open }}" data-date="{{ c.date.isoformat() }}"{% if c.holiday %} title="{{ c.holiday }}"{% endif %}>{{ c.date.day }}</td>
+          {% else %}<td class="pad"></td>{% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endfor %}
+    </div>
+
+    <form method="post" action="/plan/{{ year }}/ranges" class="range-form mt-sm" id="range-form">
+      {% for r in ranges %}
+      <div class="range-row fields-2">
+        <label class="field"><span>Open from</span><input name="range_start_{{ loop.index0 }}" type="date" value="{{ r.start }}"></label>
+        <label class="field"><span>to</span><input name="range_end_{{ loop.index0 }}" type="date" value="{{ r.end }}"></label>
+      </div>
+      {% endfor %}
+      <button class="btn" type="submit">Save ranges</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

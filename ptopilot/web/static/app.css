@@ -172,3 +172,24 @@ a.dest-card:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, .1); transform: transla
 .match:first-child { border-top: 0; }
 .match .airports { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 0; }
 .match .check input { margin-right: 6px; }
+
+/* year planner */
+:root { --hol-tint: #fbe3df; --open-tint: #dbeafe; --we-tint: #f3f4f6; --off-line: #9ca3af; }
+.num-input { width: 4.5em; padding: 5px 8px; }
+.target-form { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; }
+.plan-trips td { white-space: normal; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; list-style: none; margin: 0 0 12px; padding: 0; }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.key { display: inline-block; width: 16px; height: 16px; border-radius: 4px; }
+.months { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.month { border-collapse: separate; border-spacing: 2px; width: 100%; font-size: 12px; text-align: center; }
+.month caption { font: 600 14px/1.4 var(--serif); text-align: left; padding-bottom: 4px; }
+.month th { color: var(--muted); font-weight: 600; }
+.month td { height: 26px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.day, .key.day { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.day.we { background: var(--we-tint); }
+.day.hol { background: var(--hol-tint); }
+.day.open { background: var(--open-tint); }
+.day.off { outline: 1px dashed var(--off-line); outline-offset: -2px; }
+.month td.pad { background: none; }
+.range-row { max-width: 480px; }
