@@ -23,7 +23,9 @@
 {% if option.season_rating == "good" %}Good season{% elif option.season_rating == "shoulder" %}Shoulder season{% else %}Off-season{% endif %}{% if option.weather_note %} · {{ option.weather_note }}{% endif %}
 {%- endmacro %}
 
-{% macro pto_bar(total, committed) -%}
+{% macro pto_bar(t, caption=None, total=0, committed=0) -%}
+{# t: the year's YearTotals (booked, planned, left); without a planning year, the old total/committed view. #}
+{% if t is none %}
 {% set left = total - committed %}
 <div class="panel pto">
   <span><b class="num">{{ left }}</b> PTO day{{ "s" if left != 1 }} left</span>
@@ -33,6 +35,18 @@
   </div>
   <span class="muted small">{{ committed }} of {{ total }} committed</span>
 </div>
+{% else %}
+{% set over = t.left < 0 %}
+<div class="panel pto">
+  <span><b class="num">{{ t.left | abs }}</b> PTO day{{ "s" if t.left | abs != 1 }} {{ "over" if over else "left" }}</span>
+  <div class="pto-track" aria-hidden="true">
+    {% if t.booked %}<span class="pto-booked" style="flex:{{ t.booked }}"></span>{% endif %}
+    {% if t.planned %}<span class="pto-planned" style="flex:{{ t.planned }}"></span>{% endif %}
+    {% if t.left > 0 %}<span class="pto-left" style="flex:{{ t.left }}"></span>{% endif %}
+  </div>
+  <span class="muted small">{{ caption }}</span>
+</div>
+{% endif %}
 {%- endmacro %}
 
 {% macro dest_card(s, href=None, sample=False) -%}

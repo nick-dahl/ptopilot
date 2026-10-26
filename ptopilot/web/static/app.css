@@ -100,6 +100,8 @@ input[type="checkbox"] { width: auto; margin: 0 8px 0 0; }
 .pto-track { flex: 1 1 200px; display: flex; gap: 3px; height: 10px; }
 .pto-track span { border-radius: 999px; }
 .pto-used { background: #9ca3af; }
+.pto-booked { background: #374151; }
+.pto-planned { background: #9ca3af; }
 .pto-left { background: var(--track); }
 
 /* Destination cards */

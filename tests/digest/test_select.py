@@ -173,3 +173,42 @@ def test_digest_cards_carry_fit_notes(clean_engine):
     )
     assert by_price[650] == ("Doesn't fit your remaining PTO (2 left).",)
     assert by_price[700] == ()
+
+
+def _plan_years(engine, user, **pto):
+    from ptopilot.db.models import PlanningYear
+
+    with session_scope(engine) as s:
+        for year, days in pto.items():
+            s.add(PlanningYear(user_id=user, year=int(year[1:]), pto_days=days, other_time_off=1))
+
+
+def test_banner_uses_the_earliest_deals_year(clean_engine):
+    user = add_user(clean_engine)
+    t = add_tracker(clean_engine, user)
+    _plan_years(clean_engine, user, y2027=15, y2028=20)
+    add_candidate(clean_engine, t, 700, depart=date(2028, 3, 3), ret=date(2028, 3, 12), go_now=90)
+    add_candidate(clean_engine, t, 600, depart=date(2027, 3, 5), ret=date(2027, 3, 14), go_now=50)
+    [d] = digests(clean_engine)
+    assert d.banner is not None
+    assert (d.banner.year, d.banner.pto_days, d.banner.other_time_off) == (2027, 15, 1)
+    assert (d.banner.booked, d.banner.planned) == (0, d.banner.planned)
+
+
+def test_quiet_digest_banner_uses_the_current_planning_year(clean_engine):
+    user = add_user(clean_engine)
+    t = add_tracker(clean_engine, user)
+    _plan_years(clean_engine, user, y2026=10, y2027=15)
+    add_candidate(clean_engine, t, 600, level="none")
+    [d] = digests(clean_engine)
+    assert d.quiet and d.banner is not None and d.banner.year == RUN.year
+
+
+def test_no_banner_without_a_planning_year(clean_engine):
+    user = add_user(clean_engine)
+    t = add_tracker(clean_engine, user)
+    add_candidate(clean_engine, t, 600)
+    assert digests(clean_engine)[0].banner is None
+    add_candidate(clean_engine, t, 650, level="none", depart=date(2027, 3, 12), ret=date(2027, 3, 21))
+    _plan_years(clean_engine, user, y2030=10)  # a year with no deals in it, and not the deals' year
+    assert digests(clean_engine)[0].banner is None

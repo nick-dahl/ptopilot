@@ -1,5 +1,7 @@
 """The signed-in dashboard: PTO bar and one card per destination."""
 
+import re
+
 from sqlalchemy import select
 
 from ptopilot.db.models import PlanningYear, Tracker
@@ -44,10 +46,10 @@ def test_dashboard_says_when_prices_were_last_checked(client, emailer, clean_eng
     assert "Prices from the Thu Mar 4 scan" in client.get("/").text
 
 
-def test_pto_bar_shows_days_left_and_committed(client, emailer, clean_engine):
+def test_pto_bar_shows_booked_planned_and_left(client, emailer, clean_engine):
     setup(client, emailer, clean_engine, PROFILE_FORM)
     page = client.get("/").text
-    assert "15</b> PTO days left" in page and "7 of 22 committed" in page
+    assert re.search(rf"{TODAY.year}: 0 booked · \d+ planned · \d+ PTO left", page)
 
 
 def test_dashboard_pto_bar_uses_the_current_planning_year(client, emailer, clean_engine):
@@ -56,7 +58,10 @@ def test_dashboard_pto_bar_uses_the_current_planning_year(client, emailer, clean
         row = s.scalar(select(PlanningYear).where(PlanningYear.year == TODAY.year))
         row.pto_days, row.other_time_off = 30, 4
     page = client.get("/").text
-    assert "26</b> PTO days left" in page and "4 of 30 committed" in page
+    assert re.search(rf"{TODAY.year}: 0 booked · (\d+) planned · \d+ PTO left", page)
+    assert 30 - 4 - int(re.search(r"(\d+) planned", page).group(1)) == int(
+        re.search(r"(\d+) PTO left", page).group(1)
+    )
     with session_scope(clean_engine) as s:
         s.delete(s.scalar(select(PlanningYear)))  # no year: fall back to the user's own fields
     assert "15</b> PTO days left" in client.get("/").text
@@ -102,3 +107,31 @@ def test_dashboard_card_shows_fit_notes_and_bookings(client, emailer, clean_engi
     assert "Overlaps your booked Madeira trip." in page
     assert "remaining PTO (2 left)." in page
     assert "Booked Mar 10–12" in page
+
+
+def test_dashboard_bar_matches_the_banner_numbers(client, emailer, clean_engine):
+    from ptopilot.data import load_geo, load_seasons
+    from ptopilot.db.models import User
+    from ptopilot.digest.render import banner_text
+    from ptopilot.plan_totals import year_totals
+    from tests.digest.conftest import book
+
+    ids = setup(client, emailer, clean_engine)
+    with session_scope(clean_engine) as s:
+        uid = s.scalar(select(User.id))
+    book(clean_engine, uid, ids["MADEIRA"], TODAY.replace(day=10), TODAY.replace(day=12), pto_cost=3)
+    with session_scope(clean_engine) as s:
+        totals = year_totals(s, s.get(User, uid), TODAY.year, load_geo(), load_seasons())
+    page = client.get("/").text
+    assert banner_text(totals) in page
+    assert totals.booked == 3 and f"{totals.left}</b> PTO day" in page
+    assert 'class="pto-booked"' in page and 'class="pto-planned"' in page
+
+
+def test_dashboard_bar_says_over_when_planned_exceeds_what_is_left(client, emailer, clean_engine):
+    setup(client, emailer, clean_engine)
+    with session_scope(clean_engine) as s:
+        row = s.scalar(select(PlanningYear).where(PlanningYear.year == TODAY.year))
+        row.pto_days, row.other_time_off = 2, 0
+    page = client.get("/").text
+    assert "PTO over" in page and "PTO left" not in page

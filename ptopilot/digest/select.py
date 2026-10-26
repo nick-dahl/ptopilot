@@ -28,8 +28,8 @@ from ptopilot.db.models import (
 from ptopilot.db.session import session_scope
 from ptopilot.links import web_link
 from ptopilot.pipeline.queries import load_baselines, rq_baseline_key
-from ptopilot.plan_totals import remaining_by_year
-from ptopilot.planning import booked_trips
+from ptopilot.plan_totals import YearTotals, remaining_by_year, year_totals
+from ptopilot.planning import booked_trips, current_year
 
 LEVELS = {"none": 0, "good": 1, "great": 2}
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -101,6 +101,7 @@ class Digest:
     deals: list[DealCard]
     trackers: list[TrackerRow]
     held_back: int = 0  # deals left out because they were already sent at (about) this price
+    banner: YearTotals | None = None  # the PTO line at the top: booked, planned, left for one year
 
     @property
     def quiet(self) -> bool:
@@ -299,6 +300,29 @@ def build_digests(
             )
         held = sum(held_back[t.id] for t in mine)
         digests.append(
-            Digest(user.id, user.email, run_date, sorted(chosen, key=by_score), rows_for_user, held)
+            Digest(
+                user.id,
+                user.email,
+                run_date,
+                sorted(chosen, key=by_score),
+                rows_for_user,
+                held,
+                _banner(engine, user, chosen, geo, seasons, today),
+            )
         )
     return digests
+
+
+def _banner(
+    engine: Engine, user: User, chosen: list[DealCard], geo: Geo, seasons: SeasonTable, today: date
+) -> YearTotals | None:
+    """The year totals for the earliest deal's year, or for the current planning year in a quiet week."""
+    with session_scope(engine) as s:
+        if chosen:
+            year = min(d.depart_date for d in chosen).year
+        else:
+            py = current_year(s, user, today)
+            if py is None:
+                return None
+            year = py.year
+        return year_totals(s, user, year, geo, seasons)

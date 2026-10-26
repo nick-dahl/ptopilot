@@ -10,6 +10,7 @@ from jinja2 import Environment, PackageLoader, StrictUndefined, select_autoescap
 
 from ptopilot import config
 from ptopilot.digest.select import DealCard, Digest
+from ptopilot.plan_totals import YearTotals
 from ptopilot.web.viz import BarGeometry, bar_geometry
 
 LinkBuilder = Callable[[DealCard], list[tuple[str, str]]]
@@ -106,6 +107,12 @@ def bar_cells(bar: BarGeometry) -> list[tuple[float, str]]:
     return cells
 
 
+def banner_text(t: YearTotals) -> str:
+    """2027: 5 booked · 15 planned · 4 PTO left (or "5 PTO over" when planned trips outgrow the year)."""
+    tail = f"{t.left} PTO left" if t.left >= 0 else f"{-t.left} PTO over"
+    return f"{t.year}: {t.booked} booked · {t.planned} planned · {tail}"
+
+
 def subject(digest: Digest) -> str:
     if digest.quiet:
         return "ptopilot: a quiet week for your trips"
@@ -139,6 +146,7 @@ def render(
         "preheader": subject(digest).removeprefix("ptopilot: "),
         "schedule": schedule(config.DIGEST_WEEKDAYS),
         "digest": digest,
+        "banner": banner_text(digest.banner) if digest.banner else None,
         "levels": LEVEL_LABEL,
         "arrows": TREND_ARROW,
         "checked": {d.candidate_id: checked_ago(d.observed_at, now) for d in digest.deals},

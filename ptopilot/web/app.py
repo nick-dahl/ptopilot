@@ -36,10 +36,11 @@ from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import Candidate, Invite, PlannedTrip, PlanningYear, Tracker, User
 from ptopilot.db.session import make_engine, session_scope
 from ptopilot.destinations import add_destination, prefetch_climate, remove_destination
-from ptopilot.digest.render import date_range, day, money, stops
+from ptopilot.digest.render import banner_text, date_range, day, money, stops
 from ptopilot.digest.select import latest_run_date
 from ptopilot.links import ACTION_LABELS, TokenError, login_token, read_action_token, read_login_token
 from ptopilot.notify.email import Emailer, EmailError, ResendEmailer
+from ptopilot.plan_totals import year_totals
 from ptopilot.planning import (
     book_from_candidate,
     book_trip,
@@ -247,8 +248,9 @@ def create_app(
             pto_total, pto_committed = (
                 (py.pto_days, py.other_time_off) if py else (user.pto_days_total, user.pto_committed)
             )
+            geo = current_geo()
+            totals = year_totals(s, user, py.year, geo, current_seasons()) if py else None
         # Every current trip counts, including deals already emailed.
-        geo = current_geo()
         return page(
             request,
             "dashboard.html",
@@ -257,6 +259,8 @@ def create_app(
             run_date=latest_run_date(engine, today()),
             pto_total=pto_total,
             pto_committed=pto_committed,
+            totals=totals,
+            banner=banner_text(totals) if totals else None,
             saved=bool(saved),
         )
 

@@ -1,8 +1,9 @@
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from ptopilot.digest.render import checked_ago, clock, duration, money, render, subject
+from ptopilot.digest.render import banner_text, checked_ago, clock, duration, money, render, subject
 from ptopilot.digest.select import DealCard, Digest, TrackerRow
+from ptopilot.plan_totals import YearTotals
 
 NOW = datetime(2027, 3, 4, 12, 0, tzinfo=UTC)
 
@@ -119,3 +120,29 @@ def test_fit_notes_render_in_html_and_text_on_every_card():
     assert text.count("Note: Overlaps your booked Madeira trip.") == 2
     assert "Note: Doesn't fit your remaining PTO (2 left)." in text
     assert "Note:" not in render(digest(card()), NOW)[2]
+
+
+def test_banner_text_left_and_over():
+    assert banner_text(YearTotals(2027, 25, 1, 5, 15)) == "2027: 5 booked · 15 planned · 4 PTO left"
+    assert banner_text(YearTotals(2027, 25, 0, 5, 15)) == "2027: 5 booked · 15 planned · 5 PTO left"
+    assert banner_text(YearTotals(2027, 24, 0, 5, 24)) == "2027: 5 booked · 24 planned · 5 PTO over"
+
+
+def test_banner_renders_in_html_and_text():
+    banner = YearTotals(2027, 25, 1, 5, 15)
+    d = digest(card())
+    d.banner = banner
+    _, html, text = render(d, NOW)
+    line = "2027: 5 booked · 15 planned · 4 PTO left"
+    assert line in html and html.index(line) < html.index("Best this week")
+    assert text.splitlines()[0] == line
+    quiet = Digest(1, "nick@example.com", date(2027, 3, 4), [], [ROW], banner=banner)
+    assert line in render(quiet, NOW)[1]
+    _, html, text = render(digest(card()), NOW)
+    assert "booked ·" not in html and "booked ·" not in text
+
+
+def test_text_notes_start_on_their_own_line():
+    notes = ("Overlaps your booked Madeira trip.",)
+    text = render(digest(card(fit_notes=notes), card(candidate_id=2, fit_notes=notes)), NOW)[2]
+    assert all(line.strip().startswith("Note:") for line in text.splitlines() if "Note:" in line)

@@ -11,7 +11,7 @@
   <a class="btn btn-ghost btn-sm" href="/destinations">Manage destinations</a>
 </div>
 <div class="stack">
-  {{ pto_bar(pto_total, pto_committed) }}
+  {{ pto_bar(totals, banner, pto_total, pto_committed) }}
   {% if summaries %}
   <div class="grid">
     {% for s in summaries %}
