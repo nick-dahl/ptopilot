@@ -10,14 +10,15 @@ from sqlalchemy import Engine
 
 from ptopilot import config
 from ptopilot.core.calendar import WorkCalendar
+from ptopilot.core.fit import BookedTrip
 from ptopilot.core.geo import Destination, Geo, UnknownCodeError, palette
-from ptopilot.core.planner import TrackerSpec, Window, estimate_pto, target_band
+from ptopilot.core.planner import target_band
 from ptopilot.core.seasons import SeasonTable
 from ptopilot.core.yearplan import allocate_pto, month_grid
 from ptopilot.db.models import PlanningYear, User
 from ptopilot.db.session import session_scope
-from ptopilot.pipeline.expand import profile_for
-from ptopilot.planning import year_ranges, year_trackers
+from ptopilot.plan_totals import trip_estimates, year_totals
+from ptopilot.planning import booked_trips, year_ranges, year_trackers
 from ptopilot.web.history import building_history
 
 
@@ -37,11 +38,21 @@ def too_short(geo: Geo, homes: Sequence[str], dest: Destination, target_days: in
     return needed if target_days < needed else None
 
 
-def _months(year: int, cal: WorkCalendar, open_ranges: Sequence[tuple[date, date]]):
+def _months(
+    year: int,
+    cal: WorkCalendar,
+    open_ranges: Sequence[tuple[date, date]],
+    booked: Sequence[BookedTrip] = (),
+):
+    def booked_trip(d: date) -> BookedTrip | None:
+        return next((b for b in booked if b.depart <= d <= b.ret), None)
+
     def cell(d: date | None):
         if d is None:
             return None
+        trip = booked_trip(d)
         return {
+            "booked": trip.destination if trip else None,
             "date": d,
             "weekend": d.weekday() >= 5,
             "holiday": cal.holiday_name(d),
@@ -70,23 +81,23 @@ def plan_context(
         if py is None:
             return None
         homes = [user.home_airport, *user.nearby_airports]
-        profile = profile_for(user)
         saved = year_ranges(s, user, year)
-        windows = [Window(a, b) for a, b in saved]
-        available = py.pto_days - py.other_time_off
+        estimates = trip_estimates(s, user, year, geo, seasons)
+        totals = year_totals(s, user, year, geo, seasons, estimates=estimates)
+        bookings = {b.tracker_id: b for b in booked_trips(s, user, [year], geo=geo)}
         entries = []
         for t in year_trackers(s, user, year):
             try:
                 dest = geo.destination(t.destination_code)
             except UnknownCodeError:
                 continue
-            spec = TrackerSpec(t.destination_code, t.min_stay_days, t.max_stay_days, t.target_days)
             needed = fewest_days_away(geo, homes, dest)
             band = (
                 target_band(t.target_days, config.TARGET_TOLERANCE_DAYS, needed)
                 if t.target_days is not None
                 else None
             )
+            booking = bookings.get(t.id)
             entries.append(
                 {
                     "tracker_id": t.id,
@@ -94,7 +105,9 @@ def plan_context(
                     "palette": palette(dest),
                     "target_days": t.target_days,
                     "band": band,
-                    "est_pto": estimate_pto(profile, spec, windows, geo, seasons),
+                    "booking": booking,
+                    "days_away": (booking.ret - booking.depart).days + 1 if booking else t.target_days,
+                    "est_pto": booking.pto_cost if booking else estimates.get(t.id),
                     "min_trip": too_short(geo, homes, dest, t.target_days),
                     "building_history": building_history(s, homes, dest),
                     "snoozed_until": t.snoozed_until
@@ -102,22 +115,28 @@ def plan_context(
                     else None,
                 }
             )
-        over = allocate_pto([(e["tracker_id"], e["est_pto"]) for e in entries], available)
+        # Booked trips are paid for first; the planned ones share what is left, in planner order.
+        over = allocate_pto(
+            [(e["tracker_id"], e["est_pto"]) for e in entries if not e["booking"]], totals.remaining
+        )
         for e in entries:
             e["wont_fit"] = over.get(e["tracker_id"])
         cal = WorkCalendar.from_code(user.holiday_calendar, user.extra_days_off, user.ignored_holidays)
+        calendar_bookings = booked_trips(s, user, [year - 1, year], geo=geo)
         return {
             "year": year,
             "pto_days": py.pto_days,
             "other_time_off": py.other_time_off,
-            "available": available,
+            "available": totals.available,
             "trips": entries,
             "totals": {
                 "trips": len(entries),
-                "days_away": sum(e["target_days"] or 0 for e in entries),
-                "est_pto": sum(e["est_pto"] for e in entries if e["est_pto"] is not None),
+                "days_away": sum(e["days_away"] or 0 for e in entries),
+                "est_pto": totals.booked + totals.planned,
+                "booked": totals.booked,
+                "left": totals.left,
             },
-            "months": _months(year, cal, saved),
+            "months": _months(year, cal, saved, calendar_bookings),
             "spill": [(a.isoformat(), b.isoformat()) for a, b in saved if b > date(year, 12, 31)],
             "ranges": blank_range_rows([(a.isoformat(), b.isoformat()) for a, b in saved]),
         }

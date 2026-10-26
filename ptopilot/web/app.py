@@ -41,6 +41,9 @@ from ptopilot.digest.select import latest_run_date
 from ptopilot.links import ACTION_LABELS, TokenError, login_token, read_action_token, read_login_token
 from ptopilot.notify.email import Emailer, EmailError, ResendEmailer
 from ptopilot.planning import (
+    book_trip,
+    booked_trips,
+    cancel_booking,
     current_year,
     default_new_year,
     planning_years,
@@ -444,6 +447,14 @@ def create_app(
             latest = max(taken, default=None)
             pto_days = s.get(PlanningYear, (user_id, latest)).pto_days if latest else user.pto_days_total
             geo = current_geo()
+            # Last year's booked trips are done, so they start unchecked: the latest year before the new one.
+            new_year = int((form or {}).get("year", default_year if default_year in years else years[0]))
+            earlier = [y for y in taken if y < new_year]
+            booked_in = (
+                {b.tracker_id: b.year for b in booked_trips(s, user, [max(earlier)], geo=geo)}
+                if earlier
+                else {}
+            )
             trips = []
             for t in s.scalars(
                 select(Tracker)
@@ -457,7 +468,14 @@ def create_app(
                 target = (
                     f"~{t.target_days} days" if t.target_days else f"{t.min_stay_days}–{t.max_stay_days} days"
                 )
-                trips.append({"id": t.id, "name": name, "target": target})
+                trips.append(
+                    {
+                        "id": t.id,
+                        "name": name,
+                        "target": target,
+                        "booked_year": booked_in.get(t.id),
+                    }
+                )
         form = form or {}
         year = int(form.get("year", default_year if default_year in years else years[0]))
         return page(
@@ -471,7 +489,7 @@ def create_app(
             pto_days=form.get("pto_days", pto_days),
             other_time_off=form.get("other_time_off", 0),
             trips=trips,
-            checked=form.get("checked", {t["id"] for t in trips}),
+            checked=form.get("checked", {t["id"] for t in trips if t["booked_year"] is None}),
         )
 
     @app.get("/plan/new")
@@ -623,6 +641,63 @@ def create_app(
                 return page(request, "message.html", 404, title="Not found", message="No such trip.")
             unplan_trip(s, s.get(User, user_id), tracker_id, year, today=today())
         return redirect(f"/plan/{year}?saved=removed")
+
+    PRICE_HELP = "Enter a price like 802, or leave it blank."
+
+    def parse_price(raw: str) -> Decimal | None:
+        text = raw.strip().replace("$", "").replace(",", "").strip()
+        if not text:
+            return None
+        if not re.fullmatch(r"\d{1,7}(\.\d{1,2})?", text):
+            raise ValueError(PRICE_HELP)
+        return Decimal(text)
+
+    @app.post("/plan/{year}/trips/{tracker_id}/book")
+    def plan_book_trip(
+        request: Request,
+        year: PLAN_YEAR,
+        tracker_id: TRACKER_ID,
+        depart: str = Form(""),
+        return_: str = Form("", alias="return"),
+        price: str = Form(""),
+    ):
+        user_id = plan_user_id(request, year)
+        if not isinstance(user_id, int):
+            return user_id
+        try:
+            with session_scope(engine) as s:
+                if not planned_tracker(s, user_id, year, tracker_id):
+                    return page(request, "message.html", 404, title="Not found", message="No such trip.")
+                user = s.get(User, user_id)
+                try:
+                    start, end = date.fromisoformat(depart.strip()), date.fromisoformat(return_.strip())
+                except ValueError:
+                    raise ValueError("Enter valid depart and return dates.") from None
+                book_trip(
+                    s,
+                    user,
+                    tracker_id,
+                    year,
+                    start,
+                    end,
+                    price=parse_price(price),
+                    currency=user.currency,
+                    geo=current_geo(),
+                )
+        except ValueError as exc:
+            return plan_page(request, user_id, year, 400, str(exc))
+        return redirect(f"/plan/{year}?saved=booked")
+
+    @app.post("/plan/{year}/trips/{tracker_id}/cancel")
+    def plan_cancel_booking(request: Request, year: PLAN_YEAR, tracker_id: TRACKER_ID):
+        user_id = plan_user_id(request, year)
+        if not isinstance(user_id, int):
+            return user_id
+        with session_scope(engine) as s:
+            if not planned_tracker(s, user_id, year, tracker_id):
+                return page(request, "message.html", 404, title="Not found", message="No such trip.")
+            cancel_booking(s, s.get(User, user_id), tracker_id, year)
+        return redirect(f"/plan/{year}?saved=cancelled")
 
     # --- profile / onboarding --------------------------------------------------------------------
 

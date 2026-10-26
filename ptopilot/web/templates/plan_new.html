@@ -28,7 +28,7 @@
     <h2>Trips to carry over</h2>
     {% if trips %}
     {% for t in trips %}
-    <label class="check"><input type="checkbox" name="tracker_ids" value="{{ t.id }}" {{ "checked" if t.id in checked }}> {{ t.name }}, {{ t.target }}</label>
+    <label class="check"><input type="checkbox" name="tracker_ids" value="{{ t.id }}" {{ "checked" if t.id in checked }}> {{ t.name }}, {{ t.target }}{% if t.booked_year %} <span class="muted small">· booked in {{ t.booked_year }}</span>{% endif %}</label>
     {% endfor %}
     {% else %}
     <p class="muted small m-0">No destinations yet.</p>

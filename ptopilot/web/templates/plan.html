@@ -22,16 +22,36 @@
       <tr style="{{ dest_style(t.palette) }}">
         <td><span class="swatch" aria-hidden="true"></span> <b><a href="/trackers/{{ t.tracker_id }}">{{ t.name }}</a></b></td>
         <td>
+          {% if t.booking %}
+          <span class="num">{{ t.days_away }}</span>
+          {% else %}
           <form class="inline target-form" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}">
             <input class="num-input" name="target_days" type="number" min="2" max="60" value="{{ t.target_days if t.target_days is not none else '' }}" aria-label="Days away for {{ t.name }}">
             <button class="link-btn small" type="submit">Set</button>
           </form>
           {% if t.band %}<span class="muted small">searching {{ t.band[0] }}–{{ t.band[1] }}</span>{% endif %}
+          {% endif %}
         </td>
         <td class="num">{% if t.est_pto is not none %}{{ t.est_pto }}{% else %}<span class="muted">–</span>{% endif %}</td>
         <td class="small">
+          {% if t.booking %}
+          <div><b>Booked · {{ t.booking.depart | dates(t.booking.ret) }}{% if t.booking.price is not none %} · {{ t.booking.price | money(t.booking.currency or "USD") }}{% endif %}</b></div>
+          <form class="inline" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}/cancel">
+            <button class="link-btn small" type="submit">Cancel booking<span class="sr-only"> {{ t.name }}</span></button>
+          </form>
+          {% else %}
           {% if t.snoozed_until %}<div>Snoozed until {{ t.snoozed_until | day }}</div>{% else %}<div>Watching</div>{% endif %}
           {% if t.building_history %}<div class="muted">Building price history</div>{% endif %}
+          <details class="book-this">
+            <summary class="small">I booked this</summary>
+            <form method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}/book" class="book-form">
+              <label class="field"><span>Depart</span><input name="depart" type="date" required></label>
+              <label class="field"><span>Return</span><input name="return" type="date" required></label>
+              <label class="field"><span>Price (optional)</span><input name="price" type="text" inputmode="decimal" placeholder="802"></label>
+              <button class="btn" type="submit">Mark booked</button>
+            </form>
+          </details>
+          {% endif %}
           {% if t.wont_fit is not none %}<div class="error">Won't fit: {{ t.wont_fit }} PTO left after the others</div>{% endif %}
           {% if t.min_trip %}<div class="error">Needs at least {{ t.min_trip }} days away</div>{% endif %}
         </td>
@@ -44,7 +64,7 @@
       {% endfor %}
       </tbody>
     </table>
-    <p class="bottom-line mt-sm"><b>{{ totals.trips }} trip{{ "s" if totals.trips != 1 }} · {{ totals.days_away }} days away · {{ totals.est_pto }} PTO</b> <span class="muted">· You have {{ available }}</span></p>
+    <p class="bottom-line mt-sm"><b>{{ totals.trips }} trip{{ "s" if totals.trips != 1 }} · {{ totals.days_away }} days away · {{ totals.est_pto }} PTO</b> <span class="muted">· You have {{ available }} · {{ totals.booked }} booked · {% if totals.left >= 0 %}{{ totals.left }} free{% else %}{{ -totals.left }} over{% endif %}</span></p>
     {% else %}
     <p class="m-0 muted">No trips picked for {{ year }} yet.</p>
     {% endif %}
@@ -70,6 +90,7 @@
       <li><span class="key day we"></span>Weekend</li>
       <li><span class="key day off"></span>Day off</li>
       <li><span class="key day open"></span>Open to travel</li>
+      <li><span class="key day booked"></span>Booked trip</li>
       <li><span class="key day open hol"></span>Holiday in a range</li>
     </ul>
     <div class="months" id="year-calendar" data-spill='{{ spill | tojson }}'>
@@ -81,7 +102,7 @@
         {% for week in weeks %}
         <tr>
           {% for c in week %}
-          {% if c %}<td class="day{{ ' we' if c.weekend }}{{ ' hol' if c.holiday }}{{ ' off' if c.day_off }}{{ ' open' if c.open }}" data-date="{{ c.date.isoformat() }}" tabindex="0"{% if c.holiday %} title="{{ c.holiday }}"{% endif %}>{{ c.date.day }}</td>
+          {% if c %}<td class="day{{ ' we' if c.weekend }}{{ ' hol' if c.holiday }}{{ ' off' if c.day_off }}{{ ' open' if c.open }}{{ ' booked' if c.booked }}" data-date="{{ c.date.isoformat() }}" tabindex="0"{% if c.booked %} title="{{ c.booked }} (booked)"{% elif c.holiday %} title="{{ c.holiday }}"{% endif %}>{{ c.date.day }}</td>
           {% else %}<td class="pad"></td>{% endif %}
           {% endfor %}
         </tr>

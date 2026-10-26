@@ -1,6 +1,7 @@
 """The year planner page: trips with a bottom line, the year's PTO, the calendar and range rows."""
 
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -73,7 +74,7 @@ def classes(html, d):
 def test_plan_page_lists_trips_with_band_and_estimate(signed_in, clean_engine, monkeypatch):
     uid = start_year(clean_engine)
     add_trip(clean_engine, uid, "LIS", 10)
-    monkeypatch.setattr("ptopilot.web.planner_view.estimate_pto", lambda *a, **k: 6)
+    monkeypatch.setattr("ptopilot.plan_totals.estimate_pto", lambda *a, **k: 6)
     html = signed_in.get(f"/plan/{YEAR}").text
     assert "Lisbon" in html
     assert 'value="10"' in html
@@ -105,7 +106,7 @@ def test_bottom_line_totals_and_wont_fit_note(signed_in, clean_engine, monkeypat
         add_trip(clean_engine, uid, code, 8, priority=priority)
     estimates = {"LIS": 5, "AZORES": 6, "MADEIRA": 9}
     monkeypatch.setattr(
-        "ptopilot.web.planner_view.estimate_pto",
+        "ptopilot.plan_totals.estimate_pto",
         lambda profile, spec, *a, **k: estimates[spec.destination_code],
     )
     html = signed_in.get(f"/plan/{YEAR}").text
@@ -358,3 +359,153 @@ def test_the_page_hints_that_typed_dates_yield_to_the_calendar(signed_in, clean_
     start_year(clean_engine)
     html = signed_in.get(f"/plan/{YEAR}").text
     assert "Typed dates are replaced by the calendar when you've changed it" in html.replace("&#39;", "'")
+
+
+# --- booking ---
+
+
+def book_row(engine, tracker_id, depart, ret, pto=3, price=None, year=YEAR):
+    with session_scope(engine) as s:
+        trip = s.scalar(
+            select(PlannedTrip).where(PlannedTrip.tracker_id == tracker_id, PlannedTrip.year == year)
+        )
+        trip.booked_depart, trip.booked_return, trip.booked_pto = depart, ret, pto
+        trip.booked_price, trip.booked_currency = price, ("USD" if price is not None else None)
+
+
+def my_uid(engine):
+    with session_scope(engine) as s:
+        return s.scalar(select(User.id).where(User.email == "nick@example.com"))
+
+
+def test_planner_shows_a_booked_row_with_real_days_and_pto(signed_in, clean_engine, monkeypatch):
+    uid = start_year(clean_engine, pto=20, other=5)
+    tid = add_trip(clean_engine, uid, "LIS", 10)
+    add_trip(clean_engine, uid, "AZORES", 8)
+    book_row(clean_engine, tid, date(2027, 5, 28), date(2027, 6, 5), pto=4, price=Decimal("802"))
+    monkeypatch.setattr("ptopilot.plan_totals.estimate_pto", lambda *a, **k: 6)
+    html = signed_in.get(f"/plan/{YEAR}").text
+    assert "Booked · May 28–Jun 5 · $802" in html
+    assert f'action="/plan/{YEAR}/trips/{tid}/cancel"' in html
+    assert "Cancel booking" in html
+    assert "I booked this" in html  # the unbooked Azores row
+    assert "Mark booked" in html
+    # 9 days away booked + 8 target; 4 booked + 6 planned PTO; 15 available
+    assert "2 trips · 17 days away · 10 PTO" in html
+    assert "You have 15 · 4 booked · 5 free" in html
+
+
+def test_booked_row_without_a_price_omits_it(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    tid = add_trip(clean_engine, uid, "LIS", 10)
+    book_row(clean_engine, tid, date(2027, 5, 28), date(2027, 6, 5), pto=4)
+    html = signed_in.get(f"/plan/{YEAR}").text
+    assert "Booked · May 28–Jun 5<" in html
+
+
+def test_over_budget_bottom_line_says_over(signed_in, clean_engine, monkeypatch):
+    uid = start_year(clean_engine, pto=10, other=5)
+    add_trip(clean_engine, uid, "LIS", 10)
+    monkeypatch.setattr("ptopilot.plan_totals.estimate_pto", lambda *a, **k: 8)
+    html = signed_in.get(f"/plan/{YEAR}").text
+    assert "You have 5 · 0 booked · 3 over" in html
+
+
+def test_manual_booking_from_the_planner(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    tid = add_trip(clean_engine, uid, "LIS", 10)
+    r = signed_in.post(
+        f"/plan/{YEAR}/trips/{tid}/book",
+        data={"depart": "2027-05-28", "return": "2027-06-05", "price": "$1,234"},
+    )
+    assert (r.status_code, r.headers["location"]) == (303, f"/plan/{YEAR}?saved=booked")
+    with session_scope(clean_engine) as s:
+        trip = s.scalar(select(PlannedTrip).where(PlannedTrip.tracker_id == tid))
+        assert (trip.booked_depart, trip.booked_return) == (date(2027, 5, 28), date(2027, 6, 5))
+        assert (trip.booked_price, trip.booked_currency) == (Decimal("1234"), "USD")
+        assert trip.booked_pto is not None
+    blank = signed_in.post(
+        f"/plan/{YEAR}/trips/{tid}/book", data={"depart": "2027-06-01", "return": "2027-06-03", "price": ""}
+    )
+    assert blank.status_code == 303
+    with session_scope(clean_engine) as s:
+        assert s.scalar(select(PlannedTrip.booked_price).where(PlannedTrip.tracker_id == tid)) is None
+
+
+def test_manual_booking_with_a_bad_price_or_dates_is_a_400(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    tid = add_trip(clean_engine, uid, "LIS", 10)
+    url = f"/plan/{YEAR}/trips/{tid}/book"
+    r = signed_in.post(url, data={"depart": "2027-05-28", "return": "2027-06-05", "price": "cheap"})
+    assert r.status_code == 400
+    assert "Enter a price like 802, or leave it blank." in r.text
+    assert signed_in.post(url, data={"depart": "nope", "return": "2027-06-05"}).status_code == 400
+    assert signed_in.post(url, data={"depart": "2027-06-05", "return": "2027-05-28"}).status_code == 400
+    with session_scope(clean_engine) as s:
+        assert s.scalar(select(PlannedTrip.booked_depart).where(PlannedTrip.tracker_id == tid)) is None
+
+
+def test_manual_booking_that_overlaps_is_a_400(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    first = add_trip(clean_engine, uid, "LIS", 10)
+    second = add_trip(clean_engine, uid, "AZORES", 8)
+    book_row(clean_engine, first, date(2027, 5, 28), date(2027, 6, 5))
+    r = signed_in.post(
+        f"/plan/{YEAR}/trips/{second}/book", data={"depart": "2027-06-03", "return": "2027-06-10"}
+    )
+    assert r.status_code == 400
+    assert "Overlaps your booked Lisbon trip." in r.text
+    with session_scope(clean_engine) as s:
+        assert s.scalar(select(PlannedTrip.booked_depart).where(PlannedTrip.tracker_id == second)) is None
+
+
+def test_cancelling_a_booking_restores_watching_and_totals(signed_in, clean_engine, monkeypatch):
+    uid = start_year(clean_engine, pto=20, other=5)
+    tid = add_trip(clean_engine, uid, "LIS", 10)
+    monkeypatch.setattr("ptopilot.plan_totals.estimate_pto", lambda *a, **k: 6)
+    book_row(clean_engine, tid, date(2027, 5, 28), date(2027, 6, 5), pto=4)
+    assert "You have 15 · 4 booked · 11 free" in signed_in.get(f"/plan/{YEAR}").text
+    r = signed_in.post(f"/plan/{YEAR}/trips/{tid}/cancel")
+    assert r.status_code == 303
+    html = signed_in.get(f"/plan/{YEAR}").text
+    assert "Cancel booking" not in html
+    assert "Watching" in html
+    assert "You have 15 · 0 booked · 9 free" in html
+
+
+def test_wont_fit_counts_booked_trips_first(signed_in, clean_engine, monkeypatch):
+    uid = start_year(clean_engine, pto=20, other=5)  # 15 available
+    add_trip(clean_engine, uid, "LIS", 8, priority=1)
+    booked_later = add_trip(clean_engine, uid, "AZORES", 8, priority=3)
+    book_row(clean_engine, booked_later, date(2027, 5, 28), date(2027, 6, 5), pto=10)
+    monkeypatch.setattr("ptopilot.plan_totals.estimate_pto", lambda *a, **k: 7)
+    html = signed_in.get(f"/plan/{YEAR}").text
+    # 15 - 10 booked = 5 left; the planned 7 does not fit even though it ranks first
+    assert "Won't fit: 5 PTO left after the others" in html
+
+
+def test_calendar_marks_booked_days(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    tid = add_trip(clean_engine, uid, "LIS", 10)
+    book_row(clean_engine, tid, date(2027, 7, 2), date(2027, 7, 6))
+    html = signed_in.get(f"/plan/{YEAR}").text
+    for d in ("2027-07-02", "2027-07-06"):
+        css, cell = classes(html, d)
+        assert "booked" in css
+        assert 'title="Lisbon (booked)"' in cell
+    assert "booked" not in classes(html, "2027-07-01")[0]
+    assert "booked" not in classes(html, "2027-07-07")[0]
+    assert "hol" in classes(html, "2027-07-05")[0]  # the holiday stays marked inside the trip
+
+
+def test_book_and_cancel_routes_are_scoped(signed_in, clean_engine):
+    start_year(clean_engine)
+    _, others_tid = other_user(clean_engine)
+    data = {"depart": "2027-05-28", "return": "2027-06-05"}
+    assert signed_in.post(f"/plan/{YEAR}/trips/{others_tid}/book", data=data).status_code == 404
+    assert signed_in.post(f"/plan/{YEAR}/trips/{others_tid}/cancel").status_code == 404
+    with session_scope(clean_engine) as s:
+        assert s.scalar(select(PlannedTrip.booked_depart).where(PlannedTrip.tracker_id == others_tid)) is None
+    mine = add_trip(clean_engine, my_uid(clean_engine), "AZORES", 8, year=2028)  # planned in another year
+    assert signed_in.post(f"/plan/{YEAR}/trips/{mine}/book", data=data).status_code == 404
+    assert signed_in.post(f"/plan/{YEAR}/trips/{mine}/cancel").status_code == 404

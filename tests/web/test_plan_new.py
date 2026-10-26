@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from ptopilot.db.models import PlannedTrip, PlanningYear, Tracker, TravelWindow
 from ptopilot.db.session import session_scope
@@ -101,3 +101,31 @@ def test_new_year_page_skips_a_tracker_with_an_unknown_code(client, emailer, cle
     response = client.get("/plan/new")
     assert response.status_code == 200
     assert "ZZZ" not in response.text and response.text.count('name="tracker_ids"') == 2
+
+
+def test_carry_over_unchecks_trips_booked_last_year(client, emailer, clean_engine):
+    sign_in(client, emailer, clean_engine)
+    seed_profile(clean_engine, TWO_TRIPS)
+    ids = tracker_ids(clean_engine)
+    with session_scope(clean_engine) as s:
+        s.execute(delete(PlannedTrip))
+        s.execute(delete(PlanningYear))
+        uid = s.scalar(select(Tracker.user_id))
+        s.add(PlanningYear(user_id=uid, year=2027, pto_days=20, other_time_off=0))
+        s.flush()
+        s.add(
+            PlannedTrip(
+                user_id=uid,
+                year=2027,
+                tracker_id=ids["AZORES"],
+                booked_depart=date(2027, 5, 28),
+                booked_return=date(2027, 6, 5),
+                booked_pto=4,
+            )
+        )
+        s.add(PlannedTrip(user_id=uid, year=2027, tracker_id=ids["MADEIRA"]))
+    html = client.get("/plan/new").text
+    az = html[html.index(f'value="{ids["AZORES"]}"') :].split("</label>")[0]
+    ma = html[html.index(f'value="{ids["MADEIRA"]}"') :].split("</label>")[0]
+    assert "checked" not in az and "booked in 2027" in az
+    assert "checked" in ma and "booked in" not in ma
