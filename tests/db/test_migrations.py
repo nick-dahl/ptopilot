@@ -5,6 +5,7 @@ from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import IntegrityError
 
 from ptopilot.db.models import Base
 from tests.conftest import TEST_URL, alembic_config
@@ -104,3 +105,41 @@ def test_migration_downgrade_drops_the_new_tables(engine):
         assert "planned_trips" not in tables
     finally:
         command.upgrade(cfg, "head")
+
+
+def test_migration_adds_booked_columns_and_constraints(engine):
+    columns = {c["name"] for c in inspect(engine).get_columns("planned_trips")}
+    assert {
+        "booked_depart",
+        "booked_return",
+        "booked_price",
+        "booked_currency",
+        "booked_pto",
+        "booked_at",
+    } <= columns
+    with engine.begin() as conn:
+        conn.execute(text("TRUNCATE users RESTART IDENTITY CASCADE"))
+        user_id = _insert_user_with_trackers(conn, [], [("TH", True)])
+        tracker_id = conn.execute(text("SELECT id FROM trackers")).scalar_one()
+    insert = (
+        "INSERT INTO planned_trips (user_id, year, tracker_id, booked_depart, booked_return, booked_pto)"
+        " VALUES (:u, 2027, :t, :d, :r, :p)"
+    )
+
+    def attempt(d, r, p):
+        with engine.begin() as conn:
+            conn.execute(text(insert), {"u": user_id, "t": tracker_id, "d": d, "r": r, "p": p})
+
+    try:
+        with pytest.raises(IntegrityError, match="booked_year"):
+            attempt(date(2028, 1, 5), date(2028, 1, 9), 3)
+        with pytest.raises(IntegrityError, match="booked_dates"):
+            attempt(date(2027, 5, 1), None, 3)
+        with pytest.raises(IntegrityError, match="booked_dates"):
+            attempt(date(2027, 5, 1), date(2027, 5, 4), None)
+        with pytest.raises(IntegrityError, match="booked_order"):
+            attempt(date(2027, 5, 4), date(2027, 5, 1), 1)
+        attempt(date(2027, 5, 1), date(2027, 5, 4), 2)
+    finally:
+        with engine.begin() as conn:
+            conn.execute(text("TRUNCATE users RESTART IDENTITY CASCADE"))

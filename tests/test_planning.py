@@ -3,6 +3,7 @@
 import threading
 import time
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
@@ -10,7 +11,16 @@ from sqlalchemy.orm import Session
 
 from ptopilot import planning
 from ptopilot.data import load_geo
-from ptopilot.db.models import PlannedTrip, PlanningYear, Tracker, TravelWindow, User
+from ptopilot.db.models import (
+    Candidate,
+    PlannedTrip,
+    PlanningYear,
+    RouteQuery,
+    Tracker,
+    TrackerRouteLink,
+    TravelWindow,
+    User,
+)
 from tests.db.test_models import make_user
 
 TODAY = date(2026, 10, 25)
@@ -236,3 +246,171 @@ def test_a_concurrent_second_start_returns_the_existing_year(clean_engine):
     assert out["second"] == (2027, 20)
     with Session(clean_engine) as s:
         assert s.scalar(select(PlanningYear.pto_days)) == 20
+
+
+# --- bookings ---
+
+
+def planned(s, user, tracker, year=2027):
+    s.add(PlannedTrip(user_id=user.id, year=year, tracker_id=tracker.id))
+    s.flush()
+
+
+def test_book_trip_computes_pto_from_the_calendar(session):
+    user = make_user(session)
+    t = make_tracker(session, user)
+    planned(session, user, t)
+    trip = planning.book_trip(session, user, t.id, 2027, date(2027, 5, 28), date(2027, 5, 31), geo=load_geo())
+    assert trip.booked_pto == 1
+    assert trip.booked is True
+    assert trip.booked_at is not None
+    assert trip.booked_price is None
+
+
+def test_booking_again_replaces_the_booking(session):
+    user = make_user(session)
+    t = make_tracker(session, user)
+    planned(session, user, t)
+    geo = load_geo()
+    planning.book_trip(session, user, t.id, 2027, date(2027, 5, 28), date(2027, 5, 31), geo=geo)
+    trip = planning.book_trip(
+        session,
+        user,
+        t.id,
+        2027,
+        date(2027, 5, 29),
+        date(2027, 6, 4),
+        price=Decimal("512.50"),
+        currency="USD",
+        pto_cost=4,
+        geo=geo,
+    )
+    assert (trip.booked_depart, trip.booked_return) == (date(2027, 5, 29), date(2027, 6, 4))
+    assert (trip.booked_price, trip.booked_currency, trip.booked_pto) == (Decimal("512.50"), "USD", 4)
+    assert len(planning.booked_trips(session, user, geo=geo)) == 1
+
+
+def test_overlapping_bookings_are_refused(session):
+    user = make_user(session)
+    a, b = make_tracker(session, user, "LIS"), make_tracker(session, user, "TH")
+    planned(session, user, a)
+    planned(session, user, b)
+    geo = load_geo()
+    planning.book_trip(session, user, a.id, 2027, date(2027, 3, 12), date(2027, 3, 21), geo=geo)
+    with pytest.raises(ValueError, match=r"Overlaps your booked .+ trip\."):
+        planning.book_trip(session, user, b.id, 2027, date(2027, 3, 21), date(2027, 3, 25), geo=geo)
+    planning.book_trip(session, user, b.id, 2027, date(2027, 3, 22), date(2027, 3, 25), geo=geo)
+    assert len(planning.booked_trips(session, user, [2027], geo=geo)) == 2
+
+
+def test_booked_trips_fall_back_to_the_code_for_unknown_destinations(session):
+    user = make_user(session)
+    t = make_tracker(session, user, "ZZ-NOWHERE")
+    planned(session, user, t)
+    geo = load_geo()
+    planning.book_trip(session, user, t.id, 2027, date(2027, 3, 12), date(2027, 3, 14), geo=geo)
+    assert [b.destination for b in planning.booked_trips(session, user, geo=geo)] == ["ZZ-NOWHERE"]
+    assert planning.booked_trips(session, user, [2028], geo=geo) == []
+
+
+def test_book_trip_validates_dates(session):
+    user = make_user(session)
+    t = make_tracker(session, user)
+    planned(session, user, t)
+    geo = load_geo()
+    with pytest.raises(ValueError):
+        planning.book_trip(session, user, t.id, 2027, date(2028, 1, 5), date(2028, 1, 9), geo=geo)
+    with pytest.raises(ValueError):
+        planning.book_trip(session, user, t.id, 2027, date(2027, 5, 9), date(2027, 5, 5), geo=geo)
+    with pytest.raises(ValueError):
+        planning.book_trip(session, user, t.id, 2027, date(2027, 1, 1), date(2027, 3, 2), geo=geo)
+    with pytest.raises(LookupError):
+        planning.book_trip(session, user, t.id, 2028, date(2028, 5, 5), date(2028, 5, 9), geo=geo)
+    other = make_user(session, email="other@example.com")
+    with pytest.raises(LookupError):
+        planning.book_trip(session, other, t.id, 2027, date(2027, 5, 5), date(2027, 5, 9), geo=geo)
+
+
+def add_candidate(s, user, tracker, depart, ret, *, evening=False, pto=3, price="450"):
+    rq = RouteQuery(
+        origin="ORD", dest_airport="LIS", return_airport="LIS", depart_date=depart, return_date=ret
+    )
+    s.add(rq)
+    s.flush()
+    run = date(2026, 10, 25)
+    s.add(
+        TrackerRouteLink(
+            tracker_id=tracker.id,
+            route_query_id=rq.id,
+            run_date=run,
+            evening_departure=evening,
+            pto_cost=pto,
+            days_away=(ret - depart).days + 1,
+            efficiency=2.0,
+            month=depart.month,
+            season_rating="good",
+            days_off=[],
+        )
+    )
+    c = Candidate(
+        user_id=user.id,
+        tracker_id=tracker.id,
+        route_query_id=rq.id,
+        run_date=run,
+        evening_departure=evening,
+        price=Decimal(price),
+        currency="EUR",
+        deal_level="good",
+        go_now=50,
+        confidence="normal",
+        verified=True,
+    )
+    s.add(c)
+    s.flush()
+    return c
+
+
+def test_booking_from_a_candidate_is_scoped_and_checked(session):
+    user = make_user(session)
+    other = make_user(session, email="other@example.com")
+    t = make_tracker(session, user)
+    geo = load_geo()
+    c = add_candidate(session, user, t, date(2027, 5, 28), date(2027, 6, 5), evening=True, pto=2)
+    with pytest.raises(LookupError):  # no planned trip for 2027 yet
+        planning.book_from_candidate(session, user, c.id, geo=geo)
+    planned(session, user, t)
+    with pytest.raises(LookupError):  # someone else's candidate
+        planning.book_from_candidate(session, other, c.id, geo=geo)
+    with pytest.raises(LookupError):
+        planning.book_from_candidate(session, user, 999999, geo=geo)
+    trip = planning.book_from_candidate(session, user, c.id, geo=geo)
+    assert (trip.booked_depart, trip.booked_return) == (date(2027, 5, 28), date(2027, 6, 5))
+    assert trip.booked_pto == 2  # the link's cost, not the calendar's
+    assert (trip.booked_price, trip.booked_currency) == (Decimal("450.00"), "EUR")
+
+
+def test_cancel_booking_clears_it(session):
+    user = make_user(session)
+    other = make_user(session, email="other@example.com")
+    t = make_tracker(session, user)
+    planned(session, user, t)
+    geo = load_geo()
+    planning.book_trip(
+        session, user, t.id, 2027, date(2027, 5, 28), date(2027, 5, 31), price=Decimal("10"), geo=geo
+    )
+    assert planning.cancel_booking(session, other, t.id, 2027) is False
+    assert planning.cancel_booking(session, user, t.id, 2027) is True
+    trip = session.scalar(select(PlannedTrip).where(PlannedTrip.tracker_id == t.id))
+    assert trip.booked is False
+    assert all(
+        v is None
+        for v in (
+            trip.booked_depart,
+            trip.booked_return,
+            trip.booked_price,
+            trip.booked_currency,
+            trip.booked_pto,
+            trip.booked_at,
+        )
+    )
+    assert planning.cancel_booking(session, user, t.id, 2030) is False

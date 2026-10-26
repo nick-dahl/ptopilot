@@ -11,17 +11,29 @@ import argparse
 import math
 import sys
 from collections.abc import Iterable
-from datetime import date
+from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from sqlalchemy import delete, exists, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from ptopilot import config
+from ptopilot.core.calendar import WorkCalendar
+from ptopilot.core.fit import BookedTrip, first_overlap
 from ptopilot.core.geo import Geo, UnknownCodeError
 from ptopilot.core.yearplan import merge_ranges
 from ptopilot.data import load_geo
-from ptopilot.db.models import PlannedTrip, PlanningYear, Tracker, TravelWindow, User
+from ptopilot.db.models import (
+    Candidate,
+    PlannedTrip,
+    PlanningYear,
+    RouteQuery,
+    Tracker,
+    TrackerRouteLink,
+    TravelWindow,
+    User,
+)
 from ptopilot.db.session import make_engine
 from ptopilot.settings import Settings
 
@@ -211,6 +223,123 @@ def convert_targets(s: Session, geo: Geo) -> int:
         changed += 1
     s.flush()
     return changed
+
+
+def _destination_name(geo: Geo, code: str) -> str:
+    try:
+        return geo.destination(code).name
+    except UnknownCodeError:
+        return code
+
+
+def booked_trips(s: Session, user: User, years: Iterable[int] | None = None, *, geo: Geo) -> list[BookedTrip]:
+    """The user's booked trips, earliest first; optionally only those in the given years."""
+    query = (
+        select(PlannedTrip, Tracker.destination_code)
+        .join(Tracker, Tracker.id == PlannedTrip.tracker_id)
+        .where(PlannedTrip.user_id == user.id, PlannedTrip.booked_depart.is_not(None))
+        .order_by(PlannedTrip.booked_depart, PlannedTrip.id)
+    )
+    if years is not None:
+        query = query.where(PlannedTrip.year.in_(list(years)))
+    return [
+        BookedTrip(
+            tracker_id=trip.tracker_id,
+            destination=_destination_name(geo, code),
+            year=trip.year,
+            depart=trip.booked_depart,
+            ret=trip.booked_return,
+            pto_cost=trip.booked_pto,
+            price=trip.booked_price,
+            currency=trip.booked_currency,
+        )
+        for trip, code in s.execute(query)
+    ]
+
+
+def _own_planned_trip(s: Session, user: User, tracker_id: int, year: int) -> PlannedTrip | None:
+    return s.scalar(
+        select(PlannedTrip).where(
+            PlannedTrip.user_id == user.id, PlannedTrip.tracker_id == tracker_id, PlannedTrip.year == year
+        )
+    )
+
+
+def book_trip(
+    s: Session,
+    user: User,
+    tracker_id: int,
+    year: int,
+    depart: date,
+    ret: date,
+    *,
+    price: Decimal | None = None,
+    currency: str | None = None,
+    pto_cost: int | None = None,
+    geo: Geo,
+) -> PlannedTrip:
+    """Record the flight booked for a planned trip, replacing an earlier booking of it."""
+    trip = _own_planned_trip(s, user, tracker_id, year)
+    if trip is None:
+        raise LookupError("that destination is not planned for that year")
+    if depart.year != year:
+        raise ValueError(f"the trip must start in {year}")
+    if ret < depart:
+        raise ValueError("the trip returns before it departs")
+    if (ret - depart).days + 1 > config.MAX_BOOKED_DAYS:
+        raise ValueError(f"a booked trip can be at most {config.MAX_BOOKED_DAYS} days")
+    clash = first_overlap(depart, ret, booked_trips(s, user, geo=geo), ignore_tracker=tracker_id)
+    if clash is not None:
+        raise ValueError(f"Overlaps your booked {clash.destination} trip.")
+    if pto_cost is None:
+        calendar = WorkCalendar.from_code(user.holiday_calendar, user.extra_days_off, user.ignored_holidays)
+        pto_cost = calendar.pto_cost(depart, ret)
+    trip.booked_depart, trip.booked_return = depart, ret
+    trip.booked_price, trip.booked_currency, trip.booked_pto = price, currency, pto_cost
+    trip.booked_at = datetime.now(UTC)
+    s.flush()
+    return trip
+
+
+def book_from_candidate(s: Session, user: User, candidate_id: int, *, geo: Geo) -> PlannedTrip:
+    """Book a deal as found: its dates, its price and the PTO the scan costed it at."""
+    row = s.execute(
+        select(Candidate, RouteQuery, TrackerRouteLink)
+        .join(RouteQuery, RouteQuery.id == Candidate.route_query_id)
+        .join(
+            TrackerRouteLink,
+            (TrackerRouteLink.tracker_id == Candidate.tracker_id)
+            & (TrackerRouteLink.route_query_id == Candidate.route_query_id)
+            & (TrackerRouteLink.run_date == Candidate.run_date)
+            & (TrackerRouteLink.evening_departure == Candidate.evening_departure),
+        )
+        .where(Candidate.id == candidate_id, Candidate.user_id == user.id)
+    ).first()
+    if row is None:
+        raise LookupError("that deal is not available")
+    candidate, route, link = row
+    return book_trip(
+        s,
+        user,
+        candidate.tracker_id,
+        route.depart_date.year,
+        route.depart_date,
+        route.return_date,
+        price=candidate.price,
+        currency=candidate.currency,
+        pto_cost=link.pto_cost,
+        geo=geo,
+    )
+
+
+def cancel_booking(s: Session, user: User, tracker_id: int, year: int) -> bool:
+    trip = _own_planned_trip(s, user, tracker_id, year)
+    if trip is None:
+        return False
+    trip.booked_depart = trip.booked_return = trip.booked_pto = None
+    trip.booked_price = trip.booked_currency = trip.booked_at = None
+    s.flush()
+    return True
 
 
 def main(argv: list[str] | None = None) -> int:

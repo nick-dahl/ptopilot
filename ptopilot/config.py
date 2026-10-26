@@ -87,4 +87,5 @@ DISTANCE_BANDS_KM = [  # (up to km, overhead_days, min_trip_days)
 PLAN_YEARS_AHEAD = 1  # a new planning year may be this year or up to 1 year ahead
 PLAN_NEXT_YEAR_FROM_MONTH = 10  # from October on, "Start planning" defaults to next year
 MAX_PTO_DAYS = 365
+MAX_BOOKED_DAYS = 60  # a booked trip may span at most this many days
 EXTRA_RANGE_ROWS = 2  # blank range rows on the no-JavaScript form

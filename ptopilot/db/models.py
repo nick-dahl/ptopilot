@@ -140,13 +140,34 @@ class PlannedTrip(Base):
     """A tracker's destination picked for a planning year."""
 
     __tablename__ = "planned_trips"
-    __table_args__ = (UniqueConstraint("tracker_id", "year"),)
+    __table_args__ = (
+        UniqueConstraint("tracker_id", "year"),
+        CheckConstraint(
+            "(booked_depart IS NULL) = (booked_return IS NULL)"
+            " AND (booked_depart IS NULL) = (booked_pto IS NULL)",
+            name="booked_dates",
+        ),
+        CheckConstraint("booked_return >= booked_depart", name="booked_order"),
+        CheckConstraint(
+            "booked_depart IS NULL OR extract(year from booked_depart) = year", name="booked_year"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     year: Mapped[int] = mapped_column(SmallInteger)
     tracker_id: Mapped[int] = mapped_column(ForeignKey("trackers.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = created_at()
+    booked_depart: Mapped[date | None]
+    booked_return: Mapped[date | None]
+    booked_price: Mapped[Decimal | None] = mapped_column(Money)
+    booked_currency: Mapped[str | None] = mapped_column(String(3))
+    booked_pto: Mapped[int | None] = mapped_column(SmallInteger)
+    booked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def booked(self) -> bool:
+        return self.booked_depart is not None
 
 
 class Destination(Base):
