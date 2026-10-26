@@ -74,8 +74,8 @@ def run(ctx: RunContext) -> dict[str, int]:
             (py.user_id, py.year): py.pto_days - py.other_time_off for py in s.scalars(select(PlanningYear))
         }
         planned: defaultdict[int, set[int]] = defaultdict(set)
-        for pt in s.scalars(select(PlannedTrip)):
-            planned[pt.tracker_id].add(pt.year)
+        for pt in s.scalars(select(PlannedTrip).where(PlannedTrip.booked_depart.is_(None))):
+            planned[pt.tracker_id].add(pt.year)  # a booked trip is no longer searched
         windows: defaultdict[tuple[int, int], list[Window]] = defaultdict(list)  # (user, year of the range)
         for w in s.scalars(select(TravelWindow).where(TravelWindow.end_date >= tomorrow)):
             windows[w.user_id, w.start_date.year].append(Window(max(w.start_date, tomorrow), w.end_date))

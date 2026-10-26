@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import Engine, func, select
+from sqlalchemy.orm import Session
 
 from ptopilot import config
 from ptopilot.core.geo import NEUTRAL_PALETTE, Geo, Palette, palette
@@ -15,6 +17,7 @@ from ptopilot.core.seasons import SeasonTable, trip_month
 from ptopilot.db.models import (
     Candidate,
     DigestSend,
+    PlannedTrip,
     PriceObservation,
     RouteQuery,
     Tracker,
@@ -119,6 +122,14 @@ def _trend(today: Decimal | None, week_ago: Decimal | None) -> str:
     return "flat"
 
 
+def booked_pairs(s: Session, tracker_ids: Collection[int] | None = None) -> set[tuple[int, int]]:
+    """The (tracker, year) pairs whose trip is booked: those leave the watch."""
+    query = select(PlannedTrip.tracker_id, PlannedTrip.year).where(PlannedTrip.booked_depart.is_not(None))
+    if tracker_ids is not None:
+        query = query.where(PlannedTrip.tracker_id.in_(list(tracker_ids)))
+    return {(tracker_id, year) for tracker_id, year in s.execute(query)}
+
+
 def latest_run_date(engine: Engine, today: date) -> date | None:
     with session_scope(engine) as s:
         return s.scalar(select(func.max(Candidate.run_date)).where(Candidate.run_date <= today))
@@ -140,6 +151,7 @@ def build_digests(
     floor = LEVELS[min_level]
     with session_scope(engine) as s:
         baselines = load_baselines(s)
+        booked = booked_pairs(s)
         user_filter = User.id == user_id if user_id is not None else User.id.is_not(None)
         users = list(s.scalars(select(User).where(user_filter).order_by(User.id)))
         trackers = list(s.scalars(select(Tracker).where(Tracker.active.is_(True)).order_by(Tracker.id)))
@@ -181,7 +193,7 @@ def build_digests(
     best_today: dict[int, tuple[Decimal, Decimal | None]] = {}
     for c, rq, link, obs in rows:
         tracker = tracker_by_id.get(c.tracker_id)
-        if tracker is None:
+        if tracker is None or (c.tracker_id, rq.depart_date.year) in booked:
             continue
         b = baselines.get(rq_baseline_key(rq))
         typical = Decimal(str(round(b.median))) if b else None

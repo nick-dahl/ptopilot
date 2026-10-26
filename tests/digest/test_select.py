@@ -6,7 +6,7 @@ from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import DigestSend
 from ptopilot.db.session import session_scope
 from ptopilot.digest.select import build_digests
-from tests.digest.conftest import RUN, add_baseline, add_candidate, add_tracker, add_user
+from tests.digest.conftest import RUN, add_baseline, add_candidate, add_tracker, add_user, book
 
 GEO, SEASONS = load_geo(), load_seasons()
 
@@ -140,3 +140,14 @@ def test_users_without_active_trackers_get_no_digest(clean_engine):
     t = add_tracker(clean_engine, add_user(clean_engine, "off@example.com"), active=False)
     add_candidate(clean_engine, t, 600)
     assert digests(clean_engine) == []
+
+
+def test_candidates_of_a_booked_trip_stay_out_of_the_digest(clean_engine):
+    user = add_user(clean_engine)
+    t = add_tracker(clean_engine, user)
+    add_candidate(clean_engine, t, 600, depart=date(2027, 3, 5), ret=date(2027, 3, 14))
+    add_candidate(clean_engine, t, 700, depart=date(2028, 3, 3), ret=date(2028, 3, 12))
+    book(clean_engine, user, t, date(2027, 3, 5), date(2027, 3, 14))
+    [d] = digests(clean_engine)
+    assert [c.price for c in d.deals] == [700]
+    assert d.trackers[0].best_price == 700

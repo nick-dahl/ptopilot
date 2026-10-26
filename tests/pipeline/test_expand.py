@@ -174,3 +174,19 @@ def test_overlapping_years_do_not_duplicate_links(make_ctx):
     assert rows
     keys = [(rq_dep, ret, lk.evening_departure) for _, _, rq_dep, ret, lk in rows]
     assert len(keys) == len(set(keys))
+
+
+def test_a_booked_year_is_not_searched_but_other_years_are(make_ctx):
+    from ptopilot.data import load_geo
+    from ptopilot.db.models import User
+    from ptopilot.planning import book_trip
+
+    ctx = make_ctx()
+    uid = add_user(ctx.engine, windows=TWO_YEARS, years=[2027, 2028])
+    tid = add_tracker(ctx.engine, uid, years=[2027, 2028])
+    with session_scope(ctx.engine) as s:
+        book_trip(s, s.get(User, uid), tid, 2027, date(2027, 6, 12), date(2027, 6, 20), geo=load_geo())
+    expand.run(ctx)
+    rows = links(ctx.engine, tid)
+    assert rows
+    assert {dep.year for _, _, dep, _, _ in rows} == {2028}

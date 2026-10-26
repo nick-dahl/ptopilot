@@ -151,3 +151,23 @@ def add_baseline(engine, median, dest="PDL", month=date(2027, 3, 1), bucket="wee
                 confidence="normal",
             )
         )
+
+
+def book(engine, user_id, tracker_id, depart, ret, geo=None, **kw):
+    """Plan the tracker in the departure's year (if it is not yet) and book that trip."""
+    from sqlalchemy import select
+
+    from ptopilot.data import load_geo
+    from ptopilot.db.models import PlannedTrip, User
+    from ptopilot.planning import book_trip
+
+    with session_scope(engine) as s:
+        have = s.scalar(
+            select(PlannedTrip.id).where(
+                PlannedTrip.tracker_id == tracker_id, PlannedTrip.year == depart.year
+            )
+        )
+        if have is None:
+            s.add(PlannedTrip(user_id=user_id, year=depart.year, tracker_id=tracker_id))
+            s.flush()
+        book_trip(s, s.get(User, user_id), tracker_id, depart.year, depart, ret, geo=geo or load_geo(), **kw)

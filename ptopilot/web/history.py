@@ -14,6 +14,7 @@ from decimal import Decimal
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
+from ptopilot.core.fit import BookedTrip
 from ptopilot.core.geo import Destination, Geo, Palette, palette
 from ptopilot.core.seasons import SeasonTable, trip_month
 from ptopilot.db.models import (
@@ -26,9 +27,10 @@ from ptopilot.db.models import (
     User,
 )
 from ptopilot.db.session import session_scope
-from ptopilot.digest.select import latest_run_date, next_good_month
+from ptopilot.digest.select import booked_pairs, latest_run_date, next_good_month
 from ptopilot.links import web_link
 from ptopilot.pipeline.queries import load_baselines, rq_baseline_key
+from ptopilot.planning import booked_trips
 from ptopilot.web.viz import BarGeometry, TrendPoint, bar_geometry, sigma_floor
 
 TREND_DAYS = 30
@@ -90,6 +92,7 @@ class DestinationSummary:
     ruled_out: bool = False  # it has trips today, but every one is snoozed or excluded
     building_history: bool = False  # no normal-confidence price baseline yet for any home route
     target_days: int | None = None
+    booked: tuple[BookedTrip, ...] = ()  # this destination's booked trips, this year on
 
 
 def _options(
@@ -113,6 +116,8 @@ def _options(
         .where(Candidate.run_date == run_date, Candidate.tracker_id.in_(by_id))
         .order_by(Candidate.price, RouteQuery.depart_date, Candidate.id)
     ).all()
+    booked = booked_pairs(s, by_id)
+    rows = [r for r in rows if (r[0].tracker_id, r[1].depart_date.year) not in booked]
     baselines = load_baselines(
         s, routes={(rq.origin, rq.dest_airport, rq.return_airport) for _, rq, _, _ in rows}
     )
@@ -224,6 +229,10 @@ def destination_summaries(
         options = _options(s, geo, seasons, trackers, run_date) if run_date else {}
         user = s.get(User, user_id)
         homes = [user.home_airport, *user.nearby_airports] if user else []
+        bookings: defaultdict[int, list[BookedTrip]] = defaultdict(list)
+        for b in booked_trips(s, user, geo=geo) if user else []:
+            if b.year >= today.year:
+                bookings[b.tracker_id].append(b)
         summaries = []
         for t in trackers:
             dest = geo.destination(t.destination_code)
@@ -241,6 +250,7 @@ def destination_summaries(
                     ruled_out=bool(mine) and all(o.dimmed for o in mine),
                     building_history=building_history(s, homes, dest),
                     target_days=t.target_days,
+                    booked=tuple(bookings[t.id]),
                 )
             )
     priced = sorted((x for x in summaries if x.best), key=lambda x: (x.best.price, x.tracker_id))

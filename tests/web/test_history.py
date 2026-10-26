@@ -8,7 +8,7 @@ from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import Candidate, RouteBaseline, Tracker
 from ptopilot.db.session import session_scope
 from ptopilot.web.history import building_history, destination_summaries, trend, trip_options, typical_band
-from tests.digest.conftest import RUN, add_baseline, add_candidate, add_tracker, add_user
+from tests.digest.conftest import RUN, add_baseline, add_candidate, add_tracker, add_user, book
 
 GEO, SEASONS = load_geo(), load_seasons()
 
@@ -179,3 +179,45 @@ def test_summaries_carry_the_history_signal_and_target(clean_engine):
     add_baseline(clean_engine, 700)
     (after,) = destination_summaries(clean_engine, GEO, SEASONS, user, RUN)
     assert after.building_history is False
+
+
+def _booked_setup(engine):
+    user = add_user(engine)
+    t = add_tracker(engine, user)
+    add_candidate(engine, t, 600, depart=date(2027, 3, 5), ret=date(2027, 3, 14))
+    add_candidate(engine, t, 700, depart=date(2028, 3, 3), ret=date(2028, 3, 12))
+    return user, t
+
+
+def test_candidates_of_a_booked_trip_are_hidden(clean_engine):
+    user, t = _booked_setup(clean_engine)
+    assert [o.price for o in options(clean_engine, t)] == [600, 700]
+    book(clean_engine, user, t, date(2027, 3, 5), date(2027, 3, 14))
+    assert [o.price for o in options(clean_engine, t)] == [700]
+    (summary,) = destination_summaries(clean_engine, GEO, SEASONS, user, RUN)
+    assert summary.best.price == 700
+
+
+def test_a_fully_booked_destination_has_no_best_trip(clean_engine):
+    user = add_user(clean_engine)
+    t = add_tracker(clean_engine, user)
+    add_candidate(clean_engine, t, 600)
+    book(clean_engine, user, t, date(2027, 3, 5), date(2027, 3, 14))
+    (summary,) = destination_summaries(clean_engine, GEO, SEASONS, user, RUN)
+    assert summary.best is None
+    assert not summary.ruled_out
+
+
+def test_summary_lists_current_bookings(clean_engine):
+    user, t = _booked_setup(clean_engine)
+    other = add_tracker(clean_engine, user, code="LIS")
+    book(clean_engine, user, t, date(2027, 3, 5), date(2027, 3, 14), price=Decimal("640"), currency="USD")
+    book(clean_engine, user, t, date(2028, 3, 3), date(2028, 3, 12))
+    book(clean_engine, user, t, date(2026, 5, 1), date(2026, 5, 5))  # past year: not listed
+    summaries = {x.tracker_id: x for x in destination_summaries(clean_engine, GEO, SEASONS, user, RUN)}
+    assert [(b.year, b.depart, b.ret) for b in summaries[t].booked] == [
+        (2027, date(2027, 3, 5), date(2027, 3, 14)),
+        (2028, date(2028, 3, 3), date(2028, 3, 12)),
+    ]
+    assert summaries[t].booked[0].price == Decimal("640")
+    assert summaries[other].booked == ()
