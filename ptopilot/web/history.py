@@ -14,7 +14,7 @@ from decimal import Decimal
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
-from ptopilot.core.fit import BookedTrip
+from ptopilot.core.fit import BookedTrip, fit_notes
 from ptopilot.core.geo import Destination, Geo, Palette, palette
 from ptopilot.core.seasons import SeasonTable, trip_month
 from ptopilot.db.models import (
@@ -30,6 +30,7 @@ from ptopilot.db.session import session_scope
 from ptopilot.digest.select import booked_pairs, latest_run_date, next_good_month
 from ptopilot.links import web_link
 from ptopilot.pipeline.queries import load_baselines, rq_baseline_key
+from ptopilot.plan_totals import remaining_by_year
 from ptopilot.planning import booked_trips
 from ptopilot.web.viz import BarGeometry, TrendPoint, bar_geometry, sigma_floor
 
@@ -63,6 +64,7 @@ class TripOption:
     median: float | None
     sigma: float | None
     bar: BarGeometry | None
+    fit_notes: tuple[str, ...] = ()  # soft warnings: overlaps a booked trip, over the PTO left
 
     @property
     def open_jaw(self) -> bool:
@@ -98,10 +100,11 @@ class DestinationSummary:
 def _options(
     s: Session, geo: Geo, seasons: SeasonTable, trackers: list[Tracker], run_date: date
 ) -> dict[int, list[TripOption]]:
-    """Every candidate on run_date for these trackers, cheapest first."""
+    """Every candidate on run_date for these trackers, cheapest first, each with its fit notes."""
     by_id = {t.id: t for t in trackers}
     if not by_id:
         return {}
+    user_ids = {t.user_id for t in trackers}
     rows = s.execute(
         select(Candidate, RouteQuery, TrackerRouteLink, PriceObservation)
         .join(RouteQuery, RouteQuery.id == Candidate.route_query_id)
@@ -121,8 +124,14 @@ def _options(
     baselines = load_baselines(
         s, routes={(rq.origin, rq.dest_airport, rq.return_airport) for _, rq, _, _ in rows}
     )
+    # The user's bookings and PTO left, loaded once for every row.
+    fit: dict[int, tuple[list[BookedTrip], dict[int, int]]] = {}
+    years = {rq.depart_date.year for _, rq, _, _ in rows}
+    for user in s.scalars(select(User).where(User.id.in_(user_ids))):
+        fit[user.id] = (booked_trips(s, user, geo=geo), remaining_by_year(s, user, years))
     out: defaultdict[int, list[TripOption]] = defaultdict(list)
     for c, rq, link, obs in rows:
+        user_booked, user_remaining = fit.get(by_id[c.tracker_id].user_id, ([], {}))
         dest = geo.destination(by_id[c.tracker_id].destination_code)
         b = baselines.get(rq_baseline_key(rq))
         out[c.tracker_id].append(
@@ -153,6 +162,14 @@ def _options(
                 median=b.median if b else None,
                 sigma=b.sigma if b else None,
                 bar=bar_geometry(c.price, b.median, b.sigma) if b else None,
+                fit_notes=fit_notes(
+                    rq.depart_date,
+                    rq.return_date,
+                    link.pto_cost,
+                    user_booked,
+                    user_remaining.get(rq.depart_date.year),
+                    c.tracker_id,
+                ),
             )
         )
     return out

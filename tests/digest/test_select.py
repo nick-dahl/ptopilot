@@ -151,3 +151,25 @@ def test_candidates_of_a_booked_trip_stay_out_of_the_digest(clean_engine):
     [d] = digests(clean_engine)
     assert [c.price for c in d.deals] == [700]
     assert d.trackers[0].best_price == 700
+
+
+def test_digest_cards_carry_fit_notes(clean_engine):
+    user = add_user(clean_engine)
+    t = add_tracker(clean_engine, user)
+    other = add_tracker(clean_engine, user, "MADEIRA")
+    from ptopilot.db.models import PlanningYear
+
+    with session_scope(clean_engine) as s:
+        s.add(PlanningYear(user_id=user, year=2027, pto_days=15, other_time_off=0))
+    book(clean_engine, user, other, date(2027, 3, 10), date(2027, 3, 12), pto_cost=13)
+    add_candidate(clean_engine, t, 600, depart=date(2027, 3, 5), ret=date(2027, 3, 14))
+    add_candidate(clean_engine, t, 650, depart=date(2027, 3, 19), ret=date(2027, 3, 21), go_now=50)
+    add_candidate(clean_engine, t, 700, depart=date(2030, 3, 5), ret=date(2030, 3, 14), go_now=40)
+    [d] = digests(clean_engine)
+    by_price = {c.price: c.fit_notes for c in d.deals}
+    assert by_price[600] == (
+        "Overlaps your booked Madeira trip.",
+        "Doesn't fit your remaining PTO (2 left).",
+    )
+    assert by_price[650] == ("Doesn't fit your remaining PTO (2 left).",)
+    assert by_price[700] == ()

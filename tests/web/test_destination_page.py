@@ -1,6 +1,6 @@
 """The destination page: every date option from the latest scan, and the cheapest fare over 30 days."""
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 from sqlalchemy import select
 
@@ -145,3 +145,80 @@ def test_the_next_field_cannot_redirect_off_site(client, emailer, clean_engine):
         assert client.post(f"/trackers/{t}/snooze", data={"next": bad}).headers["location"] == "/"
         assert client.post(f"/trackers/{t}/unsnooze", data={"next": bad}).headers["location"] == "/"
     assert client.post(f"/trackers/{t}/unsnooze").headers["location"] == "/"
+
+
+# --- booking from a deal, and fit notes ----------------------------------------------------------
+
+BOTH = {**PROFILE_FORM, "tracker_dest_1": "MADEIRA", "tracker_min_1": "6", "tracker_max_1": "9"}
+
+
+def two_trackers(client, emailer, engine, email="nick@example.com"):
+    from ptopilot.db.models import User
+
+    sign_in(client, emailer, engine, email)
+    seed_profile(engine, BOTH, email)
+    with session_scope(engine) as s:
+        ids = {t.destination_code: t.id for t in s.scalars(select(Tracker))}
+        return ids, s.scalar(select(User.id).where(User.email == email))
+
+
+def test_booking_from_the_destination_page(client, emailer, clean_engine):
+    from decimal import Decimal
+
+    from ptopilot.db.models import PlannedTrip
+
+    t = setup(client, emailer, clean_engine)
+    c = add_candidate(clean_engine, t, 603, run_date=TODAY)
+    assert f'action="/trackers/{t}/book"' in client.get(f"/trackers/{t}").text
+    r = client.post(f"/trackers/{t}/book", data={"candidate_id": c})
+    assert (r.status_code, r.headers["location"]) == (303, "/plan/2027?saved=booked")
+    with session_scope(clean_engine) as s:
+        trip = s.scalar(select(PlannedTrip).where(PlannedTrip.tracker_id == t, PlannedTrip.year == 2027))
+        assert (trip.booked_depart, trip.booked_return) == (TODAY.replace(day=5), TODAY.replace(day=14))
+        assert (trip.booked_price, trip.booked_pto) == (Decimal(603), 5)
+
+
+def test_booking_another_users_candidate_is_a_404(client, emailer, clean_engine):
+    from ptopilot.db.models import PlannedTrip
+
+    theirs = setup(client, emailer, clean_engine, email="owner@example.com")
+    c = add_candidate(clean_engine, theirs, 603, run_date=TODAY)
+    client.post("/logout")
+    mine = setup(client, emailer, clean_engine, email="intruder@example.com")
+    assert client.post(f"/trackers/{theirs}/book", data={"candidate_id": c}).status_code == 404
+    assert client.post(f"/trackers/{mine}/book", data={"candidate_id": c}).status_code == 404
+    with session_scope(clean_engine) as s:
+        assert s.scalar(select(PlannedTrip.id).where(PlannedTrip.booked_depart.is_not(None))) is None
+
+
+def test_booking_a_clashing_deal_shows_the_message(client, emailer, clean_engine):
+    from tests.digest.conftest import book
+
+    ids, uid = two_trackers(client, emailer, clean_engine)
+    book(clean_engine, uid, ids["MADEIRA"], TODAY.replace(day=8), TODAY.replace(day=12))
+    c = add_candidate(clean_engine, ids["AZORES"], 603, run_date=TODAY)
+    r = client.post(f"/trackers/{ids['AZORES']}/book", data={"candidate_id": c})
+    assert r.status_code == 400 and "Overlaps your booked Madeira trip." in r.text
+
+
+def test_option_rows_show_fit_notes(client, emailer, clean_engine):
+    from tests.digest.conftest import book
+
+    ids, uid = two_trackers(client, emailer, clean_engine)
+    # Madeira booked Mar 10-12 with 13 PTO leaves 15 - 13 = 2 days; the Azores trip needs 5.
+    book(clean_engine, uid, ids["MADEIRA"], TODAY.replace(day=10), TODAY.replace(day=12), pto_cost=13)
+    add_candidate(clean_engine, ids["AZORES"], 603, run_date=TODAY)  # Mar 5-14: overlaps
+    add_candidate(
+        clean_engine, ids["AZORES"], 700, run_date=TODAY, depart=date(2027, 3, 19), ret=date(2027, 3, 21)
+    )
+    text = client.get(f"/trackers/{ids['AZORES']}").text
+    assert "Overlaps your booked Madeira trip." in text
+    assert "remaining PTO (2 left)." in text
+    assert text.count("Overlaps your booked") == 1
+
+
+def test_a_deal_in_a_year_without_a_planning_year_has_no_pto_note(client, emailer, clean_engine):
+    t = setup(client, emailer, clean_engine)
+    add_candidate(clean_engine, t, 603, run_date=TODAY, depart=date(2030, 3, 5), ret=date(2030, 3, 14))
+    text = client.get(f"/trackers/{t}").text
+    assert "remaining PTO" not in text and "I booked this" in text

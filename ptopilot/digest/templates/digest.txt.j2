@@ -16,6 +16,9 @@ Nothing below typical yet. Your trackers are still watching.
 {{ d.price | money(d.currency) }} {{ "both flights" if d.open_jaw else "round trip" }}{% if d.typical %}, typically ~{{ d.typical | money(d.currency) }}{% if d.pct_below and d.pct_below > 0 %} ({{ d.pct_below }}% below){% endif %}{% endif %}
 
 Uses {{ d.pto_cost }} PTO day{{ "s" if d.pto_cost != 1 }} for {{ d.days_away }} days away{% if d.days_off %} ({{ d.days_off | join(", ") }} gives you a free day){% endif %}
+{% for note in d.fit_notes %}
+Note: {{ note }}
+{% endfor %}
 
 {% if d.carrier %}
 {{ d.carrier }}, {{ d.stops | stops }}{% if d.duration_min %}, {{ d.duration_min | duration }} out{% endif %}{% if d.outbound_departure %}, departs {{ d.outbound_departure | clock }}{% endif %}{% if d.flight_numbers %}, {{ d.flight_numbers | join(", ") }}{% endif %} (outbound flight)
@@ -36,6 +39,9 @@ View flights: {{ d.deep_link }}
 More trips
 {% for d in digest.deals[1:] %}
 - {{ d.destination }}: {{ d.price | money(d.currency) }}{% if d.pct_below and d.pct_below > 0 %} ({{ d.pct_below }}% below){% endif %}, {{ d.depart_date | dates(d.return_date) }}, {{ d.pto_cost }} PTO for {{ d.days_away }} days{% if base_url %}: {{ base_url }}/trackers/{{ d.tracker_id }}{% elif d.deep_link %}: {{ d.deep_link }}{% endif %}
+{% for note in d.fit_notes %}
+  Note: {{ note }}
+{% endfor %}
 
 {% endfor %}
 {% endif %}

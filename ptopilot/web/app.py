@@ -33,7 +33,7 @@ from ptopilot.core.airports import AirportCatalog, PlaceMatch
 from ptopilot.core.geo import Geo, UnknownCodeError, palette
 from ptopilot.core.seasons import SeasonTable
 from ptopilot.data import load_geo, load_seasons
-from ptopilot.db.models import Invite, PlannedTrip, PlanningYear, Tracker, User
+from ptopilot.db.models import Candidate, Invite, PlannedTrip, PlanningYear, Tracker, User
 from ptopilot.db.session import make_engine, session_scope
 from ptopilot.destinations import add_destination, prefetch_climate, remove_destination
 from ptopilot.digest.render import date_range, day, money, stops
@@ -41,6 +41,7 @@ from ptopilot.digest.select import latest_run_date
 from ptopilot.links import ACTION_LABELS, TokenError, login_token, read_action_token, read_login_token
 from ptopilot.notify.email import Emailer, EmailError, ResendEmailer
 from ptopilot.planning import (
+    book_from_candidate,
     book_trip,
     booked_trips,
     cancel_booking,
@@ -259,10 +260,7 @@ def create_app(
             saved=bool(saved),
         )
 
-    @app.get("/trackers/{tracker_id}")
-    def destination_page(request: Request, tracker_id: TRACKER_ID):
-        if not current_email(request):
-            return redirect("/")
+    def destination_view(request: Request, tracker_id: int, status: int = 200, error: str | None = None):
         with session_scope(engine) as s:
             tracker = owned_tracker(s, request, tracker_id)
             if tracker is None or not tracker.active:  # someone else's, removed or missing: same answer
@@ -278,6 +276,7 @@ def create_app(
         return page(
             request,
             "destination.html",
+            status,
             tracker_id=tracker_id,
             dest=dest,
             palette=palette(dest),
@@ -287,7 +286,33 @@ def create_app(
             run_date=latest_run_date(engine, today()),
             band=band,
             chart=trend_chart(trend(engine, tracker_id, today()), band, palette(dest)),
+            error=error,
         )
+
+    @app.get("/trackers/{tracker_id}")
+    def destination_page(request: Request, tracker_id: TRACKER_ID):
+        if not current_email(request):
+            return redirect("/")
+        return destination_view(request, tracker_id)
+
+    @app.post("/trackers/{tracker_id}/book")
+    def book_deal(request: Request, tracker_id: TRACKER_ID, candidate_id: int = Form(...)):
+        not_found = lambda: page(  # noqa: E731
+            request, "message.html", 404, title="Not found", message="No such trip."
+        )
+        try:
+            with session_scope(engine) as s:
+                user = signed_in_user(s, request)
+                candidate = s.get(Candidate, candidate_id)
+                if user is None or candidate is None or candidate.tracker_id != tracker_id:
+                    return not_found()
+                trip = book_from_candidate(s, user, candidate_id, geo=current_geo())
+                year = trip.year
+        except LookupError:
+            return not_found()
+        except ValueError as exc:
+            return destination_view(request, tracker_id, 400, str(exc))
+        return redirect(f"/plan/{year}?saved=booked")
 
     def after_snooze(next_url: str) -> RedirectResponse:
         """Back to the page the form was on, if that is a destination page of ours; never off-site."""

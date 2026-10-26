@@ -87,3 +87,18 @@ def test_empty_dashboard_points_to_destinations_and_plan(client, emailer, clean_
         s.get(Tracker, ids["AZORES"]).active = False
     page = client.get("/").text
     assert '<a href="/destinations">' in page and '<a href="/plan">' in page
+
+
+def test_dashboard_card_shows_fit_notes_and_bookings(client, emailer, clean_engine):
+    from ptopilot.db.models import User
+    from tests.digest.conftest import book
+
+    ids = setup(client, emailer, clean_engine)
+    with session_scope(clean_engine) as s:
+        uid = s.scalar(select(User.id))
+    book(clean_engine, uid, ids["MADEIRA"], TODAY.replace(day=10), TODAY.replace(day=12), pto_cost=13)
+    add_candidate(clean_engine, ids["AZORES"], 603, run_date=TODAY)
+    page = client.get("/").text
+    assert "Overlaps your booked Madeira trip." in page
+    assert "remaining PTO (2 left)." in page
+    assert "Booked Mar 10–12" in page

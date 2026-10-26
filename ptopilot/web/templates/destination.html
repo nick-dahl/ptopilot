@@ -17,6 +17,7 @@
 </div>
 
 <div class="stack" style="{{ dest_style(palette) }}">
+  {% if error %}<div class="panel notice-error" role="alert"><p class="m-0 error">{{ error }}</p></div>{% endif %}
   <section class="panel">
     <h2>Date options</h2>
     {% if options %}
@@ -34,7 +35,9 @@
         <td class="flights">
           {% if o.carrier %}<div class="meta">{{ o.carrier }} · {{ o.stops | stops }}{% if o.overnight %} · overnight{% endif %}</div>{% endif %}
           {% if o.deep_link %}<a class="btn btn-sm" href="{{ o.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
-          {% if o.dimmed %}<span class="tag">{{ o.state }}</span>{% endif %}
+          {% if o.dimmed %}<span class="tag">{{ o.state }}</span>
+          {% else %}<form class="inline" method="post" action="/trackers/{{ tracker_id }}/book"><input type="hidden" name="candidate_id" value="{{ o.candidate_id }}"><button class="btn btn-ghost btn-sm" type="submit">I booked this</button></form>{% endif %}
+          {% for note in o.fit_notes %}<div class="fit-note">{{ note }}</div>{% endfor %}
         </td>
       </tr>
       {% endfor %}

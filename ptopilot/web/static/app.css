@@ -117,6 +117,7 @@ a.dest-card:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, .1); transform: transla
 .price-sm { font-size: 18px; }
 .price-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .meta { color: var(--muted); font-size: 13px; }
+.fit-note { color: #92400e; font-size: 13px; }
 .dimmed { opacity: .55; }
 .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--line); color: var(--muted); font-size: 12px; font-weight: 600; }
 

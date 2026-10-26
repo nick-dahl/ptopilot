@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Collection
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
@@ -12,6 +12,7 @@ from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from ptopilot import config
+from ptopilot.core.fit import BookedTrip, fit_notes
 from ptopilot.core.geo import NEUTRAL_PALETTE, Geo, Palette, palette
 from ptopilot.core.seasons import SeasonTable, trip_month
 from ptopilot.db.models import (
@@ -27,6 +28,8 @@ from ptopilot.db.models import (
 from ptopilot.db.session import session_scope
 from ptopilot.links import web_link
 from ptopilot.pipeline.queries import load_baselines, rq_baseline_key
+from ptopilot.plan_totals import remaining_by_year
+from ptopilot.planning import booked_trips
 
 LEVELS = {"none": 0, "good": 1, "great": 2}
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -65,6 +68,7 @@ class DealCard:
     observed_at: datetime | None
     palette: Palette = NEUTRAL_PALETTE
     sigma: float | None = None  # spread of the typical price, for the "where this price sits" bar
+    fit_notes: tuple[str, ...] = ()  # soft warnings: overlaps a booked trip, over the PTO left
 
     @property
     def open_jaw(self) -> bool:
@@ -168,6 +172,11 @@ def build_digests(
             .outerjoin(PriceObservation, PriceObservation.id == Candidate.price_observation_id)
             .where(Candidate.run_date == run_date)
         ).all()
+        # Each user's bookings and PTO left, loaded once for all of their cards.
+        years = {rq.depart_date.year for _, rq, _, _ in rows}
+        fit_context: dict[int, tuple[list[BookedTrip], dict[int, int]]] = {
+            u.id: (booked_trips(s, u, geo=geo), remaining_by_year(s, u, years)) for u in users
+        }
         week_ago = dict(
             s.execute(
                 select(Candidate.tracker_id, func.min(Candidate.price))
@@ -257,6 +266,21 @@ def build_digests(
             alternates += ranked[1 : 1 + config.DIGEST_ALTERNATES_PER_TRACKER]
         by_score = lambda d: (-d.go_now, d.price, d.candidate_id)  # noqa: E731
         chosen = (sorted(tops, key=by_score) + sorted(alternates, key=by_score))[: config.DIGEST_MAX_DEALS]
+        user_booked, user_remaining = fit_context[user.id]
+        chosen = [
+            replace(
+                d,
+                fit_notes=fit_notes(
+                    d.depart_date,
+                    d.return_date,
+                    d.pto_cost,
+                    user_booked,
+                    user_remaining.get(d.depart_date.year),
+                    d.tracker_id,
+                ),
+            )
+            for d in chosen
+        ]
         rows_for_user = []
         for t in mine:
             dest = geo.destination(t.destination_code)

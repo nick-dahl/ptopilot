@@ -108,3 +108,14 @@ def test_snooze_links_appear_under_each_card_when_provided():
     assert "Not this trip: https://app.example/s/tok1" in text
     _, html, _ = render(digest(card()), now=NOW)
     assert "/s/" not in html
+
+
+def test_fit_notes_render_in_html_and_text_on_every_card():
+    notes = ("Overlaps your booked Madeira trip.", "Doesn't fit your remaining PTO (2 left).")
+    d = digest(card(fit_notes=notes), card(candidate_id=2, destination="Lisbon", fit_notes=notes[:1]))
+    _, html, text = render(d, NOW)
+    assert html.count("Overlaps your booked Madeira trip.") == 2
+    assert "remaining PTO (2 left)." in html
+    assert text.count("Note: Overlaps your booked Madeira trip.") == 2
+    assert "Note: Doesn't fit your remaining PTO (2 left)." in text
+    assert "Note:" not in render(digest(card()), NOW)[2]
