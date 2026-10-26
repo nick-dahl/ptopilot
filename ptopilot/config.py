@@ -89,3 +89,9 @@ PLAN_NEXT_YEAR_FROM_MONTH = 10  # from October on, "Start planning" defaults to 
 MAX_PTO_DAYS = 365
 MAX_BOOKED_DAYS = 60  # a booked trip may span at most this many days
 EXTRA_RANGE_ROWS = 2  # blank range rows on the no-JavaScript form
+
+# Combinations (Plan 11)
+COMBO_MIN_PCT_BELOW = 20  # a leg must be at least this far below its typical price
+COMBO_MIN_LEGS = 2
+COMBO_MAX_SHOWN = 3
+COMBO_LEGS_PER_TRACKER = 5  # best eligible offers per destination considered by the search

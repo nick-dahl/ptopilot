@@ -65,6 +65,7 @@ class TripOption:
     sigma: float | None
     bar: BarGeometry | None
     fit_notes: tuple[str, ...] = ()  # soft warnings: overlaps a booked trip, over the PTO left
+    confidence: str = "normal"
 
     @property
     def open_jaw(self) -> bool:
@@ -159,6 +160,7 @@ def _options(
                 deal_level=c.deal_level,
                 go_now=c.go_now,
                 state=c.state,
+                confidence=c.confidence,
                 median=b.median if b else None,
                 sigma=b.sigma if b else None,
                 bar=bar_geometry(c.price, b.median, b.sigma) if b else None,

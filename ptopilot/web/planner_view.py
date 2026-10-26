@@ -5,11 +5,13 @@ from __future__ import annotations
 import calendar
 from collections.abc import Sequence
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import Engine
 
 from ptopilot import config
 from ptopilot.core.calendar import WorkCalendar
+from ptopilot.core.combos import Leg, find_combinations
 from ptopilot.core.fit import BookedTrip
 from ptopilot.core.geo import Destination, Geo, UnknownCodeError, palette
 from ptopilot.core.planner import target_band
@@ -17,9 +19,10 @@ from ptopilot.core.seasons import SeasonTable
 from ptopilot.core.yearplan import allocate_pto, month_grid
 from ptopilot.db.models import PlanningYear, User
 from ptopilot.db.session import session_scope
+from ptopilot.digest.select import latest_run_date
 from ptopilot.plan_totals import trip_estimates, year_totals
 from ptopilot.planning import booked_trips, year_ranges, year_trackers
-from ptopilot.web.history import building_history
+from ptopilot.web.history import DIMMED_STATES, _options, building_history
 
 
 def fewest_days_away(geo: Geo, homes: Sequence[str], dest: Destination) -> int:
@@ -71,10 +74,47 @@ def blank_range_rows(saved: Sequence[tuple[str, str]]) -> list[dict[str, str]]:
     return rows + [{"start": "", "end": ""} for _ in range(config.EXTRA_RANGE_ROWS)]
 
 
+def _combinations(
+    s,
+    geo: Geo,
+    seasons: SeasonTable,
+    trackers,
+    year: int,
+    run_date: date | None,
+    booked: Sequence[BookedTrip],
+    remaining: int,
+):
+    """Sets of this year's unbooked destinations whose latest offers are all fantastic and fit together."""
+    if run_date is None or not trackers:
+        return []
+    names = {t.id: geo.destination(t.destination_code).name for t in trackers}
+    legs = [
+        Leg(
+            tracker_id=o.tracker_id,
+            destination=names[o.tracker_id],
+            candidate_id=o.candidate_id,
+            depart=o.depart_date,
+            ret=o.return_date,
+            pto_cost=o.pto_cost,
+            price=o.price,
+            typical=Decimal(str(o.median)),
+            currency=o.currency,
+            confidence=o.confidence,
+            season_rating=o.season_rating,
+            deep_link=o.deep_link,
+        )
+        for options in _options(s, geo, seasons, trackers, run_date).values()
+        for o in options
+        if o.median and o.depart_date.year == year and o.state not in DIMMED_STATES
+    ]
+    return find_combinations(legs, booked, remaining)
+
+
 def plan_context(
     engine: Engine, geo: Geo, seasons: SeasonTable, user_id: int, year: int, today: date
 ) -> dict | None:
     """Everything the page needs, or None when the user has no such planning year."""
+    run_date = latest_run_date(engine, today)
     with session_scope(engine) as s:
         user = s.get(User, user_id)
         py = s.get(PlanningYear, (user_id, year)) if user else None
@@ -123,12 +163,23 @@ def plan_context(
             e["wont_fit"] = over.get(e["tracker_id"])
         cal = WorkCalendar.from_code(user.holiday_calendar, user.extra_days_off, user.ignored_holidays)
         calendar_bookings = booked_trips(s, user, [year - 1, year], geo=geo)
+        watched = [
+            t
+            for t in year_trackers(s, user, year)
+            if t.id not in bookings and not (t.snoozed_until and t.snoozed_until >= today)
+        ]
+        combos = _combinations(
+            s, geo, seasons, watched, year, run_date, calendar_bookings, max(totals.remaining, 0)
+        )
         return {
             "year": year,
             "pto_days": py.pto_days,
             "other_time_off": py.other_time_off,
             "available": totals.available,
             "trips": entries,
+            "combos": combos,
+            "palettes": {e["tracker_id"]: e["palette"] for e in entries},
+            "pto_remaining": max(totals.remaining, 0),
             "totals": {
                 "trips": len(entries),
                 "days_away": sum(e["days_away"] or 0 for e in entries),

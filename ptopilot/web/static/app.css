@@ -209,3 +209,8 @@ a.dest-card:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, .1); transform: transla
 .book-this { margin-top: 4px; }
 .book-this summary { cursor: pointer; color: var(--muted, inherit); }
 .book-form { display: grid; gap: 8px; margin-top: 8px; max-width: 16rem; }
+
+.combo { padding: 10px 0; border-top: 1px solid var(--line); }
+.combo:first-of-type { border-top: 0; }
+.combo-legs { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 6px; }
+.combo-legs li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }

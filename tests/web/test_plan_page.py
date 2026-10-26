@@ -7,9 +7,19 @@ from pathlib import Path
 import pytest
 from sqlalchemy import delete, select
 
-from ptopilot.db.models import PlannedTrip, PlanningYear, RouteBaseline, Tracker, TravelWindow, User
+from ptopilot.db.models import (
+    Candidate,
+    PlannedTrip,
+    PlanningYear,
+    RouteBaseline,
+    RouteQuery,
+    Tracker,
+    TrackerRouteLink,
+    TravelWindow,
+    User,
+)
 from ptopilot.db.session import session_scope
-from tests.web.conftest import PROFILE_FORM, invite, sign_in
+from tests.web.conftest import PROFILE_FORM, TODAY, invite, sign_in
 
 YEAR = 2027
 
@@ -509,3 +519,83 @@ def test_book_and_cancel_routes_are_scoped(signed_in, clean_engine):
     mine = add_trip(clean_engine, my_uid(clean_engine), "AZORES", 8, year=2028)  # planned in another year
     assert signed_in.post(f"/plan/{YEAR}/trips/{mine}/book", data=data).status_code == 404
     assert signed_in.post(f"/plan/{YEAR}/trips/{mine}/cancel").status_code == 404
+
+
+def fantastic_offer(engine, tracker_id, uid, dest, depart, price, season="good"):
+    """One of today's offers: a week away, typical price 1000 for its route and month."""
+    ret = depart.replace(day=depart.day + 6)
+    with session_scope(engine) as s:
+        rq = RouteQuery(
+            origin="JFK", dest_airport=dest, return_airport=dest, depart_date=depart, return_date=ret
+        )
+        s.add(rq)
+        s.flush()
+        s.add(
+            TrackerRouteLink(
+                tracker_id=tracker_id,
+                route_query_id=rq.id,
+                run_date=TODAY,
+                evening_departure=False,
+                pto_cost=3,
+                days_away=7,
+                efficiency=2.0,
+                month=depart.month,
+                season_rating=season,
+                days_off=[],
+            )
+        )
+        s.add(
+            Candidate(
+                user_id=uid,
+                tracker_id=tracker_id,
+                route_query_id=rq.id,
+                run_date=TODAY,
+                evening_departure=False,
+                price=Decimal(price),
+                currency="USD",
+                deal_level="good",
+                go_now=50,
+                confidence="normal",
+                verified=True,
+            )
+        )
+        if not s.scalar(
+            select(RouteBaseline.origin).where(
+                RouteBaseline.dest_airport == dest, RouteBaseline.month == depart.replace(day=1)
+            )
+        ):
+            s.add(
+                RouteBaseline(
+                    origin="JFK",
+                    dest_airport=dest,
+                    return_airport=dest,
+                    month=depart.replace(day=1),
+                    length_bucket="week",
+                    median=1000,
+                    sigma=50,
+                    n=30,
+                    confidence="normal",
+                )
+            )
+
+
+def test_planner_shows_combinations_only_when_fantastic(signed_in, clean_engine):
+    uid = start_year(clean_engine, pto=20, other=5)
+    lis = add_trip(clean_engine, uid, "LIS", 7)
+    azo = add_trip(clean_engine, uid, "AZORES", 7)
+    assert "Fantastic on every leg" not in signed_in.get(f"/plan/{YEAR}").text
+    fantastic_offer(clean_engine, lis, uid, "LIS", date(2027, 5, 3), 700)
+    fantastic_offer(clean_engine, azo, uid, "PDL", date(2027, 8, 2), 850)  # only 15% below
+    assert "Fantastic on every leg" not in signed_in.get(f"/plan/{YEAR}").text
+    fantastic_offer(clean_engine, azo, uid, "PDL", date(2027, 9, 6), 750)
+    html = signed_in.get(f"/plan/{YEAR}").text
+    assert "Fantastic on every leg" in html
+    assert "<b>Lisbon</b>" in html and "30% below" in html and "25% below" in html
+    assert "6 PTO of 15 left · saves ~$550 against typical" in html
+    with session_scope(clean_engine) as s:  # a booked destination leaves the search
+        s.execute(
+            PlannedTrip.__table__.update()
+            .where(PlannedTrip.tracker_id == azo)
+            .values(booked_depart=date(2027, 12, 1), booked_return=date(2027, 12, 5), booked_pto=2)
+        )
+    assert "Fantastic on every leg" not in signed_in.get(f"/plan/{YEAR}").text

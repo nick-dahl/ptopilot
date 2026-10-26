@@ -71,6 +71,27 @@
     <p class="mt-sm m-0"><a href="/destinations">+ Add a trip</a></p>
   </div>
 
+  {% if combos %}
+  <div class="panel" id="combos-panel">
+    <h2>Fantastic on every leg</h2>
+    <p class="muted small">Trips from your list that are all well below their typical price right now, in a good season, and fit together.</p>
+    {% for combo in combos %}
+    <div class="combo">
+      <ul class="combo-legs">
+        {% for l in combo.legs %}
+        <li style="{{ dest_style(palettes[l.tracker_id]) }}">
+          <span class="swatch" aria-hidden="true"></span>
+          <span><b>{{ l.destination }}</b> · {{ l.depart | dates(l.ret) }} · {{ l.price | money(l.currency) }} ({{ l.pct_below }}% below)</span>
+          {% if l.deep_link %}<a class="btn btn-sm" href="{{ l.deep_link }}" rel="noopener" target="_blank">View flights<span class="sr-only"> {{ l.destination }}</span></a>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="small m-0">{{ combo.pto }} PTO of {{ pto_remaining }} left · saves ~{{ combo.savings | money(combo.legs[0].currency) }} against typical</p>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <div class="panel">
     <h2>Your PTO in {{ year }}</h2>
     <form method="post" action="/plan/{{ year }}/pto">
