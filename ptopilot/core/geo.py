@@ -44,6 +44,11 @@ class Destination:
     zone: str
     return_airports: tuple[str, ...] = ()  # where you fly home from; empty means the same as `airports`
     color: str | None = None  # "#rrggbb"; None means the zone default
+    own_airports: tuple[str, ...] = ()  # airports that count as being at the place; empty means all of them
+
+    def __post_init__(self):
+        if not self.own_airports:
+            object.__setattr__(self, "own_airports", self.airports + self.return_airports)
 
     @property
     def home_from(self) -> tuple[str, ...]:
@@ -174,6 +179,19 @@ class Geo:
             return None
         a, b = self._catalog.get(origin), self._catalog.get(dest.airports[0])
         return distance_km(a, b) if a and b else None
+
+    def ground_minutes(self, dest: Destination, airport: str) -> int | None:
+        """Minutes of ground travel from `airport` to the place, to the nearest 5; None when unknown."""
+        if airport in dest.own_airports:
+            return 0
+        if self._catalog is None:
+            return None
+        here = self._catalog.get(airport)
+        owns = [a for code in dest.own_airports if (a := self._catalog.get(code)) is not None]
+        if here is None or not owns:
+            return None
+        km = min(distance_km(here, a) for a in owns)
+        return round(km / config.GROUND_KM_PER_HOUR * 60 / 5) * 5
 
     def is_international(self, origin: str, dest: Destination) -> bool:
         return self.airport(origin).country != dest.country

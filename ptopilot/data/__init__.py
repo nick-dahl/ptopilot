@@ -22,6 +22,12 @@ def _geo_destination(row: Destination, catalog: AirportCatalog) -> GeoDestinatio
         country, zone = known[0].country, zone_for(known[0].country, known[0].continent)
     else:  # none left: the country is in the code (HND_JP), and the default travel rule applies
         country, zone = row.code.rsplit("_", 1)[-1], "OTHER"
+    first = known[0] if known else None
+    own = tuple(  # the first airport's own city; if the catalog lost it, trust every ticked airport
+        code
+        for code in dict.fromkeys([*row.airports, *(row.return_airports or ())])
+        if first is None or ((a := catalog.get(code)) is not None and a.city == first.city)
+    )
     return GeoDestination(
         row.code,
         row.name,
@@ -31,6 +37,7 @@ def _geo_destination(row: Destination, catalog: AirportCatalog) -> GeoDestinatio
         zone,
         tuple(row.return_airports or ()),
         row.color,
+        own,
     )
 
 

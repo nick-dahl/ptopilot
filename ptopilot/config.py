@@ -40,6 +40,16 @@ LIVE_DELAY_S = (3.0, 8.0)  # random pause between live checks
 SOURCE_BUDGETS = {"serpapi": {"per_day": 8, "per_month": 250}}  # every attempted call counts
 SHORT_HAUL_MAX_MIN = 600  # fastest option under 10 h -> short-haul stop limit applies
 MAX_DURATION_RATIO = 1.5
+# Miserable itineraries (Plan 12): problems, and what forgives them.
+MISERY_LAYOVER_MODERATE_MIN = 300  # longest layover > 5h is moderate
+MISERY_LAYOVER_SEVERE_MIN = 540  # > 9h is severe
+MISERY_DURATION_MODERATE = 1.4  # total travel >= 1.4x the fastest is moderate
+MISERY_DURATION_SEVERE = 2.0  # >= 2x is severe
+MISERY_GROUND_MODERATE_MIN = 60  # ground time >= 1h is moderate
+MISERY_GROUND_SEVERE_MIN = 120  # >= 2h is severe
+GROUND_KM_PER_HOUR = 65
+MISERY_FORGIVE_PCT = 40  # price <= 0.6 x the normal-confidence baseline median forgives ONE moderate problem
+RETURN_CHECKS_PER_DAY = 3
 # A source failing this many routes route-specifically with no success in the run has likely changed
 # format everywhere: stop using it for the rest of the run.
 ROUTE_FAILURE_LIMIT = 8
