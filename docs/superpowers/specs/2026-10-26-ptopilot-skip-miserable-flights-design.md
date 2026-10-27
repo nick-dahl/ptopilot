@@ -1,7 +1,7 @@
 # ptopilot — Skip Miserable Flights (Design)
 
 **Date:** 2026-10-26
-**Status:** Draft, awaiting the user's review (builder check done)
+**Status:** Approved 2026-10-26
 **Builds on:**
 - [V1 spec](2026-10-16-ptopilot-design.md) §7 (live checks, scoring);
 - [Year plan](2026-10-25-ptopilot-year-plan-design.md) (destination airports and nearby airports);
