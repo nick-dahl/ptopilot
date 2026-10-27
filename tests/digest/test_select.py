@@ -6,7 +6,7 @@ from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import DigestSend
 from ptopilot.db.session import session_scope
 from ptopilot.digest.select import build_digests
-from tests.digest.conftest import RUN, add_baseline, add_candidate, add_tracker, add_user, book
+from tests.digest.conftest import RUN, add_baseline, add_candidate, add_tracker, add_user, book, set_verdict
 
 GEO, SEASONS = load_geo(), load_seasons()
 
@@ -223,3 +223,23 @@ def test_a_tracker_with_every_candidate_booked_has_no_deal_and_no_best_price(cle
     [d] = digests(clean_engine)
     assert d.deals == []
     assert d.trackers[0].best_price is None
+
+
+def test_ruled_out_trips_reach_no_email_card_or_combination(clean_engine):
+    user = add_user(clean_engine)
+    t = add_tracker(clean_engine, user)
+    bad = add_candidate(clean_engine, t, 300, depart=date(2027, 3, 12), ret=date(2027, 3, 21))
+    add_candidate(clean_engine, t, 650)
+    set_verdict(clean_engine, bad, "ruled_out", "9h layover")
+    [d] = digests(clean_engine, min_level="none")
+    assert [c.price for c in d.deals] == [650]
+    assert d.trackers[0].best_price == 650
+
+
+def test_forgiven_cards_carry_their_note(clean_engine):
+    user = add_user(clean_engine)
+    t = add_tracker(clean_engine, user)
+    c = add_candidate(clean_engine, t, 650)
+    set_verdict(clean_engine, c, "forgiven", "6h layover (worth it at 45% below typical)")
+    [d] = digests(clean_engine)
+    assert d.deals[0].misery_note == "6h layover (worth it at 45% below typical)"

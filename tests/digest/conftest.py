@@ -171,3 +171,12 @@ def book(engine, user_id, tracker_id, depart, ret, geo=None, **kw):
             s.add(PlannedTrip(user_id=user_id, year=depart.year, tracker_id=tracker_id))
             s.flush()
         book_trip(s, s.get(User, user_id), tracker_id, depart.year, depart, ret, geo=geo or load_geo(), **kw)
+
+
+def set_verdict(engine, candidate_id, verdict, note=None):
+    """Mark a candidate the way the score stage does: ruled out also means no deal."""
+    with session_scope(engine) as s:
+        c = s.get(Candidate, candidate_id)
+        c.verdict, c.misery_note = verdict, note
+        if verdict == "ruled_out":
+            c.deal_level, c.go_now, c.z = "none", 0, None

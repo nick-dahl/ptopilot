@@ -8,7 +8,7 @@ from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import Candidate, RouteBaseline, Tracker
 from ptopilot.db.session import session_scope
 from ptopilot.web.history import building_history, destination_summaries, trend, trip_options, typical_band
-from tests.digest.conftest import RUN, add_baseline, add_candidate, add_tracker, add_user, book
+from tests.digest.conftest import RUN, add_baseline, add_candidate, add_tracker, add_user, book, set_verdict
 
 GEO, SEASONS = load_geo(), load_seasons()
 
@@ -221,3 +221,29 @@ def test_summary_lists_current_bookings(clean_engine):
     ]
     assert summaries[t].booked[0].price == Decimal("640")
     assert summaries[other].booked == ()
+
+
+def test_trend_and_typical_band_ignore_ruled_out_prices(clean_engine):
+    user = add_user(clean_engine)
+    t = add_tracker(clean_engine, user)
+    bad = add_candidate(clean_engine, t, 300, dest="FNC")
+    add_candidate(clean_engine, t, 650)
+    add_baseline(clean_engine, 700)
+    add_baseline(clean_engine, 2000, dest="FNC")
+    set_verdict(clean_engine, bad, "ruled_out", "9h layover")
+    assert [p.price for p in trend(clean_engine, t, RUN)] == [Decimal(650)]
+    opts = options(clean_engine, t)
+    assert [(o.price, o.ruled_out, o.dimmed) for o in opts] == [(300, True, True), (650, False, False)]
+    assert opts[0].misery_note == "9h layover" and opts[0].verdict == "ruled_out"
+    assert typical_band(opts) == (Decimal(650), Decimal(750))
+    (summary,) = destination_summaries(clean_engine, GEO, SEASONS, user, RUN)
+    assert summary.best.price == 650 and not summary.ruled_out
+
+
+def test_a_destination_with_every_trip_ruled_out_has_no_best(clean_engine):
+    user = add_user(clean_engine)
+    t = add_tracker(clean_engine, user)
+    set_verdict(clean_engine, add_candidate(clean_engine, t, 300), "ruled_out", "9h layover")
+    (summary,) = destination_summaries(clean_engine, GEO, SEASONS, user, RUN)
+    assert summary.best is None
+    assert typical_band(options(clean_engine, t)) is None

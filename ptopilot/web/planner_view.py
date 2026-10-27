@@ -111,7 +111,7 @@ def _combinations(
         )
         for options in _options(s, geo, seasons, trackers, run_date).values()
         for o in options
-        if o.median and o.depart_date.year == year and o.state not in DIMMED_STATES
+        if o.median and o.depart_date.year == year and o.state not in DIMMED_STATES and not o.ruled_out
     ]
     return find_combinations(legs, booked, remaining)
 

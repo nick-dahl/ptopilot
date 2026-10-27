@@ -63,6 +63,7 @@
     {{ price_bar(o.bar) }}
     <div class="meta">{{ o.depart_date | dates(o.return_date) }} · {{ o.pto_cost }} PTO for {{ o.days_away }} days{% if o.open_jaw %} · open-jaw{% endif %}</div>
     <div class="meta">{{ season(o) }}</div>
+    {% if o.misery_note %}<div class="fit-note">{{ o.misery_note }}</div>{% endif %}
     {% for note in o.fit_notes %}<div class="fit-note">{{ note }}</div>{% endfor %}
     {% else %}
     <div class="meta">{% if s.ruled_out %}Every current trip is ruled out.{% elif s.snoozed_until %}Not watching while snoozed.{% elif not s.booked %}First prices after the next daily scan.{% endif %}</div>

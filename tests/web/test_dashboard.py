@@ -135,3 +135,15 @@ def test_dashboard_bar_says_over_when_planned_exceeds_what_is_left(client, email
         row.pto_days, row.other_time_off = 2, 0
     page = client.get("/").text
     assert "PTO over" in page and "PTO left" not in page
+
+
+def test_dashboard_best_skips_ruled_out_trips(client, emailer, clean_engine):
+    from tests.digest.conftest import set_verdict
+
+    ids = setup(client, emailer, clean_engine)
+    bad = add_candidate(clean_engine, ids["AZORES"], 300, run_date=TODAY)
+    add_candidate(clean_engine, ids["AZORES"], 650, run_date=TODAY, depart=TODAY.replace(day=12),
+                  ret=TODAY.replace(day=21))  # fmt: skip
+    set_verdict(clean_engine, bad, "ruled_out", "9h layover")
+    page = client.get("/").text
+    assert "$650" in page and "$300" not in page

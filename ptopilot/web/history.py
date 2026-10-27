@@ -66,14 +66,20 @@ class TripOption:
     bar: BarGeometry | None
     fit_notes: tuple[str, ...] = ()  # soft warnings: overlaps a booked trip, over the PTO left
     confidence: str = "normal"
+    verdict: str = "ok"  # 'ok' | 'forgiven' | 'ruled_out'
+    misery_note: str | None = None  # the problem: why it is ruled out, or what was forgiven
 
     @property
     def open_jaw(self) -> bool:
         return self.return_airport != self.dest_airport
 
     @property
+    def ruled_out(self) -> bool:
+        return self.verdict == "ruled_out"
+
+    @property
     def dimmed(self) -> bool:
-        return self.state in DIMMED_STATES
+        return self.state in DIMMED_STATES or self.ruled_out
 
     @property
     def pct_below(self) -> int | None:
@@ -161,6 +167,8 @@ def _options(
                 go_now=c.go_now,
                 state=c.state,
                 confidence=c.confidence,
+                verdict=c.verdict,
+                misery_note=c.misery_note,
                 median=b.median if b else None,
                 sigma=b.sigma if b else None,
                 bar=bar_geometry(c.price, b.median, b.sigma) if b else None,
@@ -196,6 +204,7 @@ def trend(engine: Engine, tracker_id: int, today: date) -> list[TrendPoint]:
             select(Candidate.run_date, func.min(Candidate.price))
             .where(
                 Candidate.tracker_id == tracker_id,
+                Candidate.verdict != "ruled_out",
                 Candidate.run_date > today - timedelta(days=TREND_DAYS),
                 Candidate.run_date <= today,
             )
@@ -207,7 +216,7 @@ def trend(engine: Engine, tracker_id: int, today: date) -> list[TrendPoint]:
 
 def typical_band(options: list[TripOption]) -> tuple[Decimal, Decimal] | None:
     """Median +/- sigma for the cheapest trip's route, the band drawn behind the trend line."""
-    best = options[0] if options else None
+    best = next((o for o in options if not o.ruled_out), None)
     if best is None or best.median is None:
         return None
     median, sigma = (
@@ -263,7 +272,7 @@ def destination_summaries(
                     name=dest.name,
                     palette=palette(dest),
                     stay=(t.min_stay_days, t.max_stay_days),
-                    best=next((o for o in mine if not o.dimmed), None),
+                    best=next((o for o in mine if not o.dimmed), None),  # dimmed includes ruled-out trips
                     snoozed_until=t.snoozed_until if t.snoozed_until and t.snoozed_until >= today else None,
                     next_good_month=next_good_month(seasons, (dest.code, dest.country), today),
                     ruled_out=bool(mine) and all(o.dimmed for o in mine),

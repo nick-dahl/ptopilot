@@ -146,3 +146,12 @@ def test_text_notes_start_on_their_own_line():
     notes = ("Overlaps your booked Madeira trip.",)
     text = render(digest(card(fit_notes=notes), card(candidate_id=2, fit_notes=notes)), NOW)[2]
     assert all(line.strip().startswith("Note:") for line in text.splitlines() if "Note:" in line)
+
+
+def test_forgiven_note_renders_in_html_and_text_email():
+    note = "6h layover in Madrid (worth it at 45% below typical)"
+    d = digest(card(misery_note=note), card(candidate_id=2, destination="Lisbon", misery_note=note))
+    _, html, text = render(d, NOW)
+    assert html.count(note) == 2
+    assert text.count(f"Note: {note}") == 2
+    assert "layover" not in render(digest(card()), NOW)[1]

@@ -686,3 +686,16 @@ def test_a_tracker_with_an_unknown_destination_does_not_break_the_planner(signed
     r = signed_in.get(f"/plan/{YEAR}")
     assert r.status_code == 200
     assert "Lisbon" in r.text
+
+
+def test_ruled_out_trips_reach_no_combination_leg(signed_in, clean_engine):
+    from tests.digest.conftest import set_verdict
+
+    uid = start_year(clean_engine, pto=20, other=5)
+    lis = add_trip(clean_engine, uid, "LIS", 7)
+    azo = add_trip(clean_engine, uid, "AZORES", 7)
+    fantastic_offer(clean_engine, lis, uid, "LIS", date(2027, 5, 3), 700)
+    fantastic_offer(clean_engine, azo, uid, "PDL", date(2027, 9, 6), 750)
+    assert "Fantastic on every leg" in signed_in.get(f"/plan/{YEAR}").text
+    set_verdict(clean_engine, _candidate_id(clean_engine, azo), "ruled_out", "9h layover")
+    assert "Fantastic on every leg" not in signed_in.get(f"/plan/{YEAR}").text

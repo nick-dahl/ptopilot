@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from ptopilot.db.models import Candidate, Tracker
 from ptopilot.db.session import session_scope
-from tests.digest.conftest import add_baseline, add_candidate
+from tests.digest.conftest import add_baseline, add_candidate, set_verdict
 from tests.web.conftest import PROFILE_FORM, TODAY, seed_profile, sign_in
 
 CAMINO = {**PROFILE_FORM, "tracker_dest_0": "CAMINO_PORTUGUES", "tracker_min_0": "11", "tracker_max_0": "14"}
@@ -222,3 +222,27 @@ def test_a_deal_in_a_year_without_a_planning_year_has_no_pto_note(client, emaile
     add_candidate(clean_engine, t, 603, run_date=TODAY, depart=date(2030, 3, 5), ret=date(2030, 3, 14))
     text = client.get(f"/trackers/{t}").text
     assert "remaining PTO" not in text and "I booked this" in text
+
+
+def test_destination_page_greys_out_ruled_out_rows_with_their_reason(client, emailer, clean_engine):
+    t = setup(client, emailer, clean_engine)
+    ok = add_candidate(clean_engine, t, 700, run_date=TODAY)
+    bad = add_candidate(
+        clean_engine, t, 400, run_date=TODAY, depart=TODAY.replace(day=12), ret=TODAY.replace(day=21)
+    )
+    set_verdict(clean_engine, bad, "ruled_out", "11h layover in Madrid")
+    text = client.get(f"/trackers/{t}").text
+    assert text.count('<tr class="dimmed">') == 1
+    assert "11h layover in Madrid" in text
+    assert f'value="{bad}"' not in text and f'value="{ok}"' in text  # no booking button on the ruled-out row
+    assert text.count("I booked this") == 1
+
+
+def test_forgiven_rows_show_their_trade_off(client, emailer, clean_engine):
+    t = setup(client, emailer, clean_engine)
+    c = add_candidate(clean_engine, t, 400, run_date=TODAY)
+    note = "6h layover in Madrid (worth it at 45% below typical)"
+    set_verdict(clean_engine, c, "forgiven", note)
+    text = client.get(f"/trackers/{t}").text
+    assert f'<div class="fit-note">{note}</div>' in text
+    assert '<tr class="dimmed">' not in text and "I booked this" in text

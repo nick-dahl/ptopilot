@@ -35,8 +35,10 @@
         <td class="flights">
           {% if o.carrier %}<div class="meta">{{ o.carrier }} · {{ o.stops | stops }}{% if o.overnight %} · overnight{% endif %}</div>{% endif %}
           {% if o.deep_link %}<a class="btn btn-sm" href="{{ o.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
-          {% if o.dimmed %}<span class="tag">{{ o.state }}</span>
+          {% if o.ruled_out %}<span class="tag">ruled out</span><div class="meta">{{ o.misery_note }}</div>
+          {% elif o.dimmed %}<span class="tag">{{ o.state }}</span>
           {% else %}<form class="inline" method="post" action="/trackers/{{ tracker_id }}/book"><input type="hidden" name="candidate_id" value="{{ o.candidate_id }}"><button class="btn btn-ghost btn-sm" type="submit">I booked this</button></form>{% endif %}
+          {% if o.verdict == "forgiven" and o.misery_note %}<div class="fit-note">{{ o.misery_note }}</div>{% endif %}
           {% for note in o.fit_notes %}<div class="fit-note">{{ note }}</div>{% endfor %}
         </td>
       </tr>

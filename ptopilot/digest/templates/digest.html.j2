@@ -56,6 +56,7 @@
         <div style="margin-top:10px;font-size:14px;line-height:1.5;color:#374151;">
           {{ d.depart_date | day }} → {{ d.return_date | day }}{% if d.evening_departure %} · leave after work{% endif %} · {{ d.origin }} → {{ d.dest_airport }}{% if d.open_jaw %}, home from {{ d.return_airport }}{% endif %}<br>
           Uses <b>{{ d.pto_cost }} PTO day{{ "s" if d.pto_cost != 1 }}</b> for {{ d.days_away }} days away{% if d.days_off %} ({{ d.days_off | join(", ") }} gives you a free day){% endif %}
+          {% if d.misery_note %}<br><span style="font-size:13px;color:#92400e;">{{ d.misery_note }}</span>{% endif %}
           {% for note in d.fit_notes %}<br><span style="font-size:13px;color:#92400e;">{{ note }}</span>{% endfor %}
           {% if d.carrier %}<br>{{ d.carrier }} · {{ d.stops | stops }}{% if d.duration_min %} · {{ d.duration_min | duration }} out{% endif %}{% if d.outbound_departure %}, departs {{ d.outbound_departure | clock }}{% endif %}{% if d.flight_numbers %} · {{ d.flight_numbers | join(", ") }}{% endif %} <span style="color:#9ca3af;">(outbound flight)</span>{% endif %}
           {% if d.weather_note %}<br>{{ "Off-season: " if d.season_rating == "avoid" }}{{ d.weather_note }}{% endif %}
@@ -86,6 +87,7 @@
           {% if href %}<a href="{{ href }}" style="color:#1f2937;text-decoration:none;">{% endif %}
           <span style="font-family:{{ serif }};font-size:16px;font-weight:bold;">{{ d.destination }}</span><br>
           <span style="font-size:13px;color:#6b7280;">{{ d.depart_date | dates(d.return_date) }} · {{ d.pto_cost }} PTO for {{ d.days_away }} days{% if d.open_jaw %} · open-jaw{% endif %}</span>
+          {% if d.misery_note %}<br><span style="font-size:12px;color:#92400e;">{{ d.misery_note }}</span>{% endif %}
           {% for note in d.fit_notes %}<br><span style="font-size:12px;color:#92400e;">{{ note }}</span>{% endfor %}
           {% if href %}</a>{% endif %}
         </td>

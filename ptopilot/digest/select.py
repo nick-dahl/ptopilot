@@ -69,6 +69,7 @@ class DealCard:
     palette: Palette = NEUTRAL_PALETTE
     sigma: float | None = None  # spread of the typical price, for the "where this price sits" bar
     fit_notes: tuple[str, ...] = ()  # soft warnings: overlaps a booked trip, over the PTO left
+    misery_note: str | None = None  # a forgiven trade-off, e.g. a long layover worth the price
 
     @property
     def open_jaw(self) -> bool:
@@ -171,7 +172,7 @@ def build_digests(
                 & (TrackerRouteLink.evening_departure == Candidate.evening_departure),
             )
             .outerjoin(PriceObservation, PriceObservation.id == Candidate.price_observation_id)
-            .where(Candidate.run_date == run_date)
+            .where(Candidate.run_date == run_date, Candidate.verdict != "ruled_out")
         ).all()
         # Each user's bookings and PTO left, loaded once for all of their cards.
         years = {rq.depart_date.year for _, rq, _, _ in rows}
@@ -181,7 +182,7 @@ def build_digests(
         week_ago = dict(
             s.execute(
                 select(Candidate.tracker_id, func.min(Candidate.price))
-                .where(Candidate.run_date == run_date - timedelta(days=7))
+                .where(Candidate.run_date == run_date - timedelta(days=7), Candidate.verdict != "ruled_out")
                 .group_by(Candidate.tracker_id)
             ).all()
         )
@@ -252,6 +253,7 @@ def build_digests(
                 observed_at=obs.observed_at if obs else None,
                 palette=palette(dest),
                 sigma=b.sigma if b else None,
+                misery_note=c.misery_note if c.verdict == "forgiven" else None,
             )
         )
 
