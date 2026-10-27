@@ -117,6 +117,19 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
 - [ ] **Flight details describe only the outbound flight;** the digest should say so.
 - [ ] **The source comparison ignores the return airport,** so an open-jaw fare could be paired with a round trip.
 
+**Skip miserable flights (Plan 12)**
+- [ ] **Measure the real effect** after a few daily scans: how many of the owner's dates are ruled out or forgiven. The health email now shows a `ruled_out=` count.
+- [ ] **Behaviour details:**
+  - a trip over its max price whose only cheaper option is ruled out disappears instead of showing greyed;
+  - the email's tracker table shows bare dashes for a destination whose trips are all ruled out.
+- [ ] **Same-city rule:** it uses the first airport the catalog knows, not strictly the first listed. Several geo branches are untested (an open-jaw return in another city, no known airports, a destination without coordinates).
+- [ ] **Code tidiness:**
+  - the two sources treat negative layover gaps differently;
+  - there's no downgrade test for migration 0009;
+  - a few contrived or weak tests (the slow-option test, `set(asked) <= {4}`, a test that overwrites its options, a stale test name in test_return_check);
+  - the planner filter could use `not o.dimmed`;
+  - the buy-now-or-wait plan's `alerts.run` Produces line doesn't list the `would_send_return_*` counts.
+
 **Digest and email**
 - [ ] **The 7-day trend shows "new"** if the scan exactly a week earlier didn't run.
 - [ ] **The tracker table always shows `$`,** and "best now" counts excluded trips.

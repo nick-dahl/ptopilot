@@ -240,10 +240,10 @@ ptopilot/config.py
   - With it, the sources search only `origin → dest_airport` on `depart_date` (fast-flights `trip="one-way"` with one leg; SerpApi `type=2`).
   - `return_date` is then ignored. Pass the same date to keep the dataclass valid, or make it optional: the builder's choice, and either is fine.
 - `ReturnVerdict = Literal["pass", "fail", "unknown"]`.
-- `check_return(sources: Sequence[ExactSearchSource], *, home: str, from_airport: str, depart: date, destination: Destination, geo: Geo, catalog, pct_below: int | None, confident: bool) -> tuple[ReturnVerdict, str | None]`. It:
+- `check_return(sources: Sequence[ExactSearchSource], *, home: str, from_airport: str, depart: date, destination: Destination, geo: Geo, catalog, price: float, typical_median: float | None, confident: bool) -> tuple[ReturnVerdict, str | None]`. It:
   - searches `from_airport → home` one-way on `depart`, with fast-flights first and SerpApi only as the fallback the caller supplies;
   - judges every option with `misery.problems`, where ground time is from the departure airport and fastest is among the return options;
-  - forgives with the alert's round-trip `pct_below` and confidence;
+  - forgives with the alert's round-trip `price` against `typical_median` and its confidence (changed in the final-review fix from a rounded pct);
   - returns `("pass", None)` if any option is `ok` or `forgiven`, `("fail", note of the cheapest option)` if all are ruled out, and `("unknown", None)` if every source raised `SourceUnavailable` or returned nothing.
   - Exactly one search is attempted per source.
 - **Plan doc edit (buy-now-or-wait, Task 4 "Instant alerts"):** add these steps and tests, in that plan's own step style:
