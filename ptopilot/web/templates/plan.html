@@ -56,9 +56,11 @@
           {% if t.min_trip %}<div class="error">Needs at least {{ t.min_trip }} days away</div>{% endif %}
         </td>
         <td>
+          {% if not t.booking %}
           <form class="inline" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}/remove">
             <button class="link-btn small" type="submit">Remove<span class="sr-only"> {{ t.name }}</span></button>
           </form>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}

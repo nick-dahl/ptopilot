@@ -599,3 +599,57 @@ def test_planner_shows_combinations_only_when_fantastic(signed_in, clean_engine)
             .values(booked_depart=date(2027, 12, 1), booked_return=date(2027, 12, 5), booked_pto=2)
         )
     assert "Fantastic on every leg" not in signed_in.get(f"/plan/{YEAR}").text
+
+
+def _candidate_id(engine, tracker_id):
+    with session_scope(engine) as s:
+        return s.scalar(select(Candidate.id).where(Candidate.tracker_id == tracker_id))
+
+
+def test_removing_a_destination_booked_this_year_is_refused(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    tid = add_trip(clean_engine, uid, "LIS", 10)
+    book_row(clean_engine, tid, date(2027, 5, 28), date(2027, 6, 5))
+    r = signed_in.post(f"/destinations/{tid}/remove", follow_redirects=False)
+    assert r.status_code == 400
+    assert "Cancel your Lisbon booking first." in r.text
+    with session_scope(clean_engine) as s:
+        assert s.get(Tracker, tid).active is True
+    assert "Lisbon" in signed_in.get(f"/plan/{YEAR}").text
+
+
+def test_removing_a_destination_booked_only_in_a_past_year_works(signed_in, clean_engine):
+    uid = start_year(clean_engine, year=2026)
+    tid = add_trip(clean_engine, uid, "LIS", 10, year=2026)
+    book_row(clean_engine, tid, date(2026, 5, 28), date(2026, 6, 5), year=2026)
+    assert signed_in.post(f"/destinations/{tid}/remove", follow_redirects=False).status_code == 303
+    with session_scope(clean_engine) as s:
+        assert s.get(Tracker, tid).active is False
+
+
+def test_booking_a_candidate_of_a_removed_destination_is_a_404(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    tid = add_trip(clean_engine, uid, "LIS", 7)
+    fantastic_offer(clean_engine, tid, uid, "LIS", date(2027, 5, 3), 700)
+    cid = _candidate_id(clean_engine, tid)
+    assert signed_in.post(f"/destinations/{tid}/remove", follow_redirects=False).status_code == 303
+    r = signed_in.post(f"/trackers/{tid}/book", data={"candidate_id": cid}, follow_redirects=False)
+    assert r.status_code == 404
+    with session_scope(clean_engine) as s:
+        assert s.scalar(select(PlannedTrip.booked_depart).where(PlannedTrip.tracker_id == tid)) is None
+
+
+def test_a_booked_row_has_no_remove_and_refuses_it(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    booked = add_trip(clean_engine, uid, "LIS", 10)
+    add_trip(clean_engine, uid, "AZORES", 8)
+    book_row(clean_engine, booked, date(2027, 5, 28), date(2027, 6, 5))
+    html = signed_in.get(f"/plan/{YEAR}").text
+    assert f'action="/plan/{YEAR}/trips/{booked}/remove"' not in html
+    assert html.count("/remove") == 1  # the unbooked Azores row keeps its Remove
+    r = signed_in.post(f"/plan/{YEAR}/trips/{booked}/remove", follow_redirects=False)
+    assert r.status_code == 400
+    assert "Cancel the booking first." in r.text
+    with session_scope(clean_engine) as s:
+        assert s.get(Tracker, booked).active is True
+        assert s.scalar(select(PlannedTrip.booked_depart).where(PlannedTrip.tracker_id == booked))

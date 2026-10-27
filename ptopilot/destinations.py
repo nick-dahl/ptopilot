@@ -6,13 +6,14 @@ import logging
 from collections.abc import Callable
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 from ptopilot.core.airports import PlaceMatch
 from ptopilot.core.climate import monthly_climate, rate_months
+from ptopilot.core.geo import UnknownCodeError
 from ptopilot.data import load_geo, load_seasons
-from ptopilot.db.models import Destination, DestinationSeason, Tracker, User
+from ptopilot.db.models import Destination, DestinationSeason, PlannedTrip, Tracker, User
 from ptopilot.planning import plan_trip, planning_years
 from ptopilot.sources.base import SourceUnavailable
 from ptopilot.sources.climate import fetch_climate
@@ -123,11 +124,33 @@ def add_destination(
     return tracker
 
 
-def remove_destination(s: Session, user: User, tracker_id: int) -> bool:
-    """Deactivate the user's tracker. History (prices, candidates, baselines) is kept."""
+def _builtin_name(code: str) -> str:
+    try:
+        return load_geo().destination(code).name
+    except UnknownCodeError:
+        return code
+
+
+def remove_destination(s: Session, user: User, tracker_id: int, *, today: date) -> bool:
+    """Deactivate the user's tracker. History (prices, candidates, baselines) is kept.
+
+    A tracker booked this year or later is refused: removing it would hide a booking that still counts.
+    """
     tracker = s.get(Tracker, tracker_id)
     if tracker is None or tracker.user_id != user.id:
         return False
+    if s.scalar(
+        select(
+            exists().where(
+                PlannedTrip.tracker_id == tracker_id,
+                PlannedTrip.year >= today.year,
+                PlannedTrip.booked_depart.is_not(None),
+            )
+        )
+    ):
+        row = s.get(Destination, tracker.destination_code)
+        name = row.name if row else _builtin_name(tracker.destination_code)
+        raise ValueError(f"Cancel your {name} booking first.")
     tracker.active = False
     s.flush()
     return True

@@ -271,6 +271,12 @@ def create_app(
                 return page(request, "message.html", 404, title="Not found", message="No such destination.")
             code, stay = tracker.destination_code, (tracker.min_stay_days, tracker.max_stay_days)
             snoozed = tracker.snoozed_until
+            user = signed_in_user(s, request)
+            bookings = [
+                b
+                for b in booked_trips(s, user, geo=current_geo())
+                if b.tracker_id == tracker_id and b.year >= today().year
+            ]
         if snoozed is not None and snoozed < today():
             snoozed = None
         geo = current_geo()
@@ -286,6 +292,7 @@ def create_app(
             palette=palette(dest),
             stay=stay,
             snoozed_until=snoozed,
+            bookings=bookings,
             options=options,
             run_date=latest_run_date(engine, today()),
             band=band,
@@ -308,7 +315,14 @@ def create_app(
             with session_scope(engine) as s:
                 user = signed_in_user(s, request)
                 candidate = s.get(Candidate, candidate_id)
-                if user is None or candidate is None or candidate.tracker_id != tracker_id:
+                tracker = s.get(Tracker, tracker_id)
+                if (
+                    user is None
+                    or candidate is None
+                    or candidate.tracker_id != tracker_id
+                    or tracker is None
+                    or not tracker.active
+                ):
                     return not_found()
                 trip = book_from_candidate(s, user, candidate_id, geo=current_geo())
                 year = trip.year
@@ -423,10 +437,17 @@ def create_app(
 
     @app.post("/destinations/{tracker_id}/remove")
     def remove_place(request: Request, tracker_id: TRACKER_ID):
-        with session_scope(engine) as s:
-            user = signed_in_user(s, request)
-            if user is None or not remove_destination(s, user, tracker_id):
-                return page(request, "message.html", 404, title="Not found", message="No such destination.")
+        user_id = None
+        try:
+            with session_scope(engine) as s:
+                user = signed_in_user(s, request)
+                user_id = user.id if user else None
+                if user is None or not remove_destination(s, user, tracker_id, today=today()):
+                    return page(
+                        request, "message.html", 404, title="Not found", message="No such destination."
+                    )
+        except ValueError as exc:
+            return destinations_page(request, user_id, "", str(exc), 400)
         return redirect("/destinations")
 
     # --- the year planner ---------------------------------------------------------------------------
@@ -668,7 +689,14 @@ def create_app(
         with session_scope(engine) as s:
             if not planned_tracker(s, user_id, year, tracker_id):
                 return page(request, "message.html", 404, title="Not found", message="No such trip.")
-            unplan_trip(s, s.get(User, user_id), tracker_id, year, today=today())
+            try:
+                unplan_trip(s, s.get(User, user_id), tracker_id, year, today=today())
+            except ValueError as exc:
+                error = str(exc)
+            else:
+                error = None
+        if error:
+            return plan_page(request, user_id, year, 400, error)
         return redirect(f"/plan/{year}?saved=removed")
 
     PRICE_HELP = "Enter a price like 802, or leave it blank."

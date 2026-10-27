@@ -414,3 +414,14 @@ def test_cancel_booking_clears_it(session):
         )
     )
     assert planning.cancel_booking(session, user, t.id, 2030) is False
+
+
+def test_unplan_refuses_a_booked_trip(session):
+    user = make_user(session)
+    t = make_tracker(session, user)
+    planned(session, user, t)
+    planning.book_trip(session, user, t.id, 2027, date(2027, 5, 28), date(2027, 5, 31), geo=load_geo())
+    with pytest.raises(ValueError, match="Cancel the booking first."):
+        planning.unplan_trip(session, user, t.id, 2027, today=TODAY)
+    assert t.active is True
+    assert len(planning.booked_trips(session, user, geo=load_geo())) == 1

@@ -16,6 +16,7 @@ from ptopilot.destinations import add_destination, remove_destination
 from ptopilot.sources.base import SourceUnavailable
 from tests.db.test_models import make_user
 
+TODAY = date(2026, 10, 25)
 CAT = AirportCatalog.load()
 TOKYO = json.loads(
     (Path(__file__).parent / "sources" / "fixtures" / "real_open_meteo_tokyo_2011_2020.json").read_text(
@@ -91,7 +92,7 @@ def test_adding_a_built_in_place_reuses_its_code(session):
 def test_re_adding_reactivates_the_same_tracker(session):
     user = make_user(session)
     first = add_destination(session, user, CAT.search("Osaka")[0], ["KIX"], 12, climate=tokyo_climate)
-    assert remove_destination(session, user, first.id) and not first.active
+    assert remove_destination(session, user, first.id, today=TODAY) and not first.active
     again = add_destination(session, user, CAT.search("Osaka")[0], ["KIX"], 14, climate=fail_if_called)
     assert again.id == first.id and again.active and again.target_days == 14
 
@@ -105,9 +106,9 @@ def test_removing_someone_elses_or_a_missing_tracker_does_nothing(session):
     user = make_user(session)
     other = make_user(session, email="other@example.com")
     t = add_destination(session, user, CAT.search("Osaka")[0], ["KIX"], 12, climate=tokyo_climate)
-    assert remove_destination(session, other, t.id) is False
+    assert remove_destination(session, other, t.id, today=TODAY) is False
     assert t.active is True
-    assert remove_destination(session, user, 999_999) is False
+    assert remove_destination(session, user, 999_999, today=TODAY) is False
 
 
 @pytest.mark.parametrize("bad", [1, 61])
@@ -242,3 +243,34 @@ def test_adding_a_destination_plans_it_in_open_years(session):
     )
     planned = session.scalars(select(PlannedTrip.year).where(PlannedTrip.tracker_id == t.id)).all()
     assert sorted(planned) == [2027, 2028]
+
+
+def booked_place(session, user, year):
+    t = add_destination(session, user, CAT.search("Osaka")[0], ["KIX"], 12, climate=tokyo_climate)
+    session.add(
+        PlannedTrip(
+            user_id=user.id,
+            year=year,
+            tracker_id=t.id,
+            booked_depart=date(year, 5, 3),
+            booked_return=date(year, 5, 12),
+            booked_pto=4,
+        )
+    )
+    session.flush()
+    return t
+
+
+def test_removing_a_place_booked_this_year_is_refused(session):
+    user = make_user(session)
+    t = booked_place(session, user, 2027)
+    with pytest.raises(ValueError, match=r"Cancel your .+ booking first\."):
+        remove_destination(session, user, t.id, today=TODAY)
+    assert t.active is True
+
+
+def test_removing_a_place_booked_only_in_a_past_year_works(session):
+    user = make_user(session)
+    t = booked_place(session, user, 2025)
+    assert remove_destination(session, user, t.id, today=TODAY) is True
+    assert t.active is False

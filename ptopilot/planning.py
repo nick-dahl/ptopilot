@@ -173,6 +173,16 @@ def unplan_trip(s: Session, user: User, tracker_id: int, year: int, *, today: da
     tracker = s.get(Tracker, tracker_id)
     if tracker is None or tracker.user_id != user.id:
         return False
+    if s.scalar(
+        select(
+            exists().where(
+                PlannedTrip.tracker_id == tracker_id,
+                PlannedTrip.year == year,
+                PlannedTrip.booked_depart.is_not(None),
+            )
+        )
+    ):
+        raise ValueError("Cancel the booking first.")
     s.execute(delete(PlannedTrip).where(PlannedTrip.tracker_id == tracker_id, PlannedTrip.year == year))
     s.flush()
     still_planned = s.scalar(
@@ -288,7 +298,8 @@ def book_trip(
         raise ValueError("the trip returns before it departs")
     if (ret - depart).days + 1 > config.MAX_BOOKED_DAYS:
         raise ValueError(f"a booked trip can be at most {config.MAX_BOOKED_DAYS} days")
-    clash = first_overlap(depart, ret, booked_trips(s, user, geo=geo), ignore_tracker=tracker_id)
+    others = [b for b in booked_trips(s, user, geo=geo) if (b.tracker_id, b.year) != (tracker_id, year)]
+    clash = first_overlap(depart, ret, others)
     if clash is not None:
         raise ValueError(f"Overlaps your booked {clash.destination} trip.")
     if pto_cost is None:
