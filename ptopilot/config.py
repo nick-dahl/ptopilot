@@ -39,7 +39,6 @@ BREAKER_THRESHOLD = 3  # consecutive failures before a live source is skipped fo
 LIVE_DELAY_S = (3.0, 8.0)  # random pause between live checks
 SOURCE_BUDGETS = {"serpapi": {"per_day": 8, "per_month": 250}}  # every attempted call counts
 SHORT_HAUL_MAX_MIN = 600  # fastest option under 10 h -> short-haul stop limit applies
-MAX_DURATION_RATIO = 1.5
 # Miserable itineraries (Plan 12): problems, and what forgives them.
 MISERY_LAYOVER_MODERATE_MIN = 300  # longest layover > 5h is moderate
 MISERY_LAYOVER_SEVERE_MIN = 540  # > 9h is severe
