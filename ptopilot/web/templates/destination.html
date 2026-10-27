@@ -44,8 +44,9 @@
       </tbody>
     </table>
     {% else %}
-    <p class="muted m-0">{% if snoozed_until %}Not watching while snoozed.{% else %}First prices after the next daily scan.{% endif %}</p>
+    <p class="muted m-0">{% if snoozed_until %}Not watching while snoozed.{% elif bookings %}Booked: no more searches for {{ bookings | map(attribute="year") | unique | sort | join(", ") }}.{% else %}First prices after the next daily scan.{% endif %}</p>
     {% endif %}
+    {% for b in bookings %}<p class="small m-0"><b>Booked {{ b.depart | dates(b.ret) }}{% if b.price is not none %} · {{ b.price | money(b.currency or "USD") }}{% endif %}</b></p>{% endfor %}
   </section>
 
   <section class="panel trend-panel">

@@ -653,3 +653,26 @@ def test_a_booked_row_has_no_remove_and_refuses_it(signed_in, clean_engine):
     with session_scope(clean_engine) as s:
         assert s.get(Tracker, booked).active is True
         assert s.scalar(select(PlannedTrip.booked_depart).where(PlannedTrip.tracker_id == booked))
+
+
+def test_a_booked_only_destination_says_booked_not_first_prices(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    tid = add_trip(clean_engine, uid, "LIS", 7)
+    book_row(clean_engine, tid, date(2027, 5, 28), date(2027, 6, 5), price=Decimal("802"))
+    dash = signed_in.get("/").text
+    assert "Booked May 28–Jun 5" in dash
+    assert "First prices after the next daily scan." not in dash
+    page = signed_in.get(f"/trackers/{tid}").text
+    assert "Booked May 28–Jun 5 · $802" in page
+    assert "Booked: no more searches for 2027." in page
+    assert "First prices after the next daily scan." not in page
+
+
+def test_the_booked_line_omits_an_unknown_price(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    tid = add_trip(clean_engine, uid, "LIS", 7)
+    book_row(clean_engine, tid, date(2027, 5, 28), date(2027, 6, 5))
+    page = signed_in.get(f"/trackers/{tid}").text
+    assert "Booked May 28–Jun 5" in page
+    assert "Booked May 28–Jun 5 ·" not in page
+

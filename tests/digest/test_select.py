@@ -212,3 +212,14 @@ def test_no_banner_without_a_planning_year(clean_engine):
     add_candidate(clean_engine, t, 650, level="none", depart=date(2027, 3, 12), ret=date(2027, 3, 21))
     _plan_years(clean_engine, user, y2030=10)  # a year with no deals in it, and not the deals' year
     assert digests(clean_engine)[0].banner is None
+
+
+def test_a_tracker_with_every_candidate_booked_has_no_deal_and_no_best_price(clean_engine):
+    user = add_user(clean_engine)
+    t = add_tracker(clean_engine, user)
+    add_candidate(clean_engine, t, 600, depart=date(2027, 3, 5), ret=date(2027, 3, 14))
+    add_candidate(clean_engine, t, 650, depart=date(2027, 3, 19), ret=date(2027, 3, 28))
+    book(clean_engine, user, t, date(2027, 3, 5), date(2027, 3, 14))
+    [d] = digests(clean_engine)
+    assert d.deals == []
+    assert d.trackers[0].best_price is None
