@@ -676,3 +676,13 @@ def test_the_booked_line_omits_an_unknown_price(signed_in, clean_engine):
     assert "Booked May 28–Jun 5" in page
     assert "Booked May 28–Jun 5 ·" not in page
 
+
+def test_a_tracker_with_an_unknown_destination_does_not_break_the_planner(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    lis = add_trip(clean_engine, uid, "LIS", 7)
+    ghost = add_trip(clean_engine, uid, "NOWHERE_XX", 7)
+    fantastic_offer(clean_engine, lis, uid, "LIS", date(2027, 5, 3), 700)
+    fantastic_offer(clean_engine, ghost, uid, "XXX", date(2027, 8, 3), 700)
+    r = signed_in.get(f"/plan/{YEAR}")
+    assert r.status_code == 200
+    assert "Lisbon" in r.text

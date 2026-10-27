@@ -86,6 +86,8 @@ def find_combinations(
         sorted(g, key=lambda leg: (-leg.pct_below, leg.price))[: config.COMBO_LEGS_PER_TRACKER]
         for _, g in sorted(by_tracker.items())
     ]
+    # The subset walk grows with the destination count; only the ones saving the most are worth walking.
+    groups = sorted(groups, key=lambda g: -max(leg.savings for leg in g))[: config.COMBO_MAX_TRACKERS]
     count = len(groups)
     if count < config.COMBO_MIN_LEGS or max_shown <= 0:
         return []

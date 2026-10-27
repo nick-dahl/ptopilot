@@ -99,3 +99,21 @@ def test_search_is_fast_enough():
     got = find_combinations(legs, [], 50)
     assert time.perf_counter() - start < 1
     assert len(got[0].legs) == 10
+
+
+def test_twenty_destinations_with_tight_pto_still_finish_fast():
+    legs = []
+    for t in range(20):
+        for k in range(5):
+            d = date(2027, 1, 1) + timedelta(days=(t * 5 + k) * 3 % 330)
+            legs.append(leg(t, d, days=7, price=700 - k, pto=3 + k % 2, cid=t * 10 + k))
+    start = time.perf_counter()
+    result = find_combinations(legs, [], 6)
+    assert time.perf_counter() - start < 1
+    assert result and all(len(c.legs) >= 2 for c in result)
+
+
+def test_only_the_destinations_with_the_biggest_savings_are_searched():
+    legs = [leg(t, date(2027, 1, 1) + timedelta(days=20 * t), price=800 - 10 * t) for t in range(14)]
+    [best, *_] = find_combinations(legs, [], 1000)
+    assert {x.tracker_id for x in best.legs} == set(range(2, 14))  # the 12 with the most saved

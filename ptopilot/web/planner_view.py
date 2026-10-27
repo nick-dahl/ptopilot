@@ -87,7 +87,13 @@ def _combinations(
     """Sets of this year's unbooked destinations whose latest offers are all fantastic and fit together."""
     if run_date is None or not trackers:
         return []
-    names = {t.id: geo.destination(t.destination_code).name for t in trackers}
+    names = {}
+    for t in trackers:
+        try:
+            names[t.id] = geo.destination(t.destination_code).name
+        except UnknownCodeError:
+            continue
+    trackers = [t for t in trackers if t.id in names]
     legs = [
         Leg(
             tracker_id=o.tracker_id,

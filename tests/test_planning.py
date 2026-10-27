@@ -425,3 +425,14 @@ def test_unplan_refuses_a_booked_trip(session):
         planning.unplan_trip(session, user, t.id, 2027, today=TODAY)
     assert t.active is True
     assert len(planning.booked_trips(session, user, geo=load_geo())) == 1
+
+
+def test_a_year_straddling_booking_blocks_the_next_years_booking_of_the_same_place(session):
+    user = make_user(session)
+    t = make_tracker(session, user)
+    planned(session, user, t, 2027)
+    planned(session, user, t, 2028)
+    geo = load_geo()
+    planning.book_trip(session, user, t.id, 2027, date(2027, 12, 28), date(2028, 1, 5), geo=geo)
+    with pytest.raises(ValueError, match=r"Overlaps your booked .+ trip\."):
+        planning.book_trip(session, user, t.id, 2028, date(2028, 1, 2), date(2028, 1, 8), geo=geo)

@@ -95,3 +95,4 @@ COMBO_MIN_PCT_BELOW = 20  # a leg must be at least this far below its typical pr
 COMBO_MIN_LEGS = 2
 COMBO_MAX_SHOWN = 3
 COMBO_LEGS_PER_TRACKER = 5  # best eligible offers per destination considered by the search
+COMBO_MAX_TRACKERS = 12  # destinations searched: those whose best eligible offer saves the most
