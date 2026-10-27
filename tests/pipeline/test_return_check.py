@@ -47,7 +47,7 @@ class FakeSource:
         return ExactResult(self.name, query, query.currency, self.options, "")
 
 
-def run(sources, pct_below=None, confident=False, from_airport="NRT"):
+def run(sources, price=1000.0, median=None, confident=False, from_airport="NRT"):
     return check_return(
         sources,
         home="ORD",
@@ -56,7 +56,8 @@ def run(sources, pct_below=None, confident=False, from_airport="NRT"):
         destination=TOKYO,
         geo=GEO,
         catalog=CATALOG,
-        pct_below=pct_below,
+        price=price,
+        typical_median=median,
         confident=confident,
     )
 
@@ -81,8 +82,13 @@ def test_return_fails_with_the_cheapest_options_reason():
 def test_return_uses_the_round_trip_discount_to_forgive():
     moderate = option(900, 800, 330, "MAD")
     assert run([FakeSource("google_flights", [moderate])]) == ("fail", "5h 30m layover in Madrid")
-    assert run([FakeSource("google_flights", [moderate])], pct_below=45, confident=True) == ("pass", None)
-    assert run([FakeSource("google_flights", [moderate])], pct_below=45, confident=False)[0] == "fail"
+    assert run([FakeSource("google_flights", [moderate])], price=550, median=1000, confident=True) == (
+        "pass",
+        None,
+    )
+    assert (
+        run([FakeSource("google_flights", [moderate])], price=550, median=1000, confident=False)[0] == "fail"
+    )
 
 
 def test_return_is_unknown_when_sources_fail():
@@ -120,3 +126,20 @@ def test_first_source_with_options_decides():
     second = FakeSource("serpapi", [option(900, 800)])
     run([first, second])
     assert second.seen == []
+
+
+def test_forgiveness_is_judged_on_the_exact_price_not_a_rounded_discount():
+    moderate = option(900, 800, 330, "MAD")
+
+    def verdict(price):
+        return run([FakeSource("google_flights", [moderate])], price=price, median=100.0, confident=True)[0]
+
+    assert verdict(60.0) == "pass"
+    assert verdict(60.4) == "fail"  # 39.6% below rounds to 40, but is not 40% below
+
+
+def test_an_unconfident_baseline_never_forgives():
+    moderate = option(900, 800, 330, "MAD")
+    assert (
+        run([FakeSource("google_flights", [moderate])], price=10, median=100.0, confident=False)[0] == "fail"
+    )

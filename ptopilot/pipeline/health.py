@@ -99,14 +99,22 @@ def build_report(ctx: RunContext, results: Sequence[StageResult]) -> tuple[str, 
             dict(
                 s.execute(
                     select(Candidate.deal_level, func.count())
-                    .where(Candidate.run_date == ctx.run_date)
+                    .where(Candidate.run_date == ctx.run_date, Candidate.verdict != "ruled_out")
                     .group_by(Candidate.deal_level)
                 ).all()
             )
         )
+        verdicts = dict(
+            s.execute(
+                select(Candidate.verdict, func.count())
+                .where(Candidate.run_date == ctx.run_date)
+                .group_by(Candidate.verdict)
+            ).all()
+        )
         lines += [
             "",
-            f"Candidates: great={deals['great']} good={deals['good']} none={deals['none']}",
+            f"Candidates: great={deals['great']} good={deals['good']} none={deals['none']}"
+            f" ruled_out={verdicts.get('ruled_out', 0)}",
             "",
             *audit_lines(s, ctx.run_date),
             "",

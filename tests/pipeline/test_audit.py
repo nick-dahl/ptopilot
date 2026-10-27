@@ -3,11 +3,14 @@
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
-from ptopilot.db.models import PriceObservation
+from sqlalchemy import select
+
+from ptopilot.db.models import Candidate, PriceObservation, RouteQuery, Tracker
 from ptopilot.db.session import session_scope
+from ptopilot.pipeline import expand
 from ptopilot.pipeline.health import audit_lines, build_report
 from ptopilot.pipeline.runner import StageResult
-from tests.pipeline.conftest import RUN
+from tests.pipeline.conftest import RUN, add_tracker, add_user
 
 TRIP = ("JFK", "PDL", date(2027, 3, 5), date(2027, 3, 14))
 OTHER = ("JFK", "FNC", date(2027, 3, 12), date(2027, 3, 21))
@@ -77,3 +80,23 @@ def test_the_health_report_includes_the_audit(make_ctx):
     priced(ctx.engine, TRIP, "serpapi", 603)
     _, text = build_report(ctx, [StageResult("live_verify", "ok", {"google_flights_ok": 1})])
     assert "Audit (fast-flights vs SerpApi, today): 1 trips, cheaper 0, equal 0, pricier 1" in text
+
+
+def test_the_health_report_counts_ruled_out_trips_apart(make_ctx):
+    ctx = make_ctx()
+    tracker_id = add_tracker(ctx.engine, add_user(ctx.engine))
+    expand.run(ctx)
+    with session_scope(ctx.engine) as s:
+        tracker = s.get(Tracker, tracker_id)
+        rqs = list(s.scalars(select(RouteQuery).limit(3)))
+        kinds = (("ruled_out", "none"), ("ok", "none"), ("ok", "good"))
+        for (verdict, level), rq in zip(kinds, rqs, strict=True):
+            s.add(
+                Candidate(
+                    user_id=tracker.user_id, tracker_id=tracker_id, route_query_id=rq.id, run_date=RUN,
+                    price=Decimal(500), currency="USD", deal_level=level, go_now=0,
+                    confidence="low", verified=False, verdict=verdict,
+                )
+            )  # fmt: skip
+    _, text = build_report(ctx, [])
+    assert "Candidates: great=0 good=1 none=1 ruled_out=1" in text

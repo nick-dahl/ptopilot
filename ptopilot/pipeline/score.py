@@ -170,6 +170,9 @@ def run(ctx: RunContext) -> dict[str, int]:
                     misery_note=assessment.note,
                 )
             )
+            if ruled_out:
+                counts["ruled_out"] += 1
+                continue
             counts["candidates"] += 1
             counts["verified" if is_verified else "unverified"] += 1
             if z is not None:

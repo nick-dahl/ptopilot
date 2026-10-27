@@ -23,13 +23,15 @@ def check_return(
     destination: Destination,
     geo: Geo,
     catalog: AirportCatalog,
-    pct_below: int | None,
+    price: float,
+    typical_median: float | None,
     confident: bool,
 ) -> tuple[ReturnVerdict, str | None]:
     """Search `from_airport -> home` one-way on `depart` and judge every option.
 
-    Sources are tried in order, one search each; the first that returns options decides. `pct_below` and
-    `confident` come from the alert's round-trip price and forgive one moderate problem as usual.
+    Sources are tried in order, one search each; the first that returns options decides. `price`,
+    `typical_median` and `confident` come from the alert's round-trip fare and forgive one moderate
+    problem as usual.
     Returns ("unknown", None) when no source produced options.
     """
     query = ExactQuery(from_airport, home, depart, depart, one_way=True)
@@ -46,10 +48,6 @@ def check_return(
 
     fastest = min((o.duration_min for o in options if o.duration_min), default=None)
     ground = geo.ground_minutes(destination, from_airport)
-    # assess() judges by price against a median; a round-trip discount of pct_below is the same as
-    # a price of (100 - pct_below) against a median of 100.
-    median = 100.0 if pct_below is not None else None
-    price = 100.0 - (pct_below or 0)
     judged = []
     for o in sorted(options, key=lambda o: o.price):
         layover = catalog.get(o.longest_layover_airport) if o.longest_layover_airport else None
@@ -61,7 +59,7 @@ def check_return(
             ground_min=ground,
             destination_name=destination.name,
         )
-        a = assess(found, price=price, typical_median=median, typical_confident=confident)
+        a = assess(found, price=price, typical_median=typical_median, typical_confident=confident)
         if a.verdict != "ruled_out":
             return "pass", None
         judged.append(a)

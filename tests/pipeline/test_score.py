@@ -192,7 +192,7 @@ def test_a_trip_with_only_miserable_options_is_recorded_ruled_out(make_ctx):
     c = candidates(ctx.engine)[TRIP]
     assert (c.verdict, c.price, c.deal_level, c.go_now) == ("ruled_out", 700, "none", 0)
     assert c.misery_note == "10h layover in Madrid"
-    assert counts["candidates"] == 1
+    assert counts["ruled_out"] == 1 and "candidates" not in counts
 
 
 def test_the_miserable_cheaper_option_is_skipped_for_an_acceptable_one(make_ctx):
@@ -245,3 +245,19 @@ def test_a_slow_option_without_a_deep_discount_is_ruled_out(make_ctx):
     score.run(ctx)
     c = candidates(ctx.engine)[TRIP]
     assert (c.verdict, c.price, c.deal_level, c.go_now) == ("ruled_out", 800, "none", 0)
+
+
+def test_ruled_out_trips_are_counted_apart_from_candidates(make_ctx):
+    ctx = setup(make_ctx)
+    baseline(ctx.engine)
+    add_observation(
+        ctx.engine, *TRIP, 700, observed=RUN, verified=True, stops=1, duration_min=780,
+        longest_layover_min=600, longest_layover_airport="MAD",
+    )  # fmt: skip
+    add_observation(
+        ctx.engine, date(2027, 6, 11), date(2027, 6, 20), 800, observed=RUN, verified=True, stops=1,
+        duration_min=780,
+    )  # fmt: skip
+    counts = score.run(ctx)
+    assert counts["candidates"] == 1 and counts["ruled_out"] == 1
+    assert counts["verified"] == 1
