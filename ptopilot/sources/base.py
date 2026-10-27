@@ -46,6 +46,8 @@ class ExactQuery:
     return_date: date
     currency: str = "USD"
     return_from: str | None = None  # fly home from; None means dest_airport (a plain round trip)
+    # Price only origin -> dest_airport on depart_date; return_date is then ignored (pass depart_date)
+    one_way: bool = False
 
     @property
     def open_jaw(self) -> bool:

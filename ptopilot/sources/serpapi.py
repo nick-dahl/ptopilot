@@ -134,7 +134,14 @@ class SerpApiSource:
             "hl": "en",
             "api_key": self._key,
         }
-        if query.open_jaw:
+        if query.one_way:
+            params |= {
+                "type": 2,
+                "departure_id": query.origin,
+                "arrival_id": query.dest_airport,
+                "outbound_date": query.depart_date.isoformat(),
+            }
+        elif query.open_jaw:
             legs = [
                 {
                     "departure_id": query.origin,

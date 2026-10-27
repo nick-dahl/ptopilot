@@ -140,3 +140,35 @@ def test_google_flights_tolerates_missing_layover_fields():
     r.flights[2].to_airport = None
     option = parse_flights([r])[0]
     assert option.longest_layover_min == 420 and option.longest_layover_airport is None
+
+
+def test_one_way_queries_reach_the_sources():
+    seen = []
+
+    def search(q):
+        seen.append(q)
+        return recorded(), "https://example.test"
+
+    one_way = ExactQuery("ORD", "LIS", date(2027, 6, 11), date(2027, 6, 11), one_way=True)
+    GoogleFlightsSource(search=search).exact_search(one_way)
+    assert seen[0].one_way is True
+
+
+def test_default_search_builds_one_leg_for_one_way(monkeypatch):
+    import fast_flights
+    import fast_flights.fetcher as fetcher
+
+    built = {}
+
+    def fake_create_query(**kw):
+        built.update(kw)
+        raise RuntimeError("stop")
+
+    monkeypatch.setattr(fast_flights, "create_query", fake_create_query)
+    monkeypatch.setattr(fetcher, "fetch_flights_html", lambda q: "")
+    from ptopilot.sources.google_flights import _default_search
+
+    with pytest.raises(RuntimeError, match="stop"):
+        _default_search(ExactQuery("ORD", "LIS", date(2027, 6, 11), date(2027, 6, 11), one_way=True))
+    assert built["trip"] == "one-way"
+    assert len(built["flights"]) == 1

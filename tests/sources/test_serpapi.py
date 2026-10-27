@@ -159,3 +159,17 @@ def test_sources_tolerate_missing_layover_fields():
     junk["layovers"] = [{"duration": "long", "id": "EWR"}, "x", {"id": "EWR"}]
     option = parse_google_flights({"best_flights": [junk]}, QUERY).options[0]
     assert option.longest_layover_min == 90  # junk layovers ignored, legs used instead
+
+
+def test_one_way_queries_reach_the_sources():
+    seen = []
+    one_way = ExactQuery("ORD", "LIS", date(2027, 6, 11), date(2027, 6, 11), one_way=True)
+    source_returning(body=FIXTURE, seen=seen).exact_search(one_way)
+    params = dict(seen[0].url.params)
+    assert params["type"] == "2"
+    assert (params["departure_id"], params["arrival_id"], params["outbound_date"]) == (
+        "ORD",
+        "LIS",
+        "2027-06-11",
+    )
+    assert "return_date" not in params

@@ -44,6 +44,7 @@
 3. **Departure is sooner than the typical dip length** → the duration is capped at the days left. *Task 2: `test_duration_is_capped_by_days_to_departure`.*
 4. **Two standout offers for the same user on the same day, or a standout for a destination alerted 5 days ago** → one alert (the best go-now), and none for the recently alerted destination. *Task 4: `test_one_alert_a_day_picks_the_best`, `test_same_destination_waits_a_week`.*
 5. **The scan is re-run the same day** → no second alert. *Task 4: `test_a_rerun_does_not_resend`.*
+6. **The return check fails, so the next standout is tried** → the failed offer is skipped without using the day's alert slot, and at most `RETURN_CHECKS_PER_DAY` checks run a day. *Task 4: `test_a_failed_return_tries_the_next_standout`, `test_return_checks_are_capped`.*
 
 ---
 
@@ -178,9 +179,9 @@ def test_site_shows_duration_and_the_standout_tag(client, ...): ...  # dashboard
 - Test: `tests/pipeline/test_alerts.py`.
 
 **Interfaces:**
-- Consumes: Task 3 `is_standout`; `digest.select.build_digests(..., min_level="great", skip_sent=False)`, filtered to standout deals, or an equivalent query; `digest.render` helpers; `links.action_links`; `ctx.emailer`; `config.SOURCE_BUDGETS` untouched.
+- Consumes: Task 3 `is_standout`; `pipeline.return_check.check_return` and `config.RETURN_CHECKS_PER_DAY` (from the skip-miserable-flights plan); `digest.select.build_digests(..., min_level="great", skip_sent=False)`, filtered to standout deals, or an equivalent query; `digest.render` helpers; `links.action_links`; `ctx.emailer`; `config.SOURCE_BUDGETS` untouched.
 - Produces:
-  - `alerts.run(ctx) -> dict[str, int]` with counts `standout`, `sent`, `held_daily_cap`, `held_same_destination`, `would_send` (dry run).
+  - `alerts.run(ctx) -> dict[str, int]` with counts `standout`, `sent`, `held_daily_cap`, `held_same_destination`, `return_checks`, `return_failed`, `would_send` (dry run).
   - `render_alert(card: DealCard, links) -> (subject, html, text)` in `ptopilot/digest/render.py`.
 
 - [ ] **Step 1: Write the failing tests** (a capturing fake emailer in `ctx`):
@@ -195,8 +196,16 @@ def test_ordinary_great_deals_are_not_alerted(make_ctx): ... # go-now 80 or expe
 def test_dry_run_sends_nothing(make_ctx): ...               # ctx.dry_run → would_send 1, no email, no AlertSend
 def test_alerted_offers_still_appear_in_the_next_digest(clean_engine): ...  # build_digests keeps it; not held back as sent
 def test_alerts_stage_runs_last(): assert list(runner.STAGES)[-1] == "alerts"
+def test_a_failed_return_tries_the_next_standout(make_ctx): ...  # fake check_return: "fail" for the best, "pass" for the next → the next is emailed; AlertSend is for it; return_failed 1
+def test_an_unknown_return_still_sends(make_ctx): ...           # check_return → ("unknown", None) → emailed as before
+def test_return_checks_are_capped(make_ctx): ...                # four standouts, all "fail" → exactly RETURN_CHECKS_PER_DAY checks, nothing sent, no AlertSend
+def test_dry_run_lists_return_verdicts(make_ctx): ...           # ctx.dry_run → the would-send list carries each checked offer's verdict; still no email
 ```
 - [ ] **Step 2: Run them** (they fail). **Step 3: Implement.**
+  - Before sending, call `check_return` for the chosen candidate: `home` is the user's home airport, `from_airport` is the airport the return departs, `depart` is the return date, and `pct_below` and `confident` come from the offer's baseline.
+  - On `"fail"`, skip the offer without using the day's alert slot, and try the next standout. Run at most `RETURN_CHECKS_PER_DAY` checks a day; count them in `return_checks` and the failures in `return_failed`.
+  - On `"unknown"`, send as before.
+  - In a dry run, list each checked offer's return verdict in the would-send output.
   - Emails go only to users who have active trackers.
   - Email addresses never appear in logs. Keep the digest's scrubbing pattern.
 - [ ] **Step 4: Run the tests**, the full suite and ruff.

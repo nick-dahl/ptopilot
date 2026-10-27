@@ -103,16 +103,20 @@ def _default_search(query: ExactQuery) -> tuple[Sequence[Any], str]:
     from fast_flights.fetcher import fetch_flights_html
     from selectolax.lexbor import LexborHTMLParser
 
-    q = create_query(
-        flights=[
-            FlightQuery(
-                date=query.depart_date.isoformat(), from_airport=query.origin, to_airport=query.dest_airport
-            ),
+    legs = [
+        FlightQuery(
+            date=query.depart_date.isoformat(), from_airport=query.origin, to_airport=query.dest_airport
+        )
+    ]
+    if not query.one_way:
+        legs.append(
             FlightQuery(
                 date=query.return_date.isoformat(), from_airport=query.dest_airport, to_airport=query.origin
-            ),
-        ],
-        trip="round-trip",
+            )
+        )
+    q = create_query(
+        flights=legs,
+        trip="one-way" if query.one_way else "round-trip",
         seat="economy",
         passengers=Passengers(adults=1),
         language="en-US",

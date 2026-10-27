@@ -4,12 +4,12 @@ V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](do
 
 ## 1. Queued work, in order
 
-- [ ] **Plan 12: skip miserable flights.** Design: `docs/superpowers/specs/2026-10-26-ptopilot-skip-miserable-flights-design.md` (awaiting approval). Filter out itineraries with very long layovers, needlessly long total travel, or a landing far from the destination. One severe problem, or several moderate ones, rules an itinerary out; a fare about 40% below typical earns some leeway.
 - [ ] **Plan 13: buy now or wait.** Written and approved: `docs/superpowers/plans/2026-10-25-ptopilot-plan-12-buy-now-or-wait.md`. It covers:
   - a stricter go-now score;
   - "likely gone within ~N days";
   - standout deals;
-  - instant alerts (at most one a day, the same destination at most once a week).
+  - instant alerts (at most one a day, the same destination at most once a week);
+  - a return-flight check before each alert, so a standout with a miserable way home is skipped and the next one tried (`ptopilot/pipeline/return_check.py`, built in Plan 12).
 - [ ] **Plan 14: related destinations.** The design is approved (`docs/superpowers/specs/2026-10-25-ptopilot-related-destinations-design.md`); the plan is still to write. It covers:
   - nearby airports within 65 km (under an hour on the ground);
   - curated groups of major tourist destinations;
@@ -139,6 +139,7 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
 
 ## Done
 
+- [x] **Skip miserable flights:** itineraries with very long layovers, needlessly long journeys or a landing far from the destination are ruled out (greyed on the destination page), unless a fare about 40% below typical forgives one moderate problem. Includes a one-way return-flight check for instant alerts (Plan 12; spec `docs/superpowers/specs/2026-10-26-ptopilot-skip-miserable-flights-design.md`).
 - [x] **Your own destinations:** search, add and remove on the website (Plan 9).
 - [x] **Year-plan view:**
   - planning years, the planner page, drag calendar and "Start planning" (Plan 10);
