@@ -4,7 +4,7 @@ V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](do
 
 ## 1. Queued work, in order
 
-- [ ] **Plan 11: booking, fit warnings, combinations, email banner.** In progress. Plan: `docs/superpowers/plans/2026-10-25-ptopilot-plan-11-booking-and-fit.md`. It finishes the year-plan view below.
+- [ ] **Skip miserable flights.** Being designed (2026-10-26). Filter out itineraries with very long layovers, needlessly long total travel, or a landing far from the destination. One severe problem, or several moderate ones, rules an itinerary out; a fare about 40% below typical earns some leeway.
 - [ ] **Plan 12: buy now or wait.** Written and approved: `docs/superpowers/plans/2026-10-25-ptopilot-plan-12-buy-now-or-wait.md`. It covers:
   - a stricter go-now score;
   - "likely gone within ~N days";
@@ -71,10 +71,28 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
 - [ ] **"Building price history" clears too early:** a reliable baseline for any month counts, including past ones.
 - [ ] **Planner estimates count range days already past,** so mid-year they can be lower than what's still bookable.
 
-**Booking (Plan 11 so far)**
+**Booking, fit notes, combinations and banner (Plan 11)**
 - [ ] **Booking data checks:**
   - a caller-supplied PTO cost isn't checked for negative values;
-  - two bookings saved at the same moment could both pass the overlap check.
+  - two bookings saved at the same moment could both pass the overlap check (revisit before inviting friends).
+- [ ] **Booked days on the calendar:**
+  - a booked holiday's tooltip drops the holiday name;
+  - a day that is both booked and open flashes during a drag-close.
+- [ ] **Booking and fit-note details:**
+  - fit notes also show on dimmed (snoozed or excluded) deal rows;
+  - a signed-out "I booked this" gives a 404 rather than a sign-in redirect;
+  - "Start planning" lists last year's booked destinations unchecked, rather than leaving them out.
+- [ ] **Combination search:**
+  - it is capped at 12 destinations;
+  - with mixed currencies, the savings line would use the first leg's;
+  - a confidence field defaults to "normal", so a missed constructor could let a low-confidence offer in;
+  - the pruning has no randomized regression test.
+- [ ] **Totals:**
+  - year totals are recomputed (with estimates) on every dashboard load and digest build, with no caching;
+  - in the text email, the banner comes before the "ptopilot · date" line.
+- [ ] **Test tidiness:**
+  - several loose or after-the-fact tests (dashboard bar numbers, the banner year test, test_plan_totals);
+  - the `pto_bar` macro mixes new and old parameters.
 
 **Destinations and search**
 - [ ] **Same-city airports are listed alphabetically,** e.g. Rome's Ciampino before Fiumicino.
@@ -122,7 +140,9 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
 ## Done
 
 - [x] **Your own destinations:** search, add and remove on the website (Plan 9).
-- [x] **Year-plan view, part 1:** planning years, the planner page, drag calendar, "Start planning" (Plan 10). Part 2 is Plan 11.
+- [x] **Year-plan view:**
+  - planning years, the planner page, drag calendar and "Start planning" (Plan 10);
+  - "I booked this", fit warnings on deals, "fantastic on every leg" combinations, and the email banner with booked, planned and left PTO (Plan 11).
 - [x] **Open-jaw itineraries:** fly into one city and home from another (Plan 4: Camino Portugués, Porto → Santiago, priced through SerpApi).
 - [x] **Digest visual polish, and web app look and feel** (Plan 7; spec `docs/superpowers/specs/2026-10-17-ptopilot-v2-look-and-feel-design.md`).
 - [x] **Preferred trip length:** `ideal_trip_days` steers which trips are priced and adds a go-now bonus (Plan 7).
