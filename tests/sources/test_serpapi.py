@@ -122,3 +122,40 @@ def test_open_jaw_is_sent_as_a_multi_city_search():
 
 def test_declares_open_jaw_support():
     assert SerpApiSource.supports_open_jaw is True
+
+
+def test_serpapi_records_the_longest_layover():
+    item = json.loads(json.dumps(FIXTURE["best_flights"][0]))
+    item["layovers"] = [
+        {"duration": 90, "name": "Newark", "id": "EWR"},
+        {"duration": 450, "name": "Madrid", "id": "MAD"},
+    ]
+    result = parse_google_flights({"best_flights": [item]}, QUERY)
+    assert result.options[0].longest_layover_min == 450
+    assert result.options[0].longest_layover_airport == "MAD"
+    first = parse_google_flights(FIXTURE, QUERY).options[0]
+    assert (first.longest_layover_min, first.longest_layover_airport) == (90, "EWR")
+
+
+def test_sources_tolerate_missing_layover_fields():
+    nonstop = json.loads(json.dumps(FIXTURE["best_flights"][0]))
+    nonstop["flights"] = nonstop["flights"][:1]
+    nonstop.pop("layovers")
+    option = parse_google_flights({"best_flights": [nonstop]}, QUERY).options[0]
+    assert (option.longest_layover_min, option.longest_layover_airport) == (None, None)
+
+    no_layovers = json.loads(json.dumps(FIXTURE["best_flights"][0]))
+    no_layovers.pop("layovers")  # EWR 21:30 -> 23:00
+    option = parse_google_flights({"best_flights": [no_layovers]}, QUERY).options[0]
+    assert (option.longest_layover_min, option.longest_layover_airport) == (90, "EWR")
+
+    malformed = json.loads(json.dumps(FIXTURE["best_flights"][0]))
+    malformed.pop("layovers")
+    malformed["flights"][1]["departure_airport"]["time"] = "soon"
+    option = parse_google_flights({"best_flights": [malformed]}, QUERY).options[0]
+    assert (option.longest_layover_min, option.longest_layover_airport) == (None, None)
+
+    junk = json.loads(json.dumps(FIXTURE["best_flights"][0]))
+    junk["layovers"] = [{"duration": "long", "id": "EWR"}, "x", {"id": "EWR"}]
+    option = parse_google_flights({"best_flights": [junk]}, QUERY).options[0]
+    assert option.longest_layover_min == 90  # junk layovers ignored, legs used instead

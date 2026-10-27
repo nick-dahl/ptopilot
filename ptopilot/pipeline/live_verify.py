@@ -102,6 +102,8 @@ def store_options(ctx: RunContext, rq: RouteQuery, result: ExactResult) -> int:
                     outbound_departure=o.outbound_departure,
                     flight_numbers=list(o.flight_numbers),
                     overnight_layover=o.overnight_layover,
+                    longest_layover_min=o.longest_layover_min,
+                    longest_layover_airport=o.longest_layover_airport,
                     deep_link=result.deep_link,
                     verified=True,
                     observed_at=ctx.stamp(),

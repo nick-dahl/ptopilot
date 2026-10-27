@@ -63,6 +63,9 @@ class FlightOption:
     outbound_departure: datetime  # local time at origin
     flight_numbers: tuple[str, ...] = ()
     overnight_layover: bool = False
+    # Longest single connection on the outbound journey and where it is; None for a nonstop or unknown
+    longest_layover_min: int | None = None
+    longest_layover_airport: str | None = None
 
 
 @dataclass(frozen=True)

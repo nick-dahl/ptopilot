@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -125,3 +126,11 @@ def test_daily_budget_holds_across_reruns(make_ctx, monkeypatch):
         live_verify.run(ctx)  # retry the same day: the remaining routes find no budget left
     assert len(fallback.calls) == 2
     assert budget_used(ctx.engine, "serpapi") == 2
+
+
+def test_live_verify_stores_layover_fields(make_ctx):
+    opt = replace(option(700), longest_layover_min=420, longest_layover_airport="MAD")
+    ctx = shortlisted(make_ctx, live_sources=[FakeLiveSource("google_flights", answering(opt, option(650)))])
+    live_verify.run(ctx)
+    rows = verified(ctx.engine)
+    assert {(r.longest_layover_min, r.longest_layover_airport) for r in rows} == {(420, "MAD"), (None, None)}

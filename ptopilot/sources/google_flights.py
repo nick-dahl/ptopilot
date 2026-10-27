@@ -42,6 +42,12 @@ def _dt(simple: Any) -> datetime:
     return datetime(y, m, d, hh, mm)
 
 
+def _airport_code(segment: Any) -> str | None:
+    """IATA code of the airport a segment lands at, or None when the library gave no usable one."""
+    code = getattr(getattr(segment, "to_airport", None), "code", None)
+    return code if isinstance(code, str) and len(code) == 3 else None
+
+
 def parse_flights(results: Sequence[Any]) -> tuple[FlightOption, ...]:
     """Map fast-flights `Flights` objects (outbound legs of round trips) to FlightOptions."""
     options: list[FlightOption] = []
@@ -51,9 +57,13 @@ def parse_flights(results: Sequence[Any]) -> tuple[FlightOption, ...]:
             continue
         layover_min = 0
         overnight = False
+        longest: tuple[int, str | None] | None = None
         for prev, nxt in zip(segments, segments[1:], strict=False):
             arrive, leave = _dt(prev.arrival), _dt(nxt.departure)
-            layover_min += int((leave - arrive).total_seconds() // 60)
+            gap = int((leave - arrive).total_seconds() // 60)
+            layover_min += gap
+            if longest is None or gap > longest[0]:
+                longest = (gap, _airport_code(prev))
             overnight = overnight or leave.date() != arrive.date()
         options.append(
             FlightOption(
@@ -64,6 +74,8 @@ def parse_flights(results: Sequence[Any]) -> tuple[FlightOption, ...]:
                 outbound_departure=_dt(segments[0].departure),
                 flight_numbers=(),
                 overnight_layover=overnight,
+                longest_layover_min=longest[0] if longest else None,
+                longest_layover_airport=longest[1] if longest else None,
             )
         )
     return tuple(options)

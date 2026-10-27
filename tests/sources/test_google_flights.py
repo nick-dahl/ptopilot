@@ -97,3 +97,46 @@ def test_refuses_open_jaw_queries():
     open_jaw = ExactQuery("JFK", "OPO", date(2027, 3, 6), date(2027, 3, 21), return_from="SCQ")
     with pytest.raises(ValueError, match="open-jaw"):
         GoogleFlightsSource(search=lambda q: ([], "u")).exact_search(open_jaw)
+
+
+def three_segment_result(gap1_leave=(2027, 6, 12, 12, 0), gap2_leave=(2027, 6, 12, 22, 0)):
+    """ORD -> AAA (lands 06:00) -> BBB (leaves 08:00, 2h; lands 10:00) -> LIS (leaves 17:00, 7h)."""
+
+    def seg(frm, to, dep, arr, duration):
+        return SimpleNamespace(
+            from_airport=SimpleNamespace(code=frm),
+            to_airport=SimpleNamespace(code=to),
+            departure=SimpleNamespace(date=list(dep[:3]), time=list(dep[3:])),
+            arrival=SimpleNamespace(date=list(arr[:3]), time=list(arr[3:])),
+            duration=duration,
+        )
+
+    return SimpleNamespace(
+        price=900,
+        airlines=["X"],
+        flights=[
+            seg("ORD", "AAA", (2027, 6, 11, 20, 0), (2027, 6, 12, 6, 0), 600),
+            seg("AAA", "BBB", (2027, 6, 12, 8, 0), (2027, 6, 12, 10, 0), 120),
+            seg("BBB", "LIS", (2027, 6, 12, 17, 0), (2027, 6, 12, 20, 0), 180),
+        ],
+    )
+
+
+def test_google_flights_records_the_longest_layover():
+    option = parse_flights([three_segment_result()])[0]
+    assert option.longest_layover_min == 420
+    assert option.longest_layover_airport == "BBB"
+    assert parse_flights(recorded())[0].longest_layover_min == 400
+    assert parse_flights(recorded())[0].longest_layover_airport == "ZRH"
+
+
+def test_google_flights_tolerates_missing_layover_fields():
+    nonstop = recorded()[0]
+    nonstop.flights = nonstop.flights[:1]
+    option = parse_flights([nonstop])[0]
+    assert (option.longest_layover_min, option.longest_layover_airport) == (None, None)
+    r = three_segment_result()
+    del r.flights[1].to_airport  # an airport the library didn't name
+    r.flights[2].to_airport = None
+    option = parse_flights([r])[0]
+    assert option.longest_layover_min == 420 and option.longest_layover_airport is None

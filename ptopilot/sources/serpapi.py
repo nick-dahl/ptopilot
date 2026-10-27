@@ -13,6 +13,34 @@ API_URL = "https://serpapi.com/search.json"
 TIMEOUT_S = 60
 
 
+def _airport_id(value: object) -> str | None:
+    return value if isinstance(value, str) and len(value) == 3 else None
+
+
+def _longest_layover(legs: list, layovers: object) -> tuple[int | None, str | None]:
+    """Longest single connection, from SerpApi's `layovers` or, failing that, the gaps between legs.
+    Never raises: anything unreadable yields (None, None)."""
+    best: tuple[int, str | None] | None = None
+    for lay in layovers if isinstance(layovers, list) else []:
+        minutes = lay.get("duration") if isinstance(lay, dict) else None
+        if isinstance(minutes, bool) or not isinstance(minutes, int | float) or minutes < 0:
+            continue
+        if best is None or minutes > best[0]:
+            best = (int(minutes), _airport_id(lay.get("id")))
+    if best is None:
+        for prev, nxt in zip(legs, legs[1:], strict=False):
+            try:
+                arrive = datetime.strptime(prev["arrival_airport"]["time"], "%Y-%m-%d %H:%M")
+                leave = datetime.strptime(nxt["departure_airport"]["time"], "%Y-%m-%d %H:%M")
+                airport = _airport_id(prev["arrival_airport"].get("id"))
+            except (KeyError, TypeError, ValueError, AttributeError):
+                continue
+            gap = int((leave - arrive).total_seconds() // 60)
+            if gap >= 0 and (best is None or gap > best[0]):
+                best = (gap, airport)
+    return best if best else (None, None)
+
+
 def _option(item: dict) -> FlightOption | None:
     legs = item.get("flights") or []
     price = item.get("price")
@@ -22,6 +50,7 @@ def _option(item: dict) -> FlightOption | None:
     for leg in legs:
         if leg.get("airline") and leg["airline"] not in airlines:
             airlines.append(leg["airline"])
+    longest_min, longest_airport = _longest_layover(legs, item.get("layovers"))
     return FlightOption(
         price=float(price),
         carrier=", ".join(airlines),
@@ -29,7 +58,11 @@ def _option(item: dict) -> FlightOption | None:
         duration_min=int(item.get("total_duration") or sum(leg.get("duration", 0) for leg in legs)),
         outbound_departure=datetime.strptime(legs[0]["departure_airport"]["time"], "%Y-%m-%d %H:%M"),
         flight_numbers=tuple(leg["flight_number"] for leg in legs if leg.get("flight_number")),
-        overnight_layover=any(lay.get("overnight") for lay in item.get("layovers") or []),
+        overnight_layover=any(
+            isinstance(lay, dict) and lay.get("overnight") for lay in item.get("layovers") or []
+        ),
+        longest_layover_min=longest_min,
+        longest_layover_airport=longest_airport,
     )
 
 

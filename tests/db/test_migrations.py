@@ -143,3 +143,40 @@ def test_migration_adds_booked_columns_and_constraints(engine):
     finally:
         with engine.begin() as conn:
             conn.execute(text("TRUNCATE users RESTART IDENTITY CASCADE"))
+
+
+def test_migration_0009_adds_columns(engine):
+    obs = {c["name"] for c in inspect(engine).get_columns("price_observations")}
+    assert {"longest_layover_min", "longest_layover_airport"} <= obs
+    cands = {c["name"]: c for c in inspect(engine).get_columns("candidates")}
+    assert {"verdict", "misery_note"} <= set(cands)
+    assert "ok" in str(cands["verdict"]["default"])
+    with engine.begin() as conn:
+        conn.execute(text("TRUNCATE users RESTART IDENTITY CASCADE"))
+        user_id = _insert_user_with_trackers(conn, [], [("TH", True)])
+        tracker_id = conn.execute(text("SELECT id FROM trackers")).scalar_one()
+        rq = conn.execute(
+            text(
+                "INSERT INTO route_queries (origin, dest_airport, return_airport, depart_date, return_date)"
+                " VALUES ('JFK', 'LIS', 'LIS', '2027-06-01', '2027-06-08') RETURNING id"
+            )
+        ).scalar_one()
+    insert = (
+        "INSERT INTO candidates (user_id, tracker_id, route_query_id, run_date, price, currency,"
+        " deal_level, go_now, confidence, verified{col}) VALUES (:u, :t, :q, '2027-03-01', 500, 'USD',"
+        " 'none', 0, 'normal', true{val}) RETURNING verdict"
+    )
+    params = {"u": user_id, "t": tracker_id, "q": rq}
+    try:
+        with engine.begin() as conn:
+            assert conn.execute(text(insert.format(col="", val="")), params).scalar_one() == "ok"
+        with pytest.raises(IntegrityError, match="verdict"):
+            with engine.begin() as conn:
+                conn.execute(text(insert.format(col=", verdict", val=", 'meh'")), params)
+        with engine.begin() as conn:
+            conn.execute(
+                text(insert.format(col=", verdict, evening_departure", val=", 'ruled_out', true")), params
+            )
+    finally:
+        with engine.begin() as conn:
+            conn.execute(text("TRUNCATE users RESTART IDENTITY CASCADE"))

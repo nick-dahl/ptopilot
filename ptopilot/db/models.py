@@ -278,6 +278,8 @@ class PriceObservation(Base):
     outbound_departure: Mapped[datetime | None] = mapped_column(DateTime(timezone=False))
     flight_numbers: Mapped[list[str]] = mapped_column(ARRAY(String(16)), server_default="{}")
     overnight_layover: Mapped[bool | None]
+    longest_layover_min: Mapped[int | None] = mapped_column(SmallInteger)
+    longest_layover_airport: Mapped[str | None] = mapped_column(String(3))
     deep_link: Mapped[str | None] = mapped_column(Text)
     verified: Mapped[bool] = mapped_column(server_default="false")
     typical_low: Mapped[Decimal | None] = mapped_column(
@@ -343,6 +345,7 @@ class Candidate(Base):
         UniqueConstraint("tracker_id", "route_query_id", "run_date", "evening_departure"),
         CheckConstraint("deal_level IN ('none', 'good', 'great')", name="deal_level"),
         CheckConstraint("state IN ('new', 'sent', 'snoozed', 'excluded')", name="state"),
+        CheckConstraint("verdict IN ('ok', 'forgiven', 'ruled_out')", name="verdict"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -362,6 +365,8 @@ class Candidate(Base):
     confidence: Mapped[str] = mapped_column(String(6))
     verified: Mapped[bool]
     state: Mapped[str] = mapped_column(String(8), server_default="new")
+    verdict: Mapped[str] = mapped_column(String(9), server_default="ok")
+    misery_note: Mapped[str | None] = mapped_column(Text)
 
 
 class DigestSend(Base):
