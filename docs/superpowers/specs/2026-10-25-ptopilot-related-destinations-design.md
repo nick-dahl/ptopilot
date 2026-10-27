@@ -49,7 +49,9 @@ Third of the user's three V2 features.
 ## 3. Decided behavior
 
 ### 3.1 Suggesting links (my calls)
-- **Immediate:** other catalog airports within `RELATED_NEAR_KM` (160, great-circle, measured from the nearest of the destination's airports) of the destination's airports, in any country, that aren't already among its airports. Example: Paris → Brussels (BRU), Beauvais (BVA). Large and medium airports only.
+- **Immediate:** other catalog airports within `RELATED_NEAR_KM` (65, great-circle, measured from the nearest of the destination's airports) of the destination's airports, in any country, that aren't already among its airports. Large and medium airports only.
+  - **Why 65 km:** that's under an hour on the ground at the [skip-miserable-flights](2026-10-26-ptopilot-skip-miserable-flights-design.md) rate of 65 km/h. The user moved this from 160 km on 2026-10-26, to match their rule that an airport an hour or more away is unattractive.
+  - **Example:** London → Southend (SEN, about 60 km). Paris's Beauvais (BVA, about 75 km) is now out of range.
 - **Thematic:** a small bundled `ptopilot/data/related.yaml` of hand-curated groups of similar places, each a list of airport codes with a group name. Groups contain **only major tourist destinations** (the user's rule): second-tier spots such as Kraków are left out. Examples: "Central European capitals" (BUD, PRG, VIE), "Atlantic islands" (PDL, FNC, TFS, LPA), "Patagonia" (PUQ, FTE, USH). A destination's thematic suggestions are the other members of any group containing one of its airports.
 - **Cap and order:** at most `RELATED_MAX_SUGGESTIONS` (5) per destination, thematic first, then immediate by distance.
 - **Accept / Dismiss:** accepted links are stored per user and destination. Dismissed links are remembered so they aren't suggested again.

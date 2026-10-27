@@ -4,14 +4,14 @@ V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](do
 
 ## 1. Queued work, in order
 
-- [ ] **Skip miserable flights.** Being designed (2026-10-26). Filter out itineraries with very long layovers, needlessly long total travel, or a landing far from the destination. One severe problem, or several moderate ones, rules an itinerary out; a fare about 40% below typical earns some leeway.
-- [ ] **Plan 12: buy now or wait.** Written and approved: `docs/superpowers/plans/2026-10-25-ptopilot-plan-12-buy-now-or-wait.md`. It covers:
+- [ ] **Plan 12: skip miserable flights.** Design: `docs/superpowers/specs/2026-10-26-ptopilot-skip-miserable-flights-design.md` (awaiting approval). Filter out itineraries with very long layovers, needlessly long total travel, or a landing far from the destination. One severe problem, or several moderate ones, rules an itinerary out; a fare about 40% below typical earns some leeway.
+- [ ] **Plan 13: buy now or wait.** Written and approved: `docs/superpowers/plans/2026-10-25-ptopilot-plan-12-buy-now-or-wait.md`. It covers:
   - a stricter go-now score;
   - "likely gone within ~N days";
   - standout deals;
   - instant alerts (at most one a day, the same destination at most once a week).
-- [ ] **Plan 13: related destinations.** The design is approved (`docs/superpowers/specs/2026-10-25-ptopilot-related-destinations-design.md`); the plan is still to write. It covers:
-  - nearby airports within 160 km;
+- [ ] **Plan 14: related destinations.** The design is approved (`docs/superpowers/specs/2026-10-25-ptopilot-related-destinations-design.md`); the plan is still to write. It covers:
+  - nearby airports within 65 km (under an hour on the ground);
   - curated groups of major tourist destinations;
   - at most 5 suggestions per destination;
   - an "Also worth a look" section.
