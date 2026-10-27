@@ -120,6 +120,7 @@ def test_without_trip_history_the_route_baseline_is_used(make_ctx): ...
   - `Candidate.expected_days`.
   - `AlertSend(id, user_id FK, tracker_id FK, candidate_id FK SET NULL, run_date, sent_at)` with unique `(user_id, run_date)`.
 - **Algorithm (the spec fixes the rules; this pins the edge cases):**
+  - Dip detection and the price series read only candidates with `verdict != 'ruled_out'`, as the 30-day trend does.
   - Depth today = `today_price / trailing_median − 1`, where the trailing median comes from the `DURATION_WINDOW_DAYS` before today. If today isn't below that median, return None.
   - A past dip is a maximal run of **consecutive calendar days** whose price is at least as far below its own trailing median as today's depth.
   - Its length is the number of days in the run. A missing day ends the run.
@@ -179,7 +180,7 @@ def test_site_shows_duration_and_the_standout_tag(client, ...): ...  # dashboard
 - Test: `tests/pipeline/test_alerts.py`.
 
 **Interfaces:**
-- Consumes: Task 3 `is_standout`; `pipeline.return_check.check_return` and `config.RETURN_CHECKS_PER_DAY` (from the skip-miserable-flights plan); `digest.select.build_digests(..., min_level="great", skip_sent=False)`, filtered to standout deals, or an equivalent query; `digest.render` helpers; `links.action_links`; `ctx.emailer`; `config.SOURCE_BUDGETS` untouched.
+- Consumes: Task 3 `is_standout`; `pipeline.return_check.check_return` and `config.RETURN_CHECKS_PER_DAY` (from the skip-miserable-flights plan); `digest.select.build_digests(..., min_level="great", skip_sent=False)`, filtered to standout deals, or an equivalent query; `digest.render` helpers; `links.action_links`; `ctx.emailer`; `live_verify.Budget` and `LiveCheck` (for the return searches' budget and bookkeeping).
 - Produces:
   - `alerts.run(ctx) -> dict[str, int]` with counts `standout`, `sent`, `held_daily_cap`, `held_same_destination`, `return_checks`, `return_failed`, `would_send` (dry run).
   - `render_alert(card: DealCard, links) -> (subject, html, text)` in `ptopilot/digest/render.py`.
@@ -199,13 +200,14 @@ def test_alerts_stage_runs_last(): assert list(runner.STAGES)[-1] == "alerts"
 def test_a_failed_return_tries_the_next_standout(make_ctx): ...  # fake check_return: "fail" for the best, "pass" for the next → the next is emailed; AlertSend is for it; return_failed 1
 def test_an_unknown_return_still_sends(make_ctx): ...           # check_return → ("unknown", None) → emailed as before
 def test_return_checks_are_capped(make_ctx): ...                # four standouts, all "fail" → exactly RETURN_CHECKS_PER_DAY checks, nothing sent, no AlertSend
-def test_dry_run_lists_return_verdicts(make_ctx): ...           # ctx.dry_run → the would-send list carries each checked offer's verdict; still no email
+def test_dry_run_lists_return_verdicts(make_ctx): ...           # ctx.dry_run → counts would_send_return_pass / _fail / _unknown carry the verdicts and a log line is written; still no email
 ```
 - [ ] **Step 2: Run them** (they fail). **Step 3: Implement.**
-  - Before sending, call `check_return` for the chosen candidate: `home` is the user's home airport, `from_airport` is the airport the return departs, `depart` is the return date, and `pct_below` and `confident` come from the offer's baseline.
-  - On `"fail"`, skip the offer without using the day's alert slot, and try the next standout. Run at most `RETURN_CHECKS_PER_DAY` checks a day; count them in `return_checks` and the failures in `return_failed`.
+  - Before sending, call `check_return` for the chosen candidate: `home` is the candidate's route query origin (`rq.origin`), not the user's home airport; `from_airport` is the airport the return departs; `depart` is the return date; and `price` and `typical_median` are the alert's round-trip price and baseline median (not a rounded pct), with `confident` from the baseline's confidence.
+  - Hand `check_return` SerpApi only when `Budget.remaining("serpapi")` allows it (the `live_verify` Budget). Record each return search with the same Budget and `LiveCheck` bookkeeping `live_verify` uses.
+  - On `"fail"`, skip the offer without using the day's alert slot, and try the next standout. Run at most `RETURN_CHECKS_PER_DAY` checks a day, counting today's persisted return checks (e.g. `LiveCheck` rows tagged as return checks) so a same-day re-run doesn't get a fresh allowance; count them in `return_checks` and the failures in `return_failed`.
   - On `"unknown"`, send as before.
-  - In a dry run, list each checked offer's return verdict in the would-send output.
+  - In a dry run, record the return verdicts in counts (`would_send_return_pass`, `would_send_return_fail`, `would_send_return_unknown`) and a log line per checked offer, without emailing.
   - Emails go only to users who have active trackers.
   - Email addresses never appear in logs. Keep the digest's scrubbing pattern.
 - [ ] **Step 4: Run the tests**, the full suite and ruff.
