@@ -116,6 +116,11 @@ def banner_text(t: YearTotals) -> str:
 def subject(digest: Digest) -> str:
     if digest.quiet:
         return "ptopilot: a quiet week for your trips"
+    if not digest.deals:
+        first = digest.related[0]
+        more = f" + {len(digest.related) - 1} more" if len(digest.related) > 1 else ""
+        price = money(first.price, first.currency)
+        return f"ptopilot: {first.place} instead of {first.instead_of} {price}{more}"
     top = digest.deals[0]
     count = len(digest.deals)
     lead = f"{top.destination} {money(top.price, top.currency)}"

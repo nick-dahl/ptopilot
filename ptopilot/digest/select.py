@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Collection
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
@@ -22,6 +22,8 @@ from ptopilot.db.models import (
     DigestSend,
     PlannedTrip,
     PriceObservation,
+    RelatedCheck,
+    RelatedLink,
     RouteQuery,
     Tracker,
     TrackerRouteLink,
@@ -96,6 +98,22 @@ class DealCard:
 
 
 @dataclass(frozen=True)
+class RelatedCard:
+    """A cheap fare to a place near (or like) a tracked destination, confirmed live: "Also worth a look"."""
+
+    place: str
+    instead_of: str
+    tracker_id: int
+    price: Decimal
+    currency: str
+    pct_below: int
+    depart_date: date
+    return_date: date
+    pto_cost: int
+    deep_link: str | None
+
+
+@dataclass(frozen=True)
 class TrackerRow:
     tracker_id: int
     destination: str
@@ -116,10 +134,11 @@ class Digest:
     trackers: list[TrackerRow]
     held_back: int = 0  # deals left out because they were already sent at (about) this price
     banner: YearTotals | None = None  # the PTO line at the top: booked, planned, left for one year
+    related: list[RelatedCard] = field(default_factory=list)  # "Also worth a look", never standout
 
     @property
     def quiet(self) -> bool:
-        return not self.deals
+        return not self.deals and not self.related
 
 
 def next_good_month(seasons: SeasonTable, codes: tuple[str, ...], start: date) -> str | None:
@@ -147,6 +166,51 @@ def booked_pairs(s: Session, tracker_ids: Collection[int] | None = None) -> set[
     if tracker_ids is not None:
         query = query.where(PlannedTrip.tracker_id.in_(list(tracker_ids)))
     return {(tracker_id, year) for tracker_id, year in s.execute(query)}
+
+
+def related_cards(
+    s: Session,
+    run_date: date,
+    geo: Geo,
+    user_id: int | None = None,
+    tracker_id: int | None = None,
+    limit: int | None = None,
+) -> list[RelatedCard]:
+    """The run's confirmed related-place checks, biggest discount first (for one user or one tracker)."""
+    query = (
+        select(RelatedCheck, RelatedLink, Tracker)
+        .join(RelatedLink, RelatedLink.id == RelatedCheck.link_id)
+        .join(Tracker, Tracker.id == RelatedCheck.tracker_id)
+        .where(
+            RelatedCheck.run_date == run_date,
+            RelatedCheck.confirmed.is_(True),
+            RelatedCheck.live_price.is_not(None),
+            RelatedCheck.typical_median > 0,
+            Tracker.active.is_(True),
+        )
+    )
+    if user_id is not None:
+        query = query.where(RelatedCheck.user_id == user_id)
+    if tracker_id is not None:
+        query = query.where(RelatedCheck.tracker_id == tracker_id)
+    cards = []
+    for check, link, tracker in s.execute(query.order_by(RelatedCheck.id)):
+        cards.append(
+            RelatedCard(
+                place=geo.destination(link.place_code).name,
+                instead_of=geo.destination(tracker.destination_code).name,
+                tracker_id=check.tracker_id,
+                price=check.live_price,
+                currency=check.currency,
+                pct_below=round((1 - check.live_price / check.typical_median) * 100),
+                depart_date=check.depart_date,
+                return_date=check.return_date,
+                pto_cost=check.pto_cost,
+                deep_link=web_link(check.deep_link) if check.deep_link else None,
+            )
+        )
+    cards.sort(key=lambda c: (-c.pct_below, c.price))
+    return cards[:limit]
 
 
 def latest_run_date(engine: Engine, today: date) -> date | None:
@@ -213,6 +277,11 @@ def build_digests(
                 key = (item["tracker_id"], item["route_query_id"], item["evening_departure"])
                 price = Decimal(str(item["price"]))
                 sent_price[key] = min(price, sent_price.get(key, price))
+
+        related_by_user = {
+            u.id: related_cards(s, run_date, geo, user_id=u.id, limit=config.RELATED_MAX_IN_DIGEST)
+            for u in users
+        }
 
     tracker_by_id = {t.id: t for t in trackers}
     cards_by_tracker: defaultdict[int, list[DealCard]] = defaultdict(list)
@@ -335,6 +404,7 @@ def build_digests(
                 rows_for_user,
                 held,
                 _banner(engine, user, chosen, geo, seasons, today),
+                related_by_user[user.id],
             )
         )
     return digests

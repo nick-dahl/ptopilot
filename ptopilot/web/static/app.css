@@ -121,6 +121,9 @@ a.dest-card:hover { box-shadow: 0 6px 18px rgba(0, 0, 0, .1); transform: transla
 .price-sm { font-size: 18px; }
 .price-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .meta { color: var(--muted); font-size: 13px; }
+.related-card { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 10px 12px; border-left: 4px solid var(--track); border-radius: var(--radius-sm); background: var(--bg); }
+.related-card + .related-card { margin-top: 8px; }
+.related-price { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .fit-note { color: #92400e; font-size: 13px; }
 .duration-note { color: var(--muted); font-size: 13px; }
 .tag-rare { background: var(--rare-tint); color: var(--rare); }

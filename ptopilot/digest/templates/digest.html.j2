@@ -17,7 +17,7 @@
 
   <tr><td style="padding:22px 22px 14px;">
     <div style="font-family:{{ serif }};font-size:22px;font-weight:bold;color:#1f2937;">ptopilot</div>
-    <div style="margin-top:4px;font-size:14px;color:#6b7280;">{{ digest.run_date | day }} · {% if digest.quiet %}a quiet week{% else %}{{ digest.deals | length }} trip{{ "s" if digest.deals | length != 1 }} worth a look{% endif %}</div>
+    <div style="margin-top:4px;font-size:14px;color:#6b7280;">{{ digest.run_date | day }} · {% if digest.quiet %}a quiet week{% elif digest.deals %}{{ digest.deals | length }} trip{{ "s" if digest.deals | length != 1 }} worth a look{% else %}{{ digest.related | length }} idea{{ "s" if digest.related | length != 1 }} worth a look{% endif %}</div>
   </td></tr>
 
   {% if banner %}
@@ -35,7 +35,7 @@
       </td></tr>
     </table>
   </td></tr>
-  {% else %}
+  {% elif digest.deals %}
   {% set d = digest.deals[0] %}
   <tr><td style="padding:0 16px 12px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;">
@@ -103,6 +103,29 @@
     </table>
   </td></tr>
   {% endif %}
+  {% endif %}
+
+  {% if digest.related %}
+  <tr><td style="padding:10px 22px 6px;font-family:{{ serif }};font-size:16px;font-weight:bold;">Also worth a look</td></tr>
+  <tr><td style="padding:0 16px 12px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;border-radius:10px;">
+      {% for r in digest.related %}
+      <tr>
+        <td style="padding:12px 16px;{{ 'border-top:1px solid #e2e8f0;' if not loop.first }}">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td style="font-size:14px;line-height:1.5;color:#374151;">
+              <span style="font-family:{{ serif }};font-size:16px;font-weight:bold;color:#1f2937;">{{ r.place }} instead of {{ r.instead_of }}</span><br>
+              {{ r.depart_date | dates(r.return_date) }} · uses {{ r.pto_cost }} PTO day{{ "s" if r.pto_cost != 1 }}<br>
+              <span style="font-size:13px;color:#475569;">{{ r.pct_below }}% below {{ r.instead_of }}'s typical</span>
+              {% if r.deep_link %}<br><a href="{{ r.deep_link }}" style="display:inline-block;margin-top:8px;padding:8px 14px;border-radius:8px;background:#475569;color:#ffffff;text-decoration:none;font-size:13px;font-weight:bold;">View flights</a>{% endif %}
+            </td>
+            <td align="right" valign="top" style="white-space:nowrap;font-size:16px;font-weight:bold;color:#1f2937;">{{ r.price | money(r.currency) }}</td>
+          </tr></table>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </td></tr>
   {% endif %}
 
   <tr><td style="padding:10px 22px 6px;font-family:{{ serif }};font-size:16px;font-weight:bold;">Your trackers</td></tr>

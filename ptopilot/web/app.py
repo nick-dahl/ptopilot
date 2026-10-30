@@ -63,7 +63,7 @@ from ptopilot.settings import Settings
 from ptopilot.sources.climate import fetch_climate
 from ptopilot.trackers import apply_action, snooze, unsnooze
 from ptopilot.web.forms import form_to_profile, profile_to_form
-from ptopilot.web.history import destination_summaries, trend, trip_options, typical_band
+from ptopilot.web.history import destination_summaries, related_deals, trend, trip_options, typical_band
 from ptopilot.web.planner_view import plan_context, too_short
 from ptopilot.web.samples import sample_cards
 from ptopilot.web.viz import trend_chart
@@ -286,6 +286,9 @@ def create_app(
         dest = geo.destination(code)
         options = trip_options(engine, geo, current_seasons(), tracker_id, today())
         band = typical_band(options)
+        run_date = latest_run_date(engine, today())
+        with session_scope(engine) as s:
+            related = related_deals(s, tracker_id, run_date, geo) if run_date else []
         return page(
             request,
             "destination.html",
@@ -297,7 +300,8 @@ def create_app(
             snoozed_until=snoozed,
             bookings=bookings,
             options=options,
-            run_date=latest_run_date(engine, today()),
+            run_date=run_date,
+            related=related,
             band=band,
             chart=trend_chart(trend(engine, tracker_id, today()), band, palette(dest)),
             error=error,

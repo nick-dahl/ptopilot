@@ -29,7 +29,7 @@ from ptopilot.db.models import (
     User,
 )
 from ptopilot.db.session import session_scope
-from ptopilot.digest.select import booked_pairs, latest_run_date, next_good_month
+from ptopilot.digest.select import RelatedCard, booked_pairs, latest_run_date, next_good_month, related_cards
 from ptopilot.links import web_link
 from ptopilot.pipeline.queries import load_baselines, rq_baseline_key
 from ptopilot.plan_totals import remaining_by_year
@@ -212,6 +212,11 @@ def trip_options(
     with session_scope(engine) as s:
         tracker = s.get(Tracker, tracker_id)
         return _options(s, geo, seasons, [tracker], run_date).get(tracker_id, []) if tracker else []
+
+
+def related_deals(s: Session, tracker_id: int, run_date: date, geo: Geo) -> list[RelatedCard]:
+    """The tracker's confirmed related-place deals from one scan day (the Related panel)."""
+    return related_cards(s, run_date, geo, tracker_id=tracker_id)
 
 
 def trend(engine: Engine, tracker_id: int, today: date) -> list[TrendPoint]:

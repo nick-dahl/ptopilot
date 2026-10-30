@@ -51,6 +51,25 @@
     {% for b in bookings %}<p class="small m-0"><b>Booked {{ b.depart | dates(b.ret) }}{% if b.price is not none %} · {{ b.price | money(b.currency or "USD") }}{% endif %}</b></p>{% endfor %}
   </section>
 
+  {% if related %}
+  <section class="panel related-panel">
+    <h2>Related</h2>
+    {% for r in related %}
+    <div class="related-card">
+      <div>
+        <b>{{ r.place }} instead of {{ r.instead_of }}</b>
+        <div class="meta">{{ r.depart_date | dates(r.return_date) }} · {{ r.pto_cost }} PTO day{{ "s" if r.pto_cost != 1 }}</div>
+        <div class="meta">{{ r.pct_below }}% below {{ r.instead_of }}'s typical</div>
+      </div>
+      <div class="related-price">
+        <span class="price price-sm">{{ r.price | money(r.currency) }}</span>
+        {% if r.deep_link %}<a class="btn btn-sm" href="{{ r.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
   <section class="panel trend-panel">
     <h2>Cheapest fare, last 30 days</h2>
     {% if chart %}

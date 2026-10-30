@@ -9,7 +9,7 @@ No new deals since your last digest. The ones we sent are still on your dashboar
 {% else %}
 Nothing below typical yet. Your trackers are still watching.
 {% endif %}
-{% else %}
+{% elif digest.deals %}
 {{ digest.deals | length }} trip{{ "s" if digest.deals | length != 1 }} worth a look
 {% set d = digest.deals[0] %}
 
@@ -66,6 +66,14 @@ More trips
 
 {% endfor %}
 {% endif %}
+{% endif %}
+{% if digest.related %}
+
+Also worth a look
+{% for r in digest.related %}
+- {{ r.place }} instead of {{ r.instead_of }}: {{ r.price | money(r.currency) }}, {{ r.pct_below }}% below {{ r.instead_of }}'s typical, {{ r.depart_date | dates(r.return_date) }}, {{ r.pto_cost }} PTO{% if r.deep_link %}: {{ r.deep_link }}{% endif %}
+
+{% endfor %}
 {% endif %}
 
 Your trackers
