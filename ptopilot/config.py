@@ -115,3 +115,10 @@ STANDOUT_GO_NOW = 85
 STANDOUT_MAX_DAYS = 3
 ALERTS_PER_DAY = 1  # instant alerts per user per UTC day
 ALERT_SAME_DESTINATION_DAYS = 7
+
+# Related destinations (Plan 14)
+RELATED_NEAR_KM = 65  # a catalog airport this close to the nearest of a place's airports is suggested
+RELATED_MAX_SUGGESTIONS = 5
+RELATED_STUNNING_PCT = 25
+RELATED_LIVE_CHECKS_PER_DAY = 5
+RELATED_MAX_IN_DIGEST = 3

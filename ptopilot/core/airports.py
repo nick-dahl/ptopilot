@@ -129,6 +129,20 @@ class AirportCatalog:
         ]
         return [a for _, a in sorted(found, key=lambda t: (t[0], t[1].code))]
 
+    def within(
+        self, code: str, km: float, sizes: frozenset[str] = frozenset({"large", "medium"})
+    ) -> list[tuple[float, CatalogAirport]]:
+        """Airports of the given sizes within `km` of `code`, in any country, nearest first."""
+        home = self.get(code)
+        if home is None:
+            return []
+        found = [
+            (d, a)
+            for a in self._by_code.values()
+            if a.code != home.code and a.size in sizes and (d := distance_km(home, a)) <= km
+        ]
+        return sorted(found, key=lambda t: (t[0], t[1].code))
+
     def _match_kind(self, a: CatalogAirport, q: str, word: re.Pattern[str]) -> int | None:
         """0 code, 1 city, 2 country, 3 airport name; None when the airport doesn't match."""
         if a.code.lower() == q:

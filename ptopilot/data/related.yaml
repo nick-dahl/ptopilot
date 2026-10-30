@@ -1,0 +1,29 @@
+# Curated look-alikes: places that scratch the same itch. Major tourist destinations only.
+# Every code must be a large or medium airport in airports.csv (a test checks).
+groups:
+  - name: "Central European capitals"
+    airports: [BUD, PRG, VIE]
+  - name: "Atlantic islands"
+    airports: [PDL, FNC, TFS, LPA]
+  - name: "Patagonia"
+    airports: [PUQ, FTE, USH]
+  - name: "Atlantic Iberia"
+    airports: [LIS, OPO, SCQ]
+  - name: "Iberian cities"
+    airports: [LIS, MAD, BCN, SVQ]
+  - name: "Japan's big cities"
+    airports: [HND, NRT, KIX]
+  - name: "Thai getaways"
+    airports: [BKK, HKT]
+  - name: "Southeast Asian beaches"
+    airports: [HKT, DPS, SGN]
+  - name: "Mediterranean classics"
+    airports: [FCO, ATH, DBV, NCE]
+  - name: "Greek islands"
+    airports: [JTR, JMK, HER]
+  - name: "Mexican beaches"
+    airports: [CUN, CZM, SJD]
+  - name: "Caribbean escapes"
+    airports: [PUJ, SJU, CTG]
+  - name: "Nordic capitals"
+    airports: [CPH, ARN, OSL, HEL]
