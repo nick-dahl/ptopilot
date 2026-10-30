@@ -154,7 +154,8 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
   - the live currency is never checked against the USD typical (today they can't differ);
   - two users with the same trip spend two of the day's 5 checks on the same search;
   - the trip year, the season lookup and the length band are worked out again inside loops (once per link or quote, not once per user or trip);
-  - two page views at once can both save the same climate row, and a double-submitted accept can fail one of the two requests (nothing is corrupted).
+  - two page views at once can both save the same climate row, and a double-submitted accept can fail one of the two requests (nothing is corrupted);
+  - a missing climate lookup is retried once per page view, so a place that keeps failing and sorts first blocks retries for the places after it.
 - [ ] **Digest and site:**
   - related deals are never recorded as sent, so one repeats in every digest while it lasts and can make an otherwise quiet digest go out;
   - the check that hides snoozed destinations doesn't hide ones you booked after the scan, so that day's card can still show;
@@ -165,6 +166,7 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
 - [ ] **Tests:**
   - none pins the nearest-of-two-own-airports distance, accepting one airport of a multi-airport place of your own, or the climate retry directly;
   - the cap test checks kinds, not which five survive;
+  - no test that a snoozed destination's related places aren't watched;
   - the panel test matches "Related" anywhere on the page, and the snoozed-panel test accepts either of two strings.
 
 **Digest and email**
