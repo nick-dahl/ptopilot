@@ -1,15 +1,9 @@
 # ptopilot Roadmap
 
-V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](docs/superpowers/specs/2026-10-16-ptopilot-design.md). V1 and Plans 7–10 are live. This page is the agenda: what's queued, what to settle before inviting friends, feature ideas, and the polish backlog from code reviews.
+V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](docs/superpowers/specs/2026-10-16-ptopilot-design.md). V1 and Plans 7–13 are live. This page is the agenda: what's queued, what to settle before inviting friends, feature ideas, and the polish backlog from code reviews.
 
 ## 1. Queued work, in order
 
-- [ ] **Plan 13: buy now or wait.** Written and approved: `docs/superpowers/plans/2026-10-25-ptopilot-plan-12-buy-now-or-wait.md`. It covers:
-  - a stricter go-now score;
-  - "likely gone within ~N days";
-  - standout deals;
-  - instant alerts (at most one a day, the same destination at most once a week);
-  - a return-flight check before each alert, so a standout with a miserable way home is skipped and the next one tried (`ptopilot/pipeline/return_check.py`, built in Plan 12).
 - [ ] **Plan 14: related destinations.** The design is approved (`docs/superpowers/specs/2026-10-25-ptopilot-related-destinations-design.md`); the plan is still to write. It covers:
   - nearby airports within 65 km (under an hour on the ground);
   - curated groups of major tourist destinations;
@@ -130,6 +124,20 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
   - the planner filter could use `not o.dimmed`;
   - the buy-now-or-wait plan's `alerts.run` Produces line doesn't list the `would_send_return_*` counts.
 
+**Buy now or wait (Plan 13)**
+- [ ] **Measure it:** after a few scans, check how many deals get a duration estimate and whether any standouts or alerts appear.
+- [ ] **Alerts:**
+  - the send log is written after the email, so a failed write lets a re-run resend, and an overlapping run could stop later users' alerts;
+  - a crashed return check sends the alert without showing in the health email;
+  - a `--dry-run` makes real return searches and uses up that day's 3 return checks and SerpApi calls;
+  - the README's stage list doesn't name `alerts` (or `seed_history`).
+- [ ] **Duration estimate:** it says at least "~1 day" even on departure day, and rounds the typical dip length up.
+- [ ] **Code tidiness:**
+  - the "standout" rule and its labels are repeated in the digest and site code;
+  - trip history costs two queries per trip, and the dip search rescans the series per day;
+  - a few loose or missing tests (the go-now cap, ruled-out standouts in the digest, the one-day subject).
+- [ ] **Look:** a greyed destination row that is also standout shows the Rare tag without the accent; only the digest's lead card gets the standout border.
+
 **Digest and email**
 - [ ] **The 7-day trend shows "new"** if the scan exactly a week earlier didn't run.
 - [ ] **The tracker table always shows `$`,** and "best now" counts excluded trips.
@@ -152,6 +160,7 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
 
 ## Done
 
+- [x] **Buy now or wait:** a stricter go-now score that judges each trip against its own price history and discounts thin evidence; "likely gone within ~N days" on every deal; "Rare" standout offers on the site and in the digest; and instant alert emails (at most one a day, the same destination at most once a week) after checking the flight home (Plan 13; spec `docs/superpowers/specs/2026-10-25-ptopilot-buy-now-or-wait-design.md`).
 - [x] **Skip miserable flights:** itineraries with very long layovers, needlessly long journeys or a landing far from the destination are ruled out (greyed on the destination page), unless a fare about 40% below typical forgives one moderate problem. Includes a one-way return-flight check for instant alerts (Plan 12; spec `docs/superpowers/specs/2026-10-26-ptopilot-skip-miserable-flights-design.md`).
 - [x] **Your own destinations:** search, add and remove on the website (Plan 9).
 - [x] **Year-plan view:**
