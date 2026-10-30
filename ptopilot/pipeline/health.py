@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ptopilot import config
-from ptopilot.db.models import Candidate, PriceObservation, SourceBudget
+from ptopilot.db.models import AlertSend, Candidate, PriceObservation, SourceBudget
 from ptopilot.db.session import session_scope
 from ptopilot.digest.render import date_range
 from ptopilot.pipeline.context import RunContext
@@ -115,6 +115,7 @@ def build_report(ctx: RunContext, results: Sequence[StageResult]) -> tuple[str, 
             "",
             f"Candidates: great={deals['great']} good={deals['good']} none={deals['none']}"
             f" ruled_out={verdicts.get('ruled_out', 0)}",
+            f"Alerts sent today: {s.scalar(select(func.count()).where(AlertSend.run_date == ctx.run_date))}",
             "",
             *audit_lines(s, ctx.run_date),
             "",

@@ -161,8 +161,11 @@ def build_digests(
     min_level: str = "good",
     user_id: int | None = None,
     skip_sent: bool = True,
+    all_deals: bool = False,
 ) -> list[Digest]:
-    """One digest per user with active trackers (or only `user_id`), from the latest scan up to today."""
+    """One digest per user with active trackers (or only `user_id`), from the latest scan up to today.
+
+    `all_deals` keeps every qualifying deal instead of the digest's pick (instant alerts look at them all)."""
     run_date = latest_run_date(engine, today)
     if run_date is None:
         return []
@@ -283,7 +286,12 @@ def build_digests(
             tops += ranked[:1]
             alternates += ranked[1 : 1 + config.DIGEST_ALTERNATES_PER_TRACKER]
         by_score = lambda d: (-d.go_now, d.price, d.candidate_id)  # noqa: E731
-        chosen = (sorted(tops, key=by_score) + sorted(alternates, key=by_score))[: config.DIGEST_MAX_DEALS]
+        if all_deals:
+            chosen = sorted((d for t in mine for d in cards_by_tracker[t.id]), key=by_score)
+        else:
+            chosen = (sorted(tops, key=by_score) + sorted(alternates, key=by_score))[
+                : config.DIGEST_MAX_DEALS
+            ]
         user_booked, user_remaining = fit_context[user.id]
         chosen = [
             replace(

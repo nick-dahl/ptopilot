@@ -47,7 +47,7 @@ Destinations must exist in `ptopilot/data/geo.yaml` (with season ratings in `sea
 ## Daily scan
 
 ```powershell
-.venv/Scripts/python -m ptopilot.pipeline run --dry-run            # whole pipeline, no health email
+.venv/Scripts/python -m ptopilot.pipeline run --dry-run            # whole pipeline, no emails (alerts report what they would send)
 .venv/Scripts/python -m ptopilot.pipeline run --stage expand       # one stage (repeatable)
 .venv/Scripts/python -m ptopilot.pipeline run --date 2026-10-20    # re-run a past day
 ```

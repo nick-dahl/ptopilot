@@ -35,7 +35,11 @@ def main(argv: list[str] | None = None) -> int:
         "--stage", action="append", choices=list(STAGES), help="run only this stage (repeatable)"
     )
     run.add_argument("--date", type=date.fromisoformat, default=None, help="run date (default: today, UTC)")
-    run.add_argument("--dry-run", action="store_true", help="do everything except send the health email")
+    run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="send no email: skip the health email; alerts only report what they would send",
+    )
     args = parser.parse_args(argv)
 
     configure_logging()

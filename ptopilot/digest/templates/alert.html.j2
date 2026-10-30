@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>ptopilot alert</title>
+</head>
+{% set serif = "Georgia,'Times New Roman',serif" %}
+{% set sans = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" %}
+<body style="margin:0;padding:0;background:#f3efe7;font-family:{{ sans }};color:#1f2937;">
+<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:#f3efe7;">{{ preheader }}</div>
+<!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3efe7;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#fbf7f0;border-radius:12px;">
+
+  <tr><td style="padding:22px 22px 14px;">
+    <div style="font-family:{{ serif }};font-size:22px;font-weight:bold;color:#1f2937;">ptopilot</div>
+    <div style="margin-top:4px;font-size:14px;color:#6b7280;">Instant alert · a rare fare on a trip you track</div>
+  </td></tr>
+
+  <tr><td style="padding:0 16px 12px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;">
+      <tr><td style="background:{{ d.palette.color }};color:#ffffff;padding:14px 20px;border-radius:10px 10px 0 0;border-top:4px solid #f59e0b;">
+        <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.85;">{{ levels[d.deal_level] }} · Rare</div>
+        <div style="font-family:{{ serif }};font-size:22px;margin-top:2px;">{{ d.destination }} · {{ d.depart_date | dates(d.return_date) }}</div>
+      </td></tr>
+      <tr><td style="padding:16px 20px 18px;">
+        <div style="font-size:28px;font-weight:bold;color:#111827;">{{ d.price | money(d.currency) }}
+          {% if d.pct_below and d.pct_below > 0 %}<span style="font-size:15px;color:{{ d.palette.color }};">{{ d.pct_below }}% below typical</span>{% endif %}
+        </div>
+        {% if d.standout_tag %}<div style="margin:8px 0 0;"><span style="display:inline-block;padding:4px 12px;border-radius:999px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;font-size:14px;font-weight:bold;">{{ d.standout_tag }}</span></div>
+        {% elif d.duration_note %}<div style="margin:4px 0 0;font-size:13px;color:#6b7280;">{{ d.duration_note }}</div>{% endif %}
+        {% if bar %}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:10px 0 4px;border-radius:999px;overflow:hidden;"><tr>
+          {% for width, kind in bar %}<td width="{{ width }}%" height="8" bgcolor="{{ d.palette.color if kind == 'dot' else (d.palette.tint if kind == 'band' else '#e5e7eb') }}" style="height:8px;font-size:0;line-height:0;">&nbsp;</td>{% endfor %}
+        </tr></table>
+        {% endif %}
+        <div style="font-size:13px;color:#6b7280;">{{ "both flights" if d.open_jaw else "round trip" }}{% if d.typical %} · typically ~{{ d.typical | money(d.currency) }}{% endif %} · Go-now {{ d.go_now }}</div>
+        <div style="margin-top:10px;font-size:14px;line-height:1.5;color:#374151;">
+          {{ d.depart_date | day }} → {{ d.return_date | day }}{% if d.evening_departure %} · leave after work{% endif %} · {{ d.origin }} → {{ d.dest_airport }}{% if d.open_jaw %}, home from {{ d.return_airport }}{% endif %}<br>
+          Uses <b>{{ d.pto_cost }} PTO day{{ "s" if d.pto_cost != 1 }}</b> for {{ d.days_away }} days away{% if d.days_off %} ({{ d.days_off | join(", ") }} gives you a free day){% endif %}
+          {% if d.misery_note %}<br><span style="font-size:13px;color:#92400e;">{{ d.misery_note }}</span>{% endif %}
+          {% for note in d.fit_notes %}<br><span style="font-size:13px;color:#92400e;">{{ note }}</span>{% endfor %}
+          {% if d.carrier %}<br>{{ d.carrier }} · {{ d.stops | stops }}{% if d.duration_min %} · {{ d.duration_min | duration }} out{% endif %}{% if d.outbound_departure %}, departs {{ d.outbound_departure | clock }}{% endif %}{% if d.flight_numbers %} · {{ d.flight_numbers | join(", ") }}{% endif %} <span style="color:#9ca3af;">(outbound flight)</span>{% endif %}
+          {% if d.weather_note %}<br>{{ "Off-season: " if d.season_rating == "avoid" }}{{ d.weather_note }}{% endif %}
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:#6b7280;">
+          Live price{% if checked %}, {{ checked }}{% endif %}. Fares like this rarely last; confirm before booking.
+        </div>
+        {% if d.deep_link %}
+        <div style="margin-top:14px;"><a href="{{ d.deep_link }}" style="display:inline-block;padding:10px 18px;border-radius:8px;background:#111827;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;">View flights</a></div>
+        {% endif %}
+        {% if actions %}
+        <div style="margin-top:12px;font-size:12px;color:#6b7280;">
+          {% for label, url in actions %}<a href="{{ url }}" style="color:#6b7280;">{{ label }}</a>{{ " · " if not loop.last }}{% endfor %}
+        </div>
+        {% endif %}
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:10px 22px 22px;font-size:12px;line-height:1.5;color:#9ca3af;">
+    Prices are per person in economy and change constantly; always confirm before booking.<br>
+    Why am I getting this? ptopilot sends at most one instant alert a day, only for rare fares likely gone before your next digest.
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+</body>
+</html>

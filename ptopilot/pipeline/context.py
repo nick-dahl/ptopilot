@@ -40,6 +40,8 @@ class RunContext:
     live_sources: Sequence[ExactSearchSource] = ()  # tried in order: primary first, then fallbacks
     emailer: Emailer | None = None
     admin_email: str = ""
+    app_base_url: str = ""  # with secret_key, instant alerts carry snooze links (as the digest does)
+    secret_key: str = ""
     dry_run: bool = False
     sleep: Callable[[float], None] = time_module.sleep
     rng: random.Random = field(default_factory=random.Random)
@@ -69,5 +71,7 @@ def build_context(settings: Settings, run_date: date, dry_run: bool = False) -> 
         if settings.resend_api_key
         else None,
         admin_email=settings.admin_email,
+        app_base_url=settings.app_base_url,
+        secret_key=settings.secret_key,
         dry_run=dry_run,
     )

@@ -34,5 +34,15 @@ def test_scan_workflow_passes_everything_the_scan_reads():
         "RESEND_API_KEY",
         "ADMIN_EMAIL",
         "EMAIL_FROM",
+        "SECRET_KEY",  # instant alerts carry snooze links, like the digest
+        "APP_BASE_URL",
     }
     assert needed <= job_env("scan.yml")
+
+
+def test_scan_workflow_offers_every_stage():
+    from ptopilot.pipeline.runner import STAGES
+
+    workflow = yaml.safe_load((WORKFLOWS / "scan.yml").read_text(encoding="utf-8"))
+    options = workflow[True]["workflow_dispatch"]["inputs"]["stage"]["options"]
+    assert set(STAGES) <= set(options)

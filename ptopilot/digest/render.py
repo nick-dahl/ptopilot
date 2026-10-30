@@ -154,3 +154,31 @@ def render(
     html = _env.get_template("digest.html.j2").render(**context)
     text = _env.get_template("digest.txt.j2").render(**context)
     return subject(digest), html, text
+
+
+def alert_subject(card: DealCard) -> str:
+    """Rare: Azores $520 (31% below typical) — likely gone within ~2 days."""
+    lead = f"Rare: {card.destination} {money(card.price, card.currency)}"
+    if card.pct_below and card.pct_below > 0:
+        lead += f" ({card.pct_below}% below typical)"
+    note = card.duration_note
+    return f"{lead} — {note}" if note else lead
+
+
+def render_alert(
+    card: DealCard, links: LinkBuilder | None = None, now: datetime | None = None
+) -> tuple[str, str, str]:
+    """(subject, html, text) for an instant alert: one standout deal, in the digest's look."""
+    now = now or datetime.now(UTC)
+    bar = bar_geometry(card.price, float(card.typical), card.sigma) if card.typical else None
+    context = {
+        "d": card,
+        "actions": links(card) if links else [],
+        "bar": bar_cells(bar) if bar else None,
+        "preheader": alert_subject(card).removeprefix("Rare: "),
+        "levels": LEVEL_LABEL,
+        "checked": checked_ago(card.observed_at, now),
+    }
+    html = _env.get_template("alert.html.j2").render(**context)
+    text = _env.get_template("alert.txt.j2").render(**context)
+    return alert_subject(card), html, text

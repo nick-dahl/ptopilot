@@ -3,7 +3,9 @@
 Sources are tried in order (Google Flights first, SerpApi as fallback). A source that fails
 BREAKER_THRESHOLD times in a row is skipped for the rest of the run. Every attempt is recorded in
 `live_checks`, which lets a same-day re-run skip routes already checked (even ones with no flights) and
-caps budgeted sources (SerpApi) per day; the monthly cap lives in `source_budget`.
+caps budgeted sources (SerpApi) per day; the monthly cap lives in `source_budget`. Instant alerts' searches
+for the flight home are recorded too (purpose 'return'): they count toward the budgets, never as a route
+checked.
 Open-jaw queries go only to sources with `supports_open_jaw` (SerpApi); skipping a source that can't
 price them never counts toward its circuit breaker.
 Every option a source returns is stored as a verified observation; per-user filtering happens in `score`.
@@ -160,7 +162,13 @@ def store_history(ctx: RunContext, rq: RouteQuery, result: ExactResult) -> int:
 
 
 def record_check(
-    ctx: RunContext, rq: RouteQuery, source: str, ok: bool, options: int = 0, error: str | None = None
+    ctx: RunContext,
+    rq: RouteQuery,
+    source: str,
+    ok: bool,
+    options: int = 0,
+    error: str | None = None,
+    purpose: str = "trip",
 ):
     with session_scope(ctx.engine) as s:
         s.add(
@@ -172,6 +180,7 @@ def record_check(
                 options=options,
                 error=error,
                 checked_at=ctx.stamp(),
+                purpose=purpose,
             )
         )
 
@@ -204,7 +213,9 @@ def run(ctx: RunContext) -> dict[str, int]:
                     RouteQuery.return_airport,
                 )
                 .join(RouteQuery, RouteQuery.id == LiveCheck.route_query_id)
-                .where(LiveCheck.run_date == ctx.run_date, LiveCheck.ok.is_(True))
+                .where(
+                    LiveCheck.run_date == ctx.run_date, LiveCheck.ok.is_(True), LiveCheck.purpose == "trip"
+                )
             )
             if source not in config.SOURCE_BUDGETS or ret != dest
         }

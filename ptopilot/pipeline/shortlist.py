@@ -78,7 +78,7 @@ def run(ctx: RunContext) -> dict[str, int]:
             rq_id: when.replace(tzinfo=None)
             for rq_id, when in s.execute(
                 select(LiveCheck.route_query_id, func.max(LiveCheck.checked_at))
-                .where(LiveCheck.run_date < ctx.run_date)
+                .where(LiveCheck.run_date < ctx.run_date, LiveCheck.purpose == "trip")
                 .group_by(LiveCheck.route_query_id)
             ).all()
         }

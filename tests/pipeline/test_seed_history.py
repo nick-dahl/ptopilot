@@ -143,7 +143,7 @@ def add_history_point(engine, rq_id, days_ago=10):
         )  # fmt: skip
 
 
-def add_serpapi_check(engine, rq_id, days_ago):
+def add_serpapi_check(engine, rq_id, days_ago, purpose="trip"):
     with session_scope(engine) as s:
         s.add(
             LiveCheck(
@@ -152,6 +152,7 @@ def add_serpapi_check(engine, rq_id, days_ago):
                 source="serpapi",
                 ok=True,
                 options=0,
+                purpose=purpose,
             )
         )
 
@@ -167,6 +168,15 @@ def test_confident_seeded_and_recently_tried_keys_are_skipped(make_ctx, monkeypa
     add_serpapi_check(ctx.engine, tried_trips[0][1], days_ago=5)
     counts = seed_history.run(ctx)
     assert counts["keys_needing_seed"] == len(all_keys) - 3 == len(src.calls)
+
+
+def test_an_alerts_return_search_does_not_count_as_tried(make_ctx, monkeypatch):
+    monkeypatch.setitem(config.SOURCE_BUDGETS, "serpapi", {"per_day": 50, "per_month": 250})
+    ctx = expanded(make_ctx, live_sources=[serpapi(with_history(history()))])
+    all_keys = keys(ctx)
+    for trips in all_keys.values():
+        add_serpapi_check(ctx.engine, trips[0][1], days_ago=5, purpose="return")
+    assert seed_history.run(ctx)["keys_needing_seed"] == len(all_keys)
 
 
 def test_history_older_than_the_window_does_not_count_as_seeded(make_ctx, monkeypatch):

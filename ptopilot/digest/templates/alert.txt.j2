@@ -1,0 +1,37 @@
+ptopilot instant alert: a rare fare on a trip you track
+
+== {{ d.destination }}, {{ levels[d.deal_level] }}, go-now {{ d.go_now }}
+{{ d.depart_date | day }} -> {{ d.return_date | day }}{% if d.evening_departure %} (leave after work){% endif %}, {{ d.origin }} -> {{ d.dest_airport }}{% if d.open_jaw %}, home from {{ d.return_airport }}{% endif %}
+
+{{ d.price | money(d.currency) }} {{ "both flights" if d.open_jaw else "round trip" }}{% if d.typical %}, typically ~{{ d.typical | money(d.currency) }}{% if d.pct_below and d.pct_below > 0 %} ({{ d.pct_below }}% below){% endif %}{% endif %}
+
+{% if d.standout_tag %}
+{{ d.standout_tag }}
+{% elif d.duration_note %}
+{{ d.duration_note }}
+{% endif %}
+Uses {{ d.pto_cost }} PTO day{{ "s" if d.pto_cost != 1 }} for {{ d.days_away }} days away{% if d.days_off %} ({{ d.days_off | join(", ") }} gives you a free day){% endif %}
+
+{% if d.misery_note %}
+Note: {{ d.misery_note }}
+{% endif %}
+{% for note in d.fit_notes %}
+Note: {{ note }}
+{% endfor %}
+{% if d.carrier %}
+{{ d.carrier }}, {{ d.stops | stops }}{% if d.duration_min %}, {{ d.duration_min | duration }} out{% endif %}{% if d.outbound_departure %}, departs {{ d.outbound_departure | clock }}{% endif %}{% if d.flight_numbers %}, {{ d.flight_numbers | join(", ") }}{% endif %} (outbound flight)
+{% endif %}
+{% if d.weather_note %}
+{{ "Off-season: " if d.season_rating == "avoid" }}{{ d.weather_note }}
+{% endif %}
+Live price{% if checked %}, {{ checked }}{% endif %}.
+
+{% if d.deep_link %}
+View flights: {{ d.deep_link }}
+{% endif %}
+{% for label, url in actions %}
+{{ label }}: {{ url }}
+{% endfor %}
+
+Prices change constantly; always confirm before booking.
+Why am I getting this? ptopilot sends at most one instant alert a day, only for rare fares likely gone before your next digest.

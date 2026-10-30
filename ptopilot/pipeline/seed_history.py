@@ -74,6 +74,7 @@ def _keys_to_seed(ctx: RunContext) -> list[tuple[BaselineKey, RouteQuery]]:
                 select(LiveCheck.route_query_id).where(
                     LiveCheck.source == "serpapi",
                     LiveCheck.ok.is_(True),
+                    LiveCheck.purpose == "trip",
                     LiveCheck.run_date > ctx.run_date - timedelta(days=config.SEED_RETRY_DAYS),
                 )
             )
