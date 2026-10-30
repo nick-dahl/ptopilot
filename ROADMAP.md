@@ -131,7 +131,17 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
   - a crashed return check sends the alert without showing in the health email;
   - a `--dry-run` makes real return searches and uses up that day's 3 return checks and SerpApi calls;
   - the README's stage list doesn't name `alerts` (or `seed_history`).
-- [ ] **Duration estimate:** it says at least "~1 day" even on departure day, and rounds the typical dip length up.
+- [ ] **More alert edge cases:**
+  - a manual run for a past `--date` can send a stale "instant" alert;
+  - raising `ALERTS_PER_DAY` above 1 would fail on the one-per-day database rule;
+  - removing a destination deletes its alert history, so re-adding it allows another alert within the week;
+  - the digest's 8-deal cut can drop a standout before the lead card is chosen;
+  - the 3 return checks a day are shared by all users (revisit before inviting friends).
+- [ ] **Duration estimate:**
+  - it says at least "~1 day" even on departure day, and rounds the typical dip length up;
+  - a missed scan yesterday makes today's own dip count as a past one;
+  - a brand-new trip with under 10 days of history says "not enough history yet" even when today isn't a dip;
+  - the live-check purpose values (`trip`, `return`, `dryret`) are bare strings.
 - [ ] **Code tidiness:**
   - the "standout" rule and its labels are repeated in the digest and site code;
   - trip history costs two queries per trip, and the dip search rescans the series per day;
