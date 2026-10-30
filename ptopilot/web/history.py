@@ -214,9 +214,9 @@ def trip_options(
         return _options(s, geo, seasons, [tracker], run_date).get(tracker_id, []) if tracker else []
 
 
-def related_deals(s: Session, tracker_id: int, run_date: date, geo: Geo) -> list[RelatedCard]:
-    """The tracker's confirmed related-place deals from one scan day (the Related panel)."""
-    return related_cards(s, run_date, geo, tracker_id=tracker_id)
+def related_deals(s: Session, tracker_id: int, run_date: date, geo: Geo, today: date) -> list[RelatedCard]:
+    """The tracker's confirmed related deals from one scan day (the Related panel); none while snoozed."""
+    return related_cards(s, run_date, geo, today, tracker_id=tracker_id)
 
 
 def trend(engine: Engine, tracker_id: int, today: date) -> list[TrendPoint]:

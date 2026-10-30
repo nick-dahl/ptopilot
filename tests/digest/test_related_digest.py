@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from ptopilot.data import load_geo, load_seasons
-from ptopilot.db.models import RelatedCheck, RelatedLink
+from ptopilot.db.models import RelatedCheck, RelatedLink, Tracker
 from ptopilot.db.session import session_scope
 from ptopilot.digest.render import render, subject
 from ptopilot.digest.select import build_digests
@@ -102,3 +102,15 @@ def test_related_cards_never_get_the_standout_look(clean_engine):
     add_check(clean_engine, uid, tid, live=300)
     _, html, text = render(digest(clean_engine))
     assert "Rare" not in html + text and "f59e0b" not in html
+
+
+def test_a_snoozed_tracker_gets_no_related_cards_and_stays_quiet(clean_engine):
+    uid, tid = setup(clean_engine)
+    add_check(clean_engine, uid, tid)
+    with session_scope(clean_engine) as s:
+        s.get(Tracker, tid).snoozed_until = RUN
+    d = digest(clean_engine)
+    assert d.related == [] and d.quiet
+    with session_scope(clean_engine) as s:
+        s.get(Tracker, tid).snoozed_until = RUN - timedelta(days=1)  # snooze over: back again
+    assert len(digest(clean_engine).related) == 1

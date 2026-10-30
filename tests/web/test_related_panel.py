@@ -37,3 +37,14 @@ def test_no_panel_without_todays_confirmed_rows(client, emailer, clean_engine):
     add_check(clean_engine, uid, t, run_date=TODAY, confirmed=False)
     add_check(clean_engine, uid, t, run_date=TODAY - timedelta(days=1), airport="XXA")
     assert "Related" not in client.get(f"/trackers/{t}").text
+
+
+def test_no_panel_while_the_tracker_is_snoozed(client, emailer, clean_engine):
+    t, uid = setup(client, emailer, clean_engine)
+    add_candidate(clean_engine, t, 900, run_date=TODAY, level="none", go_now=0)
+    add_check(clean_engine, uid, t, run_date=TODAY)
+    with session_scope(clean_engine) as s:
+        s.get(Tracker, t).snoozed_until = TODAY + timedelta(days=5)
+    html = client.get(f"/trackers/{t}").text
+    assert "Not watching while snoozed" in html or "Snoozed until" in html
+    assert "instead of" not in html and "<h2>Related</h2>" not in html

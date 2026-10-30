@@ -172,6 +172,7 @@ def related_cards(
     s: Session,
     run_date: date,
     geo: Geo,
+    today: date,
     user_id: int | None = None,
     tracker_id: int | None = None,
     limit: int | None = None,
@@ -187,6 +188,7 @@ def related_cards(
             RelatedCheck.live_price.is_not(None),
             RelatedCheck.typical_median > 0,
             Tracker.active.is_(True),
+            Tracker.snoozed_until.is_(None) | (Tracker.snoozed_until < today),
         )
     )
     if user_id is not None:
@@ -279,7 +281,7 @@ def build_digests(
                 sent_price[key] = min(price, sent_price.get(key, price))
 
         related_by_user = {
-            u.id: related_cards(s, run_date, geo, user_id=u.id, limit=config.RELATED_MAX_IN_DIGEST)
+            u.id: related_cards(s, run_date, geo, today, user_id=u.id, limit=config.RELATED_MAX_IN_DIGEST)
             for u in users
         }
 

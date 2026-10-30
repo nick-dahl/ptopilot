@@ -288,7 +288,7 @@ def create_app(
         band = typical_band(options)
         run_date = latest_run_date(engine, today())
         with session_scope(engine) as s:
-            related = related_deals(s, tracker_id, run_date, geo) if run_date else []
+            related = related_deals(s, tracker_id, run_date, geo, today()) if run_date else []
         return page(
             request,
             "destination.html",
