@@ -1,7 +1,9 @@
 """Small actions answer JSON when the page's script asks (Accept: application/json), and keep their
 plain POST-then-redirect behaviour otherwise, so every form still works without JavaScript."""
 
+import re
 from datetime import date, timedelta
+from pathlib import Path
 
 from sqlalchemy import select
 
@@ -125,3 +127,26 @@ def test_small_action_forms_opt_in_to_in_place(client, emailer, clean_engine):
     html = client.get(f"/trackers/{t}").text
     assert 'data-inplace data-after="reload-section"' in html and 'id="dest-hero"' in html
     assert "data-inplace" in client.get("/destinations").text
+
+
+STATIC = Path(__file__).resolve().parents[2] / "ptopilot" / "web" / "static"
+
+
+def test_ui_js_posts_to_the_action_attribute_not_the_shadowable_property():
+    """A control named "action" (the related forms' buttons) shadows form.action, so the script must
+    read the attribute; form.method is shadowable the same way."""
+    js = (STATIC / "ui.js").read_text(encoding="utf-8")
+    code = "\n".join(line for line in js.splitlines() if not line.lstrip().startswith("//"))
+    assert "fetch(action," in code
+    assert not re.search(r"\bform\.(action|method)\b", code)
+
+
+def test_planner_swaps_the_calendar_and_rebinds_it(signed_in, clean_engine):
+    uid = start_year(clean_engine)
+    add_trip(clean_engine, uid, "LIS", 10)
+    html = signed_in.get(f"/plan/{YEAR}").text
+    assert 'data-section="plan-trips combos-panel calendar-panel"' in html and 'id="calendar-panel"' in html
+    assert 'new CustomEvent("ui:swapped"' in (STATIC / "ui.js").read_text(encoding="utf-8")
+    planner = (STATIC / "planner.js").read_text(encoding="utf-8")
+    assert 'addEventListener("ui:swapped"' in planner and "data-planner-bound" in planner
+    assert 'removeEventListener("pointerup"' in planner  # the old calendar's window handlers go

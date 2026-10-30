@@ -109,3 +109,15 @@ def test_signed_out_and_bad_input(client, signed_in, clean_engine):
         == 400
     )
     assert statuses(clean_engine) == []
+
+
+def test_accept_and_dismiss_answer_json_for_the_page_script(signed_in, clean_engine):
+    add_prague(signed_in)
+    tid = tracker_for(clean_engine, "PRG_CZ")[0]
+    json = {"Accept": "application/json"}
+    for airport, action in (("BUD", "accept"), ("VIE", "dismiss")):
+        r = signed_in.post(
+            f"/destinations/{tid}/related", data={"airport": airport, "action": action}, headers=json
+        )
+        assert (r.status_code, r.json()) == (200, {"ok": True}), action
+    assert statuses(clean_engine) == [("BUD", "accepted"), ("VIE", "dismissed")]

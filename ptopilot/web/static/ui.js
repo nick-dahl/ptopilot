@@ -7,6 +7,9 @@
 //   data-after="remove"          remove the element named by data-section (or the form itself)
 //   data-after="none"            leave the page as it is (the default)
 //   data-toast="..."             optional message for the toast shown when the control is gone
+//
+// After swapping a section it dispatches "ui:swapped" on document ({ detail: { element } }) so scripts
+// bound to the old markup can re-bind.
 
 const SAVED_MS = 2200;
 const TOAST_MS = 3200;
@@ -77,8 +80,12 @@ async function reloadSections(ids) {
   for (const id of ids) {
     const now = document.getElementById(id);
     const next = fresh.getElementById(id);
-    if (now && next) now.replaceWith(document.importNode(next, true));
-    else if (now) now.remove();
+    if (now && next) {
+      const swapped = document.importNode(next, true);
+      now.replaceWith(swapped);
+      // Scripts that bound to the old markup (planner.js) re-bind to the new element.
+      document.dispatchEvent(new CustomEvent("ui:swapped", { detail: { element: swapped } }));
+    } else if (now) now.remove();
   }
 }
 
@@ -101,7 +108,8 @@ async function submitInPlace(form, submitter) {
   form.setAttribute("aria-busy", "true");
   let data = null;
   try {
-    const response = await fetch(form.action, {
+    // getAttribute, never form.action: a control named "action" (the related forms' buttons) shadows it.
+    const response = await fetch(action, {
       method: "POST",
       body,
       headers: { Accept: "application/json" },
