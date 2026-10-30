@@ -81,16 +81,15 @@ def prefetch_climate(
     return fetched
 
 
-def add_destination(
+def ensure_place(
     s: Session,
     user: User,
     match: PlaceMatch,
     airports: list[str],
-    target_days: int,
-    name: str | None = None,
-    climate: Callable[[float, float], dict] = fetch_climate,
-    today: date | None = None,
-) -> Tracker:
+    name: str | None,
+    climate: Callable[[float, float], dict],
+) -> str:
+    """The code of the place with these airports: built-in, or added now with its seasons."""
     code = destination_code(match, airports, s)
     if code not in {d.code for d in load_geo().destinations()}:
         if s.get(Destination, code) is None:
@@ -106,6 +105,20 @@ def add_destination(
             s.flush()
         if s.get(DestinationSeason, code) is None and code not in load_seasons().ratings:
             _generate_seasons(s, code, match, climate)
+    return code
+
+
+def add_destination(
+    s: Session,
+    user: User,
+    match: PlaceMatch,
+    airports: list[str],
+    target_days: int,
+    name: str | None = None,
+    climate: Callable[[float, float], dict] = fetch_climate,
+    today: date | None = None,
+) -> Tracker:
+    code = ensure_place(s, user, match, airports, name, climate)
     tracker = s.scalars(
         select(Tracker).where(Tracker.user_id == user.id, Tracker.destination_code == code)
     ).first()

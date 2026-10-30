@@ -33,7 +33,7 @@ from ptopilot.core.airports import AirportCatalog, PlaceMatch
 from ptopilot.core.geo import Geo, UnknownCodeError, palette
 from ptopilot.core.seasons import SeasonTable
 from ptopilot.data import load_geo, load_seasons
-from ptopilot.db.models import Candidate, Invite, PlannedTrip, PlanningYear, Tracker, User
+from ptopilot.db.models import Candidate, Invite, PlannedTrip, PlanningYear, RelatedLink, Tracker, User
 from ptopilot.db.session import make_engine, session_scope
 from ptopilot.destinations import add_destination, prefetch_climate, remove_destination
 from ptopilot.digest.render import banner_text, date_range, day, money, stops
@@ -56,6 +56,9 @@ from ptopilot.planning import (
     unplan_trip,
 )
 from ptopilot.profiles import apply_profile, parse_profile
+from ptopilot.related_links import accept as accept_related
+from ptopilot.related_links import dismiss as dismiss_related
+from ptopilot.related_links import place_for, refresh_missing_seasons, suggestions_for
 from ptopilot.settings import Settings
 from ptopilot.sources.climate import fetch_climate
 from ptopilot.trackers import apply_action, snooze, unsnooze
@@ -356,6 +359,16 @@ def create_app(
 
     # --- destinations -----------------------------------------------------------------------------
 
+    def airport_city(code: str) -> str:
+        found = catalog.get(code)
+        return found.city if found else code
+
+    def place_name(geo: Geo, place_code: str, airport: str) -> str:
+        try:
+            return geo.destination(place_code).name
+        except UnknownCodeError:
+            return airport_city(airport)
+
     def destinations_page(
         request: Request, user_id: int, q: str, error: str | None = None, status: int = 200
     ):
@@ -372,10 +385,23 @@ def create_app(
                     dest = geo.destination(t.destination_code)
                 except UnknownCodeError:
                     continue
+                links = {
+                    link.airport: link
+                    for link in s.scalars(select(RelatedLink).where(RelatedLink.tracker_id == t.id))
+                }
                 rows.append(
                     {
                         "id": t.id,
                         "name": dest.name,
+                        "suggestions": [
+                            {"airport": g.airport, "name": airport_city(g.airport), "label": g.label}
+                            for g in suggestions_for(s, user, t, geo, catalog)
+                        ],
+                        "related": [
+                            {"airport": a, "name": place_name(geo, link.place_code, a)}
+                            for a, link in links.items()
+                            if link.status == "accepted"
+                        ],
                         "palette": palette(dest),
                         "target_days": t.target_days,
                         "stay": (t.min_stay_days, t.max_stay_days),
@@ -407,7 +433,37 @@ def create_app(
         user_id = destinations_user_id(request)
         if isinstance(user_id, RedirectResponse):
             return user_id
+        refresh_missing_seasons(engine, user_id, catalog, climate)
         return destinations_page(request, user_id, q)
+
+    @app.post("/destinations/{tracker_id}/related")
+    def related_place(
+        request: Request, tracker_id: TRACKER_ID, airport: str = Form(""), action: str = Form("")
+    ):
+        user_id = destinations_user_id(request)
+        if isinstance(user_id, RedirectResponse):
+            return user_id
+        airport = airport.strip().upper()
+        with session_scope(engine) as s:
+            tracker = s.get(Tracker, tracker_id)
+            if tracker is None or tracker.user_id != user_id:
+                return page(request, "message.html", 404, title="Not found", message="No such destination.")
+            if action not in ("accept", "dismiss") or catalog.get(airport) is None:
+                return destinations_page(
+                    request, user_id, "", "Pick a related place to accept or dismiss.", 400
+                )
+            fetched = climate
+            if action == "accept":  # the slow climate lookup holds no transaction
+                code, match = place_for(s, airport, catalog)
+                if code is None:
+                    fetched = prefetch_climate(s, match, [airport], climate)
+        with session_scope(engine) as s:
+            user = s.get(User, user_id)
+            if action == "accept":
+                accept_related(s, user, tracker_id, airport, climate=fetched, catalog=catalog)
+            else:
+                dismiss_related(s, user, tracker_id, airport)
+        return redirect("/destinations")
 
     @app.post("/destinations")
     def add_place(

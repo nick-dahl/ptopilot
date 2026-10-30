@@ -25,6 +25,29 @@
         <form class="inline" method="post" action="/destinations/{{ r.id }}/remove">
           <button class="link-btn small" type="submit">Remove<span class="sr-only"> {{ r.name }}</span></button>
         </form>
+        {% if r.related or r.suggestions %}
+        <div class="related-places">
+          {% for p in r.related %}
+          <div class="related-row">
+            <span>Also watching <b>{{ p.name }}</b> <span class="muted small">({{ p.airport }})</span></span>
+            <form class="inline" method="post" action="/destinations/{{ r.id }}/related">
+              <input type="hidden" name="airport" value="{{ p.airport }}">
+              <button class="link-btn small" name="action" value="dismiss" type="submit">Remove<span class="sr-only"> {{ p.name }}</span></button>
+            </form>
+          </div>
+          {% endfor %}
+          {% for g in r.suggestions %}
+          <div class="related-row">
+            <span>Consider <b>{{ g.name }}</b> <span class="muted small">({{ g.airport }}) · {{ g.label }}</span></span>
+            <form class="inline" method="post" action="/destinations/{{ r.id }}/related">
+              <input type="hidden" name="airport" value="{{ g.airport }}">
+              <button class="btn btn-ghost btn-sm" name="action" value="accept" type="submit">Accept<span class="sr-only"> {{ g.name }}</span></button>
+              <button class="link-btn small" name="action" value="dismiss" type="submit">Dismiss<span class="sr-only"> {{ g.name }}</span></button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
       </li>
       {% endfor %}
     </ul>

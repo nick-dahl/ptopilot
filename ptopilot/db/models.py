@@ -414,3 +414,46 @@ class SourceBudget(Base):
     source: Mapped[str] = mapped_column(String(32), primary_key=True)
     period: Mapped[date] = mapped_column(primary_key=True)  # first day of the month
     calls_used: Mapped[int] = mapped_column(server_default="0")
+
+
+class RelatedLink(Base):
+    """A related airport the user accepted (or dismissed) for one of their trackers."""
+
+    __tablename__ = "related_links"
+    __table_args__ = (
+        CheckConstraint("status IN ('accepted','dismissed')", name="status"),
+        UniqueConstraint("tracker_id", "airport"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    tracker_id: Mapped[int] = mapped_column(ForeignKey("trackers.id", ondelete="CASCADE"))
+    airport: Mapped[str] = mapped_column(String(3))
+    place_code: Mapped[str] = mapped_column(String(32))  # the destination (built-in or added) it belongs to
+    status: Mapped[str] = mapped_column(String(9))
+    created_at: Mapped[datetime] = created_at()
+
+
+class RelatedCheck(Base):
+    """One cheap-related-fare check against the main destination's typical price (written by the scan)."""
+
+    __tablename__ = "related_checks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_date: Mapped[date] = mapped_column(index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    tracker_id: Mapped[int] = mapped_column(ForeignKey("trackers.id", ondelete="CASCADE"))
+    link_id: Mapped[int] = mapped_column(ForeignKey("related_links.id", ondelete="CASCADE"))
+    origin: Mapped[str] = mapped_column(String(3))
+    airport: Mapped[str] = mapped_column(String(3))
+    depart_date: Mapped[date]
+    return_date: Mapped[date]
+    cached_price: Mapped[Decimal] = mapped_column(Money)
+    typical_median: Mapped[Decimal] = mapped_column(Money)
+    live_price: Mapped[Decimal | None] = mapped_column(Money)
+    currency: Mapped[str] = mapped_column(String(3))
+    pto_cost: Mapped[int] = mapped_column(SmallInteger)
+    deep_link: Mapped[str | None] = mapped_column(Text)
+    confirmed: Mapped[bool]
+    error: Mapped[str | None] = mapped_column(Text)
+    checked_at: Mapped[datetime] = created_at()
