@@ -118,6 +118,17 @@ def test_scans_cover_every_open_month_and_home_airport(make_ctx):
     assert ctx.month_source.calls[0][3:] == ("US", config.DEFAULT_CURRENCY)
 
 
+def test_a_range_already_under_way_scans_only_from_the_run_month(make_ctx):
+    ctx = make_ctx(month_source=FakeMonthSource(), live_sources=[live(option(640))])
+    uid = add_user(ctx.engine, windows=((date(2027, 1, 1), date(2027, 4, 30)),))
+    add_link(ctx.engine, uid, add_tracker(ctx.engine, uid, "AZORES"))
+
+    counts = related.run(ctx)
+
+    assert sorted(m for *_, m, _, _ in ctx.month_source.calls) == [date(2027, 3, 1), date(2027, 4, 1)]
+    assert counts["scans"] == 2  # not January or February, which are behind the run date
+
+
 def test_scans_are_shared_across_users(make_ctx):
     ctx = make_ctx(month_source=month(quote("ORD", "FNC", *TRIP, 600)), live_sources=[live(option(640))])
     uid, _, _ = setup(ctx.engine)

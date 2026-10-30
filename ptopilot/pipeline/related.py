@@ -76,6 +76,7 @@ class _Link:
 class _Year:
     """A user's year as the fit checks see it."""
 
+    run_date: date
     homes: tuple[str, ...]
     calendar: WorkCalendar
     ranges: dict[int, list[tuple[date, date]]]  # open ranges ending after the run date, by planning year
@@ -83,7 +84,9 @@ class _Year:
     booked: list[BookedTrip]
 
     def months(self) -> list[date]:
-        return sorted({m for ranges in self.ranges.values() for a, b in ranges for m in _months(a, b)})
+        """Months a fare could still depart in: from the day after the run date to each range's end."""
+        first = self.run_date + timedelta(days=1)
+        return sorted({m for rs in self.ranges.values() for a, b in rs for m in _months(max(a, first), b)})
 
     def year_of(self, depart: date, ret: date) -> int | None:
         """The planning year whose open range holds the whole trip."""
@@ -146,6 +149,7 @@ def _year(s: Session, user: User, run_date: date, geo: Geo) -> _Year:
     years = [py.year for py in planning_years(s, user) if py.year >= run_date.year]
     ranges = {y: [(a, b) for a, b in year_ranges(s, user, y) if b > run_date] for y in years}
     return _Year(
+        run_date,
         profile.home_airports,
         profile.calendar,
         ranges,
