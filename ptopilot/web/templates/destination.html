@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_components.html" import dest_style, price_bar, vs_typical, season %}
+{% from "_components.html" import dest_style, price_bar, vs_typical, season, duration_line %}
 {% block title %}{{ dest.name }} · ptopilot{% endblock %}
 {% block content %}
 <div class="hero dest-head" style="{{ dest_style(palette) }}">
@@ -26,10 +26,10 @@
       <thead><tr><th>Dates</th><th>Price</th><th>vs typical</th><th>PTO</th><th>Flights</th></tr></thead>
       <tbody>
       {% for o in options %}
-      <tr{% if o.dimmed %} class="dimmed"{% endif %}>
+      <tr{% if o.dimmed %} class="dimmed"{% elif o.standout %} class="standout"{% endif %}>
         <td><b>{{ o.depart_date | day }} → {{ o.return_date | day }}</b>
           <div class="meta">{{ o.origin }} → {% if o.open_jaw %}into {{ o.dest_airport }} · home from {{ o.return_airport }}{% else %}{{ o.dest_airport }}{% endif %}{% if o.evening_departure %} · leave after work{% endif %}</div></td>
-        <td class="nowrap"><span class="price price-sm">{{ o.price | money(o.currency) }}</span><div>{{ vs_typical(o) }}</div></td>
+        <td class="nowrap"><span class="price price-sm">{{ o.price | money(o.currency) }}</span><div>{{ vs_typical(o) }}</div>{{ duration_line(o) }}</td>
         <td class="bar-cell">{{ price_bar(o.bar) }}</td>
         <td class="num nowrap"><b>{{ o.pto_cost }}</b> <span class="meta">for {{ o.days_away }} days</span></td>
         <td class="flights">

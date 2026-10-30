@@ -14,9 +14,11 @@ from decimal import Decimal
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
+from ptopilot.core.duration import duration_label
 from ptopilot.core.fit import BookedTrip, fit_notes
 from ptopilot.core.geo import Destination, Geo, Palette, palette
 from ptopilot.core.seasons import SeasonTable, trip_month
+from ptopilot.core.standout import is_standout, standout_tag
 from ptopilot.db.models import (
     Candidate,
     PriceObservation,
@@ -68,6 +70,16 @@ class TripOption:
     confidence: str = "normal"
     verdict: str = "ok"  # 'ok' | 'forgiven' | 'ruled_out'
     misery_note: str | None = None  # the problem: why it is ruled out, or what was forgiven
+    expected_days: int | None = None  # how long a dip like this usually lasts; None when unknown
+    standout: bool = False  # rare: great, verified and likely gone within days
+
+    @property
+    def duration_note(self) -> str | None:
+        return duration_label(self.expected_days)
+
+    @property
+    def standout_tag(self) -> str | None:
+        return standout_tag(self.expected_days) if self.standout else None
 
     @property
     def open_jaw(self) -> bool:
@@ -169,6 +181,9 @@ def _options(
                 confidence=c.confidence,
                 verdict=c.verdict,
                 misery_note=c.misery_note,
+                expected_days=c.expected_days,
+                standout=c.verdict != "ruled_out"
+                and is_standout(c.go_now, c.deal_level, c.confidence, c.verified, c.expected_days),
                 median=b.median if b else None,
                 sigma=b.sigma if b else None,
                 bar=bar_geometry(c.price, b.median, b.sigma) if b else None,

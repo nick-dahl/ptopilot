@@ -12,9 +12,11 @@ from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from ptopilot import config
+from ptopilot.core.duration import duration_label
 from ptopilot.core.fit import BookedTrip, fit_notes
 from ptopilot.core.geo import NEUTRAL_PALETTE, Geo, Palette, palette
 from ptopilot.core.seasons import SeasonTable, trip_month
+from ptopilot.core.standout import is_standout, standout_tag
 from ptopilot.db.models import (
     Candidate,
     DigestSend,
@@ -70,6 +72,16 @@ class DealCard:
     sigma: float | None = None  # spread of the typical price, for the "where this price sits" bar
     fit_notes: tuple[str, ...] = ()  # soft warnings: overlaps a booked trip, over the PTO left
     misery_note: str | None = None  # a forgiven trade-off, e.g. a long layover worth the price
+    expected_days: int | None = None  # how long a dip like this usually lasts; None when unknown
+    standout: bool = False  # rare: great, verified and likely gone within days
+
+    @property
+    def duration_note(self) -> str | None:
+        return duration_label(self.expected_days)
+
+    @property
+    def standout_tag(self) -> str | None:
+        return standout_tag(self.expected_days) if self.standout else None
 
     @property
     def open_jaw(self) -> bool:
@@ -254,6 +266,9 @@ def build_digests(
                 palette=palette(dest),
                 sigma=b.sigma if b else None,
                 misery_note=c.misery_note if c.verdict == "forgiven" else None,
+                expected_days=c.expected_days,
+                standout=c.verdict != "ruled_out"
+                and is_standout(c.go_now, c.deal_level, c.confidence, c.verified, c.expected_days),
             )
         )
 
@@ -306,13 +321,19 @@ def build_digests(
                 user.id,
                 user.email,
                 run_date,
-                sorted(chosen, key=by_score),
+                _standout_first(sorted(chosen, key=by_score)),
                 rows_for_user,
                 held,
                 _banner(engine, user, chosen, geo, seasons, today),
             )
         )
     return digests
+
+
+def _standout_first(deals: list[DealCard]) -> list[DealCard]:
+    """The lead card is the best standout deal when there is one; the order is otherwise unchanged."""
+    lead = next((d for d in deals if d.standout), None)
+    return [lead, *(d for d in deals if d is not lead)] if lead else deals
 
 
 def _banner(

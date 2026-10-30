@@ -49,8 +49,13 @@
 {% endif %}
 {%- endmacro %}
 
+{% macro duration_line(o) -%}
+{% if o.standout_tag %}<div><span class="tag tag-rare">{{ o.standout_tag }}</span></div>
+{% elif o.duration_note %}<div class="duration-note">{{ o.duration_note }}</div>{% endif %}
+{%- endmacro %}
+
 {% macro dest_card(s, href=None, sample=False) -%}
-<{{ "a" if href else "div" }} class="dest-card{{ ' dimmed' if s.snoozed_until }}" style="{{ dest_style(s.palette) }}"{% if href %} href="{{ href }}"{% endif %}>
+<{{ "a" if href else "div" }} class="dest-card{{ ' dimmed' if s.snoozed_until }}{{ ' standout' if s.best and s.best.standout }}" style="{{ dest_style(s.palette) }}"{% if href %} href="{{ href }}"{% endif %}>
   <div class="dest-head">
     {% if sample %}<span class="tag sample-label">Example</span>{% endif %}
     <div class="eyebrow">{% if s.target_days %}~{{ s.target_days }} days away{% else %}{{ s.stay[0] }}–{{ s.stay[1] }} days on the ground{% endif %}</div>
@@ -60,6 +65,7 @@
     {% if s.best %}
     {% set o = s.best %}
     <div class="price-line"><span class="price">{{ o.price | money(o.currency) }}</span>{{ vs_typical(o) }}</div>
+    {{ duration_line(o) }}
     {{ price_bar(o.bar) }}
     <div class="meta">{{ o.depart_date | dates(o.return_date) }} · {{ o.pto_cost }} PTO for {{ o.days_away }} days{% if o.open_jaw %} · open-jaw{% endif %}</div>
     <div class="meta">{{ season(o) }}</div>

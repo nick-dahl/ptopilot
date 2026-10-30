@@ -39,7 +39,7 @@
   {% set d = digest.deals[0] %}
   <tr><td style="padding:0 16px 12px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;">
-      <tr><td style="background:{{ d.palette.color }};color:#ffffff;padding:14px 20px;border-radius:10px 10px 0 0;">
+      <tr><td style="background:{{ d.palette.color }};color:#ffffff;padding:14px 20px;border-radius:10px 10px 0 0;{% if d.standout %}border-top:4px solid #f59e0b;{% endif %}">
         <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.85;">{{ levels[d.deal_level] }} · Best this week</div>
         <div style="font-family:{{ serif }};font-size:22px;margin-top:2px;">{{ d.destination }} · {{ d.depart_date | dates(d.return_date) }}</div>
       </td></tr>
@@ -47,6 +47,8 @@
         <div style="font-size:28px;font-weight:bold;color:#111827;">{{ d.price | money(d.currency) }}
           {% if d.pct_below and d.pct_below > 0 %}<span style="font-size:15px;color:{{ d.palette.color }};">{{ d.pct_below }}% below typical</span>{% endif %}
         </div>
+        {% if d.standout_tag %}<div style="margin:8px 0 0;"><span style="display:inline-block;padding:4px 12px;border-radius:999px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;font-size:14px;font-weight:bold;">{{ d.standout_tag }}</span></div>
+        {% elif d.duration_note %}<div style="margin:4px 0 0;font-size:13px;color:#6b7280;">{{ d.duration_note }}</div>{% endif %}
         {% if bars.get(d.candidate_id) %}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:10px 0 4px;border-radius:999px;overflow:hidden;"><tr>
           {% for width, kind in bars[d.candidate_id] %}<td width="{{ width }}%" height="8" bgcolor="{{ d.palette.color if kind == 'dot' else (d.palette.tint if kind == 'band' else '#e5e7eb') }}" style="height:8px;font-size:0;line-height:0;">&nbsp;</td>{% endfor %}
@@ -87,6 +89,7 @@
           {% if href %}<a href="{{ href }}" style="color:#1f2937;text-decoration:none;">{% endif %}
           <span style="font-family:{{ serif }};font-size:16px;font-weight:bold;">{{ d.destination }}</span><br>
           <span style="font-size:13px;color:#6b7280;">{{ d.depart_date | dates(d.return_date) }} · {{ d.pto_cost }} PTO for {{ d.days_away }} days{% if d.open_jaw %} · open-jaw{% endif %}</span>
+          {% if d.standout_tag %}<br><span style="font-size:12px;font-weight:bold;color:#92400e;">{{ d.standout_tag }}</span>{% elif d.duration_note %}<br><span style="font-size:12px;color:#6b7280;">{{ d.duration_note }}</span>{% endif %}
           {% if d.misery_note %}<br><span style="font-size:12px;color:#92400e;">{{ d.misery_note }}</span>{% endif %}
           {% for note in d.fit_notes %}<br><span style="font-size:12px;color:#92400e;">{{ note }}</span>{% endfor %}
           {% if href %}</a>{% endif %}
