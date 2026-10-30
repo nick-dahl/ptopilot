@@ -4,7 +4,16 @@ V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](do
 
 ## 1. Queued work, in order
 
-Nothing queued. Pick the next item from the pre-invite checklist or the feature ideas below.
+The owner wants the site to feel like a polished travel product before friends see it: the calm, data-first polish of Google Flights and Capital One Travel, and "the first website I want to go to when I'm daydreaming about how to spend my time off". The checklist in §2 follows these.
+
+- [ ] **Plan 15: site polish (designing now).** It covers:
+  - guided onboarding for new users, one step at a time;
+  - Google-Flights-style inputs everywhere: type-ahead airport chips, plain-language choices, a trip-length slider;
+  - a "reason you came" hero card for the day's best deal, with a countdown when time matters;
+  - destination cards with cover photos;
+  - livelier destination pages.
+- [ ] **Hidden gems.** A blog-style page of off-the-beaten-path, inexpensive places from your home airport, fitted to your open dates. Write-ups and cover photos are refreshed on a schedule by an AI writer. Design after Plan 15.
+- [ ] **Then the pre-invite checklist (§2).**
 
 ## 2. Before inviting friends
 
