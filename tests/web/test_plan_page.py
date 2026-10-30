@@ -267,9 +267,10 @@ def test_plan_page_shows_building_history_and_too_short_notes(signed_in, clean_e
     assert signed_in.get(f"/plan/{YEAR}").text.count("Building price history") == 1
 
 
-def test_pages_other_than_plan_have_no_script_tag(signed_in):
+def test_pages_other_than_plan_load_only_the_shared_ui_script(signed_in):
     for url in ("/", "/destinations", "/profile"):
-        assert "<script" not in signed_in.get(url).text
+        html = signed_in.get(url).text
+        assert html.count("<script") == 1 and '<script type="module" src="/static/ui.js">' in html
 
 
 def test_a_holiday_inside_a_range_is_both_open_and_holiday(signed_in, clean_engine):

@@ -8,17 +8,17 @@
     <h1>Your trips</h1>
     <p class="muted small">{% if run_date %}Prices from the {{ run_date | day }} scan.{% else %}Prices appear after the first daily scan (06:00 UTC).{% endif %}</p>
   </div>
-  <a class="btn btn-ghost btn-sm" href="/destinations">Manage destinations</a>
+  <a class="btn btn-secondary btn-sm" href="/destinations">Manage destinations</a>
 </div>
 <div class="stack">
   {{ pto_bar(totals, banner, pto_total, pto_committed) }}
   {% if summaries %}
   <div class="grid">
     {% for s in summaries %}
-    <div>
+    <div id="card-{{ s.tracker_id }}">
       {{ dest_card(s, href="/trackers/%d" % s.tracker_id) }}
       {% if s.snoozed_until %}
-      <form class="inline" method="post" action="/trackers/{{ s.tracker_id }}/unsnooze">
+      <form class="inline" method="post" action="/trackers/{{ s.tracker_id }}/unsnooze" data-inplace data-after="reload-section" data-section="card-{{ s.tracker_id }}" data-toast="Watching {{ s.name }} again">
         <button class="link-btn small card-action" type="submit">Unsnooze {{ s.name }}</button>
       </form>
       {% endif %}

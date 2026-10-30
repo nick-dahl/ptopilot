@@ -38,7 +38,7 @@ include = ["ptopilot*"]
 [tool.setuptools.package-data]
 "ptopilot.data" = ["*.yaml", "*.csv"]
 "ptopilot.digest" = ["templates/*.j2"]
-"ptopilot.web" = ["templates/*.html", "static/*.css"]
+"ptopilot.web" = ["templates/*.html", "static/*.css", "static/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

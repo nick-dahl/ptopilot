@@ -12,7 +12,7 @@
   {% if error %}<div class="panel notice-error" role="alert"><p class="m-0 error">{{ error }}</p></div>{% endif %}
   {% if saved %}<div class="panel notice" role="status"><p class="m-0">Saved.</p></div>{% endif %}
 
-  <div class="panel">
+  <div class="panel" id="plan-trips">
     <h2>Trips</h2>
     {% if trips %}
     <table class="trips plan-trips">
@@ -25,7 +25,7 @@
           {% if t.booking %}
           <span class="num">{{ t.days_away }}</span>
           {% else %}
-          <form class="inline target-form" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}">
+          <form class="inline target-form" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}" data-inplace data-after="reload-section" data-section="plan-trips combos-panel">
             <input class="num-input" name="target_days" type="number" min="2" max="60" value="{{ t.target_days if t.target_days is not none else '' }}" aria-label="Days away for {{ t.name }}">
             <button class="link-btn small" type="submit">Set</button>
           </form>
@@ -36,7 +36,7 @@
         <td class="small">
           {% if t.booking %}
           <div><b>Booked · {{ t.booking.depart | dates(t.booking.ret) }}{% if t.booking.price is not none %} · {{ t.booking.price | money(t.booking.currency or "USD") }}{% endif %}</b></div>
-          <form class="inline" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}/cancel">
+          <form class="inline" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}/cancel" data-inplace data-after="reload-section" data-section="plan-trips combos-panel" data-toast="Booking cancelled">
             <button class="link-btn small" type="submit">Cancel booking<span class="sr-only"> {{ t.name }}</span></button>
           </form>
           {% else %}
@@ -44,7 +44,7 @@
           {% if t.building_history %}<div class="muted">Building price history</div>{% endif %}
           <details class="book-this">
             <summary class="small">I booked this</summary>
-            <form method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}/book" class="book-form">
+            <form method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}/book" class="book-form" data-inplace data-after="reload-section" data-section="plan-trips combos-panel" data-toast="Booked {{ t.name }}">
               <label class="field"><span>Depart</span><input name="depart" type="date" required></label>
               <label class="field"><span>Return</span><input name="return" type="date" required></label>
               <label class="field"><span>Price (optional)</span><input name="price" type="text" inputmode="decimal" placeholder="802"></label>
@@ -57,7 +57,7 @@
         </td>
         <td>
           {% if not t.booking %}
-          <form class="inline" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}/remove">
+          <form class="inline" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}/remove" data-inplace data-after="reload-section" data-section="plan-trips combos-panel" data-toast="Removed {{ t.name }} from {{ year }}">
             <button class="link-btn small" type="submit">Remove<span class="sr-only"> {{ t.name }}</span></button>
           </form>
           {% endif %}

@@ -11,7 +11,7 @@
 <div class="stack">
   {% if error %}<div class="panel notice-error" role="alert"><p class="m-0 error">{{ error }}</p></div>{% endif %}
 
-  <div class="panel">
+  <div class="panel" id="your-destinations">
     <h2>Your destinations</h2>
     {% if rows %}
     <ul class="dest-list">
@@ -22,7 +22,7 @@
           <b><a href="/trackers/{{ r.id }}">{{ r.name }}{% if r.target_days %} · {{ r.target_days }} days away{% else %} · {{ r.stay[0] }}–{{ r.stay[1] }} days on the ground{% endif %}</a></b>
           {% if r.min_trip %}<div class="small error">Trips here start at {{ r.min_trip }} days away, so this target will find nothing shorter.</div>{% endif %}
         </div>
-        <form class="inline" method="post" action="/destinations/{{ r.id }}/remove">
+        <form class="inline" method="post" action="/destinations/{{ r.id }}/remove" data-inplace data-after="reload-section" data-section="your-destinations" data-toast="Removed {{ r.name }}">
           <button class="link-btn small" type="submit">Remove<span class="sr-only"> {{ r.name }}</span></button>
         </form>
         {% if r.related or r.suggestions %}
@@ -30,7 +30,7 @@
           {% for p in r.related %}
           <div class="related-row">
             <span>Also watching <b>{{ p.name }}</b> <span class="muted small">({{ p.airport }})</span></span>
-            <form class="inline" method="post" action="/destinations/{{ r.id }}/related">
+            <form class="inline" method="post" action="/destinations/{{ r.id }}/related" data-inplace data-after="reload-section" data-section="your-destinations">
               <input type="hidden" name="airport" value="{{ p.airport }}">
               <button class="link-btn small" name="action" value="dismiss" type="submit">Remove<span class="sr-only"> {{ p.name }}</span></button>
             </form>
@@ -39,9 +39,9 @@
           {% for g in r.suggestions %}
           <div class="related-row">
             <span>Consider <b>{{ g.name }}</b> <span class="muted small">({{ g.airport }}) · {{ g.label }}</span></span>
-            <form class="inline" method="post" action="/destinations/{{ r.id }}/related">
+            <form class="inline" method="post" action="/destinations/{{ r.id }}/related" data-inplace data-after="reload-section" data-section="your-destinations">
               <input type="hidden" name="airport" value="{{ g.airport }}">
-              <button class="btn btn-ghost btn-sm" name="action" value="accept" type="submit">Accept<span class="sr-only"> {{ g.name }}</span></button>
+              <button class="btn btn-secondary btn-sm" name="action" value="accept" type="submit">Accept<span class="sr-only"> {{ g.name }}</span></button>
               <button class="link-btn small" name="action" value="dismiss" type="submit">Dismiss<span class="sr-only"> {{ g.name }}</span></button>
             </form>
           </div>

@@ -4,6 +4,10 @@ Server-rendered Jinja pages and plain HTML forms (POST, then redirect). The sess
 with SECRET_KEY and SameSite=Lax, which is what keeps other sites from submitting these forms.
 Snooze links open a confirmation page and act only on POST: mail scanners pre-fetch links (GET), and
 a GET that changed state would snooze trackers nobody clicked.
+
+Small actions (snooze, book, plan, related, remove) also answer JSON when the page's script asks with
+`Accept: application/json` (static/ui.js): `{"ok": true, ...}`, or the same 4xx status the page would get
+with `{"ok": false, "errors": [...]}`. Without that header they redirect or re-render exactly as before.
 """
 
 from __future__ import annotations
@@ -21,7 +25,7 @@ from typing import Annotated
 from fastapi import BackgroundTasks, FastAPI, Form, Request
 from fastapi import Path as PathParam
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine, select
@@ -80,6 +84,23 @@ PLAN_YEAR = Annotated[int, PathParam(ge=1900, le=2200)]
 TRACKER_URL = re.compile(r"/trackers/\d+")
 SESSION_MAX_AGE_S = 30 * 24 * 3600
 LOGIN_COOLDOWN_S = 120  # at most one sign-in email per address per 2 minutes
+SIGN_IN_AGAIN = "Your session has ended. Sign in again."
+
+
+def wants_json(request: Request) -> bool:
+    """The page's script asked for JSON (static/ui.js sends Accept: application/json)."""
+    return "application/json" in request.headers.get("accept", "")
+
+
+def json_or_redirect(request: Request, url: str, **payload) -> Response:
+    """Success: {"ok": true, **payload} for the script, else the usual redirect after a POST."""
+    if wants_json(request):
+        return JSONResponse({"ok": True, **payload})
+    return RedirectResponse(url, status_code=303)
+
+
+def json_error(status: int, *errors: str) -> JSONResponse:
+    return JSONResponse({"ok": False, "errors": list(errors)}, status_code=status)
 
 
 def create_app(
@@ -130,6 +151,25 @@ def create_app(
     def redirect(url: str) -> RedirectResponse:
         return RedirectResponse(url, status_code=303)
 
+    def signed_out(request: Request) -> Response:
+        """In-place endpoints are signed-in only: home for a page, 401 for the script."""
+        return json_error(401, SIGN_IN_AGAIN) if wants_json(request) else redirect("/")
+
+    def needs_profile(request: Request) -> Response:
+        """Signed in, but no profile saved yet."""
+        if wants_json(request):
+            return json_error(403, "Save your profile first.")
+        return redirect("/profile")
+
+    def missing(request: Request, message: str) -> Response:
+        if wants_json(request):
+            return json_error(404, message)
+        return page(request, "message.html", 404, title="Not found", message=message)
+
+    def rejected(request: Request, message: str, html: Callable[[], Response]) -> Response:
+        """A 400 the user can fix: the message for the script, else the page re-rendered with it."""
+        return json_error(400, message) if wants_json(request) else html()
+
     def is_invited(email: str) -> bool:
         with session_scope(engine) as s:
             return s.scalar(select(Invite.email).where(Invite.email == email)) is not None
@@ -155,12 +195,16 @@ def create_app(
     def bad_request(request: Request, exc: RequestValidationError):
         """Malformed form fields or URLs (e.g. a non-numeric id) get a page, not FastAPI's JSON."""
         message = "Something in that request didn't look right. Go back and try again."
+        if wants_json(request):
+            return json_error(400, message)
         return page(request, "message.html", 400, title="That didn't work", message=message)
 
     @app.exception_handler(StarletteHTTPException)
     def http_error(request: Request, exc: StarletteHTTPException):
         """Unknown URLs and other HTTP errors get a page, not FastAPI's JSON (headers such as Allow kept)."""
-        if exc.status_code == 404:
+        if wants_json(request):
+            response = json_error(exc.status_code, "That didn't work.")
+        elif exc.status_code == 404:
             response = page(
                 request, "message.html", 404, title="Not found", message="There's nothing at this address."
             )
@@ -315,9 +359,9 @@ def create_app(
 
     @app.post("/trackers/{tracker_id}/book")
     def book_deal(request: Request, tracker_id: TRACKER_ID, candidate_id: int = Form(...)):
-        not_found = lambda: page(  # noqa: E731
-            request, "message.html", 404, title="Not found", message="No such trip."
-        )
+        if not current_email(request):
+            return signed_out(request)
+        not_found = lambda: missing(request, "No such trip.")  # noqa: E731
         try:
             with session_scope(engine) as s:
                 user = signed_in_user(s, request)
@@ -336,30 +380,36 @@ def create_app(
         except LookupError:
             return not_found()
         except ValueError as exc:
-            return destination_view(request, tracker_id, 400, str(exc))
-        return redirect(f"/plan/{year}?saved=booked")
+            message = str(exc)
+            return rejected(request, message, lambda: destination_view(request, tracker_id, 400, message))
+        return json_or_redirect(request, f"/plan/{year}?saved=booked", year=year)
 
-    def after_snooze(next_url: str) -> RedirectResponse:
-        """Back to the page the form was on, if that is a destination page of ours; never off-site."""
-        return redirect(next_url if TRACKER_URL.fullmatch(next_url) else "/")
+    def back_to(next_url: str) -> str:
+        """The page the form was on, if that is a destination page of ours; never off-site."""
+        return next_url if TRACKER_URL.fullmatch(next_url) else "/"
 
     @app.post("/trackers/{tracker_id}/snooze")
     def snooze_tracker(request: Request, tracker_id: TRACKER_ID, days: int = Form(30), next: str = Form("")):
+        if not current_email(request):
+            return signed_out(request)
+        until = date.fromordinal(today().toordinal() + max(days, 1))
         with session_scope(engine) as s:
             tracker = owned_tracker(s, request, tracker_id)
             if tracker is None:
-                return page(request, "message.html", 404, title="Not found", message="No such tracker.")
-            snooze(tracker, date.fromordinal(today().toordinal() + max(days, 1)))
-        return after_snooze(next)
+                return missing(request, "No such tracker.")
+            snooze(tracker, until)
+        return json_or_redirect(request, back_to(next), snoozed_until=until.isoformat())
 
     @app.post("/trackers/{tracker_id}/unsnooze")
     def unsnooze_tracker(request: Request, tracker_id: TRACKER_ID, next: str = Form("")):
+        if not current_email(request):
+            return signed_out(request)
         with session_scope(engine) as s:
             tracker = owned_tracker(s, request, tracker_id)
             if tracker is None:
-                return page(request, "message.html", 404, title="Not found", message="No such tracker.")
+                return missing(request, "No such tracker.")
             unsnooze(tracker)
-        return after_snooze(next)
+        return json_or_redirect(request, back_to(next))
 
     # --- destinations -----------------------------------------------------------------------------
 
@@ -425,17 +475,17 @@ def create_app(
             error=error,
         )
 
-    def destinations_user_id(request: Request) -> int | RedirectResponse:
+    def destinations_user_id(request: Request) -> int | Response:
         if not current_email(request):
-            return redirect("/")
+            return signed_out(request)
         with session_scope(engine) as s:
             user = signed_in_user(s, request)
-            return user.id if user else redirect("/profile")
+            return user.id if user else needs_profile(request)
 
     @app.get("/destinations")
     def destinations(request: Request, q: str = ""):
         user_id = destinations_user_id(request)
-        if isinstance(user_id, RedirectResponse):
+        if not isinstance(user_id, int):
             return user_id
         refresh_missing_seasons(engine, user_id, catalog, climate)
         return destinations_page(request, user_id, q)
@@ -445,16 +495,17 @@ def create_app(
         request: Request, tracker_id: TRACKER_ID, airport: str = Form(""), action: str = Form("")
     ):
         user_id = destinations_user_id(request)
-        if isinstance(user_id, RedirectResponse):
+        if not isinstance(user_id, int):
             return user_id
         airport = airport.strip().upper()
         with session_scope(engine) as s:
             tracker = s.get(Tracker, tracker_id)
             if tracker is None or tracker.user_id != user_id:
-                return page(request, "message.html", 404, title="Not found", message="No such destination.")
+                return missing(request, "No such destination.")
             if action not in ("accept", "dismiss") or catalog.get(airport) is None:
-                return destinations_page(
-                    request, user_id, "", "Pick a related place to accept or dismiss.", 400
+                message = "Pick a related place to accept or dismiss."
+                return rejected(
+                    request, message, lambda: destinations_page(request, user_id, "", message, 400)
                 )
             fetched = climate
             if action == "accept":  # the slow climate lookup holds no transaction
@@ -467,7 +518,7 @@ def create_app(
                 accept_related(s, user, tracker_id, airport, climate=fetched, catalog=catalog)
             else:
                 dismiss_related(s, user, tracker_id, airport)
-        return redirect("/destinations")
+        return json_or_redirect(request, "/destinations")
 
     @app.post("/destinations")
     def add_place(
@@ -477,7 +528,7 @@ def create_app(
         target_days: int = Form(10),
     ):
         user_id = destinations_user_id(request)
-        if isinstance(user_id, RedirectResponse):
+        if not isinstance(user_id, int):
             return user_id
         picked = catalog.get(code)
         chosen = list(dict.fromkeys(a.strip().upper() for a in airports or [] if a.strip()))
@@ -497,18 +548,19 @@ def create_app(
 
     @app.post("/destinations/{tracker_id}/remove")
     def remove_place(request: Request, tracker_id: TRACKER_ID):
+        if not current_email(request):
+            return signed_out(request)
         user_id = None
         try:
             with session_scope(engine) as s:
                 user = signed_in_user(s, request)
                 user_id = user.id if user else None
                 if user is None or not remove_destination(s, user, tracker_id, today=today()):
-                    return page(
-                        request, "message.html", 404, title="Not found", message="No such destination."
-                    )
+                    return missing(request, "No such destination.")
         except ValueError as exc:
-            return destinations_page(request, user_id, "", str(exc), 400)
-        return redirect("/destinations")
+            message = str(exc)
+            return rejected(request, message, lambda: destinations_page(request, user_id, "", message, 400))
+        return json_or_redirect(request, "/destinations")
 
     # --- the year planner ---------------------------------------------------------------------------
 
@@ -524,13 +576,13 @@ def create_app(
     def plan_user_id(request: Request, year: int) -> int | Response:
         """The signed-in user's id when they have this planning year; else a redirect or a 404 page."""
         if not current_email(request):
-            return redirect("/")
+            return signed_out(request)
         with session_scope(engine) as s:
             user = signed_in_user(s, request)
             if user is None:
-                return redirect("/profile")
+                return needs_profile(request)
             if s.get(PlanningYear, (user.id, year)) is None:
-                return page(request, "message.html", 404, title="Not found", message="No such planning year.")
+                return missing(request, "No such planning year.")
             return user.id
 
     @app.get("/plan")
@@ -735,11 +787,12 @@ def create_app(
         try:
             with session_scope(engine) as s:
                 if not planned_tracker(s, user_id, year, tracker_id):
-                    return page(request, "message.html", 404, title="Not found", message="No such trip.")
+                    return missing(request, "No such trip.")
                 set_target(s, s.get(User, user_id), tracker_id, target_days)
         except ValueError as exc:
-            return plan_page(request, user_id, year, 400, str(exc))
-        return redirect(f"/plan/{year}?saved=trip")
+            message = str(exc)
+            return rejected(request, message, lambda: plan_page(request, user_id, year, 400, message))
+        return json_or_redirect(request, f"/plan/{year}?saved=trip")
 
     @app.post("/plan/{year}/trips/{tracker_id}/remove")
     def plan_remove_trip(request: Request, year: PLAN_YEAR, tracker_id: TRACKER_ID):
@@ -748,7 +801,7 @@ def create_app(
             return user_id
         with session_scope(engine) as s:
             if not planned_tracker(s, user_id, year, tracker_id):
-                return page(request, "message.html", 404, title="Not found", message="No such trip.")
+                return missing(request, "No such trip.")
             try:
                 unplan_trip(s, s.get(User, user_id), tracker_id, year, today=today())
             except ValueError as exc:
@@ -756,8 +809,8 @@ def create_app(
             else:
                 error = None
         if error:
-            return plan_page(request, user_id, year, 400, error)
-        return redirect(f"/plan/{year}?saved=removed")
+            return rejected(request, error, lambda: plan_page(request, user_id, year, 400, error))
+        return json_or_redirect(request, f"/plan/{year}?saved=removed")
 
     PRICE_HELP = "Enter a price like 802, or leave it blank."
 
@@ -784,7 +837,7 @@ def create_app(
         try:
             with session_scope(engine) as s:
                 if not planned_tracker(s, user_id, year, tracker_id):
-                    return page(request, "message.html", 404, title="Not found", message="No such trip.")
+                    return missing(request, "No such trip.")
                 user = s.get(User, user_id)
                 try:
                     start, end = date.fromisoformat(depart.strip()), date.fromisoformat(return_.strip())
@@ -802,8 +855,9 @@ def create_app(
                     geo=current_geo(),
                 )
         except ValueError as exc:
-            return plan_page(request, user_id, year, 400, str(exc))
-        return redirect(f"/plan/{year}?saved=booked")
+            message = str(exc)
+            return rejected(request, message, lambda: plan_page(request, user_id, year, 400, message))
+        return json_or_redirect(request, f"/plan/{year}?saved=booked")
 
     @app.post("/plan/{year}/trips/{tracker_id}/cancel")
     def plan_cancel_booking(request: Request, year: PLAN_YEAR, tracker_id: TRACKER_ID):
@@ -812,9 +866,9 @@ def create_app(
             return user_id
         with session_scope(engine) as s:
             if not planned_tracker(s, user_id, year, tracker_id):
-                return page(request, "message.html", 404, title="Not found", message="No such trip.")
+                return missing(request, "No such trip.")
             cancel_booking(s, s.get(User, user_id), tracker_id, year)
-        return redirect(f"/plan/{year}?saved=cancelled")
+        return json_or_redirect(request, f"/plan/{year}?saved=cancelled")
 
     # --- profile / onboarding --------------------------------------------------------------------
 

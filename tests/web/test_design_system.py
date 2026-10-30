@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_stylesheet_is_served(client):
     response = client.get("/static/app.css")
     assert response.status_code == 200 and response.headers["content-type"].startswith("text/css")
-    assert "--bg: #fbf7f0" in response.text
+    assert "--bg: #f7f8fa" in response.text
 
 
 def test_pages_use_the_stylesheet_and_fonts(client):

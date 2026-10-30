@@ -2,15 +2,15 @@
 {% from "_components.html" import dest_style, price_bar, vs_typical, season, duration_line %}
 {% block title %}{{ dest.name }} · ptopilot{% endblock %}
 {% block content %}
-<div class="hero dest-head" style="{{ dest_style(palette) }}">
+<div class="hero dest-head" id="dest-hero" style="{{ dest_style(palette) }}">
   <div class="eyebrow">{{ stay[0] }}–{{ stay[1] }} days on the ground</div>
   <h1>{{ dest.name }}</h1>
   <div class="hero-actions">
     {% if snoozed_until %}
     <span class="tag">Snoozed until {{ snoozed_until | day }}</span>
-    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/unsnooze"><input type="hidden" name="next" value="/trackers/{{ tracker_id }}"><button class="btn btn-ghost btn-sm" type="submit">Unsnooze</button></form>
+    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/unsnooze" data-inplace data-after="reload-section" data-section="dest-hero date-options" data-toast="Watching {{ dest.name }} again"><input type="hidden" name="next" value="/trackers/{{ tracker_id }}"><button class="btn btn-secondary btn-sm" type="submit">Unsnooze</button></form>
     {% else %}
-    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/snooze"><input type="hidden" name="days" value="30"><input type="hidden" name="next" value="/trackers/{{ tracker_id }}"><button class="btn btn-ghost btn-sm" type="submit">Snooze 30 days</button></form>
+    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/snooze" data-inplace data-after="reload-section" data-section="dest-hero date-options" data-toast="Snoozed {{ dest.name }} for 30 days"><input type="hidden" name="days" value="30"><input type="hidden" name="next" value="/trackers/{{ tracker_id }}"><button class="btn btn-secondary btn-sm" type="submit">Snooze 30 days</button></form>
     {% endif %}
     <a class="btn btn-ghost btn-sm" href="/">All trips</a>
   </div>
@@ -18,7 +18,7 @@
 
 <div class="stack" style="{{ dest_style(palette) }}">
   {% if error %}<div class="panel notice-error" role="alert"><p class="m-0 error">{{ error }}</p></div>{% endif %}
-  <section class="panel">
+  <section class="panel" id="date-options">
     <h2>Date options</h2>
     {% if options %}
     <p class="muted small">From the {{ run_date | day }} scan, cheapest first{% if options | map(attribute="season_rating") | unique | list | length == 1 and options | map(attribute="weather_note") | unique | list | length == 1 %} · {{ season(options[0]) }}{% endif %}. Prices are per person, economy, and change fast.</p>
@@ -37,7 +37,7 @@
           {% if o.deep_link %}<a class="btn btn-sm" href="{{ o.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
           {% if o.ruled_out %}<span class="tag">ruled out</span><div class="meta">{{ o.misery_note }}</div>
           {% elif o.dimmed %}<span class="tag">{{ o.state }}</span>
-          {% else %}<form class="inline" method="post" action="/trackers/{{ tracker_id }}/book"><input type="hidden" name="candidate_id" value="{{ o.candidate_id }}"><button class="btn btn-ghost btn-sm" type="submit">I booked this</button></form>{% endif %}
+          {% else %}<form class="inline" method="post" action="/trackers/{{ tracker_id }}/book" data-inplace data-after="reload-section" data-section="date-options" data-toast="Booked. It's on your plan."><input type="hidden" name="candidate_id" value="{{ o.candidate_id }}"><button class="btn btn-secondary btn-sm" type="submit">I booked this</button></form>{% endif %}
           {% if o.verdict == "forgiven" and o.misery_note %}<div class="fit-note">{{ o.misery_note }}</div>{% endif %}
           {% for note in o.fit_notes %}<div class="fit-note">{{ note }}</div>{% endfor %}
         </td>
