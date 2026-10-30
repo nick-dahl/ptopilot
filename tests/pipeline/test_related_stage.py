@@ -399,3 +399,39 @@ def test_health_report_has_a_related_line(make_ctx):
     assert "Related places: promising 1, checked 1, confirmed 1" in text
     with session_scope(ctx.engine) as s:
         assert s.scalar(select(func.count()).select_from(RelatedCheck)) == 1
+
+
+def test_a_dry_run_makes_no_checks_and_leaves_the_days_allowance(make_ctx):
+    gf = live(option(500))
+    ctx = make_ctx(month_source=month(*trips(7)), live_sources=[gf], dry_run=True)
+    setup(ctx.engine)
+
+    counts = related.run(ctx)
+
+    assert (counts["promising"], counts["would_check"], counts["checked"]) == (7, 5, 0)
+    assert counts["held_live_cap"] == 2 and gf.calls == [] and checks(ctx.engine) == []
+
+    ctx.dry_run = False
+    real = related.run(ctx)  # the real run still has all five checks
+    assert (real["checked"], real["would_check"]) == (5, 0) and len(gf.calls) == 5
+
+
+def test_live_checks_are_paced_but_not_before_the_first(make_ctx):
+    slept = []
+    ctx = make_ctx(month_source=month(*trips(3)), live_sources=[live(option(500))], sleep=slept.append)
+    setup(ctx.engine)
+
+    assert related.run(ctx)["checked"] == 3
+
+    assert len(slept) == 2
+    assert all(config.LIVE_DELAY_S[0] <= s <= config.LIVE_DELAY_S[1] for s in slept)
+
+
+def test_a_place_the_user_now_tracks_is_no_longer_watched_as_related(make_ctx):
+    ctx = make_ctx(month_source=month(quote("ORD", "FNC", *TRIP, 600)), live_sources=[live(option(500))])
+    uid, _, _ = setup(ctx.engine)
+    add_tracker(ctx.engine, uid, "MADEIRA")  # FNC is Madeira's own airport
+
+    counts = related.run(ctx)
+
+    assert counts["links_watched"] == 0 and counts["scans"] == 0

@@ -144,6 +144,29 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
   - a few loose or missing tests (the go-now cap, ruled-out standouts in the digest, the one-day subject).
 - [ ] **Look:** a greyed destination row that is also standout shows the Rare tag without the accent; only the digest's lead card gets the standout border.
 
+**Related destinations (Plan 14)**
+- [ ] **Measure it:** after a few scans, check which suggestions appear, which you accept, and whether any related deals are confirmed.
+- [ ] **Suggestions:**
+  - Lisbon is in two groups, so the cap of 5 cuts Seville for it;
+  - "Remove" on an accepted place is a permanent dismissal, with no way back in the page;
+  - dismissing a place you added yourself stores its airport code as the place code (harmless, but uncommented).
+- [ ] **Watch:**
+  - the live currency is never checked against the USD typical (today they can't differ);
+  - two users with the same trip spend two of the day's 5 checks on the same search;
+  - the trip year, the season lookup and the length band are worked out again inside loops (once per link or quote, not once per user or trip);
+  - two page views at once can both save the same climate row, and a double-submitted accept can fail one of the two requests (nothing is corrupted).
+- [ ] **Digest and site:**
+  - related deals are never recorded as sent, so one repeats in every digest while it lasts and can make an otherwise quiet digest go out;
+  - the check that hides snoozed destinations doesn't hide ones you booked after the scan, so that day's card can still show;
+  - the destinations page makes a few extra queries per destination.
+- [ ] **Code tidiness:**
+  - `place_for` takes a session it doesn't use, and `dismiss` loads the airport list itself where `accept` is handed it;
+  - `_typical` has no return annotation, and the plan doc still lists `related_deals` without its `today` parameter.
+- [ ] **Tests:**
+  - none pins the nearest-of-two-own-airports distance, accepting one airport of a multi-airport place of your own, or the climate retry directly;
+  - the cap test checks kinds, not which five survive;
+  - the panel test matches "Related" anywhere on the page, and the snoozed-panel test accepts either of two strings.
+
 **Digest and email**
 - [ ] **The 7-day trend shows "new"** if the scan exactly a week earlier didn't run.
 - [ ] **The tracker table always shows `$`,** and "best now" counts excluded trips.

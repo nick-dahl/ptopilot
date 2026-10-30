@@ -16,7 +16,7 @@ groups:
   - name: "Thai getaways"
     airports: [BKK, HKT]
   - name: "Southeast Asian beaches"
-    airports: [HKT, DPS, SGN]
+    airports: [HKT, DPS, DAD]
   - name: "Mediterranean classics"
     airports: [FCO, ATH, DBV, NCE]
   - name: "Greek islands"

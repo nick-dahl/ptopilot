@@ -111,3 +111,13 @@ def test_another_users_tracker_is_refused(session):
         accept(session, other, prague.id, "BUD", climate=climate)
     with pytest.raises(LookupError):
         dismiss(session, other, prague.id, "BUD")
+
+
+def test_a_walking_route_is_not_the_place_for_its_airport(session):
+    user = make_user(session)
+    lisbon = Tracker(user_id=user.id, destination_code="LIS", min_stay_days=5, max_stay_days=10)
+    session.add(lisbon)
+    session.flush()
+    link = accept(session, user, lisbon.id, "OPO", climate=climate)
+    assert link.place_code != "CAMINO_PORTUGUES"
+    assert session.get(Destination, link.place_code).airports == ["OPO"]

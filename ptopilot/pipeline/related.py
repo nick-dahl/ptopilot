@@ -56,7 +56,7 @@ Trip = tuple[int, str, date, date]  # user, related airport, depart, return
 ScanKey = tuple[str, str, date]  # origin, related airport, month
 COUNTS = (
     "links_watched", "scans", "scans_failed", "quotes",
-    "promising", "checked", "confirmed", "held_live_cap", "skipped_no_typical",
+    "promising", "checked", "would_check", "confirmed", "held_live_cap", "skipped_no_typical",
 )  # fmt: skip
 
 
@@ -129,7 +129,17 @@ def _months(start: date, end: date) -> list[date]:
 
 def _watched_links(s: Session, ctx: RunContext, geo: Geo) -> list[_Link]:
     out = []
+    tracked: dict[int, set[str]] = defaultdict(set)  # airports of each user's active trackers
+    for user_id, code in s.execute(
+        select(Tracker.user_id, Tracker.destination_code).where(Tracker.active.is_(True))
+    ):
+        try:
+            tracked[user_id].update(geo.destination(code).own_airports)
+        except UnknownCodeError:
+            continue
     for link in accepted_links(s):
+        if link.airport in tracked[link.user_id]:  # now tracked in its own right
+            continue
         tracker = s.get(Tracker, link.tracker_id)
         if not tracker.active or (
             tracker.snoozed_until is not None and tracker.snoozed_until >= ctx.run_date
@@ -362,6 +372,11 @@ def run(ctx: RunContext) -> dict[str, int]:
             counts["held_live_cap"] += 1
             continue
         used += 1
+        if ctx.dry_run:  # no live call and no row: the day's real allowance stays whole
+            counts["would_check"] += 1
+            continue
+        if counts["checked"]:
+            ctx.sleep(ctx.rng.uniform(*config.LIVE_DELAY_S))
         row = _check(ctx, source, fare, catalog)
         with session_scope(ctx.engine) as s:
             s.add(row)

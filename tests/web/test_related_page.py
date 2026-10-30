@@ -55,6 +55,31 @@ def test_a_failed_climate_lookup_is_retried_on_view(make_client, emailer, clean_
         assert s.get(DestinationSeason, "BUD_HU") is not None
 
 
+def test_only_one_missing_climate_is_retried_per_view(make_client, emailer, clean_engine):
+    c = make_client(failing_climate)
+    sign_in(c, emailer, clean_engine)
+    c.post("/profile", data=PROFILE_FORM)
+    add_tokyo(c)
+    add_prague(c)
+    tid = tracker_for(clean_engine, "PRG_CZ")[0]
+    for airport in ("BUD", "VIE"):
+        c.post(f"/destinations/{tid}/related", data={"airport": airport, "action": "accept"})
+    lookups = []
+
+    def counting(lat, lon):
+        lookups.append((lat, lon))
+        return base.fake_climate(lat, lon)
+
+    working = make_client(counting)
+    sign_in(working, emailer, clean_engine)
+    assert working.get("/destinations").status_code == 200
+    assert len(lookups) == 1
+    assert working.get("/destinations").status_code == 200
+    assert len(lookups) == 2
+    working.get("/destinations")
+    assert len(lookups) == 2  # nothing left to retry
+
+
 def test_another_users_tracker_gets_404(make_client, emailer, clean_engine, signed_in):
     add_prague(signed_in)
     tid = tracker_for(clean_engine, "PRG_CZ")[0]

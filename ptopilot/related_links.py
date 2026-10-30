@@ -48,9 +48,10 @@ def suggestions_for(
 
 
 def place_for(s: Session, airport: str, catalog: AirportCatalog) -> tuple[str | None, PlaceMatch | None]:
-    """(code, None) when a built-in place has this airport, else (None, a match to create the place from)."""
+    """(code, None) when a built-in place has this airport, else (None, a match to create the place from).
+    Walking routes (open-jaw) are never the place for an airport: Porto is not the Camino."""
     for d in load_geo().destinations():
-        if airport in d.airports:
+        if d.kind != "route" and not d.return_airports and airport in d.airports:
             return d.code, None
     found = catalog.get(airport)
     if found is None:
@@ -134,7 +135,8 @@ def ensure_seasons(
 
 
 def refresh_missing_seasons(engine, user_id: int, catalog: AirportCatalog, climate) -> None:
-    """Retry the climate lookup for the user's accepted places that lack seasons.
+    """Retry the climate lookup for one of the user's accepted places that lacks seasons (one per page view,
+    so a place that keeps failing can't slow every view).
 
     Each lookup runs in a short read-only session and is saved in a later one, so the network call
     never holds the saving transaction.
@@ -147,6 +149,7 @@ def refresh_missing_seasons(engine, user_id: int, catalog: AirportCatalog, clima
             if match is not None:
                 airports = list(s.get(Destination, code).airports)
                 todo.append((code, prefetch_climate(s, match, airports, climate)))
+                break
     if not todo:
         return
     with session_scope(engine) as s:
