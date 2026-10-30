@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from ptopilot import config
 from ptopilot.core.airports import AirportCatalog
+from ptopilot.core.duration import expected_days
 from ptopilot.core.misery import Assessment, assess, problems
 from ptopilot.core.scoring import conservative_z, go_now, length_fit
 from ptopilot.core.stats import compute_baseline, deal_level, z_score
@@ -194,8 +195,12 @@ def run(ctx: RunContext) -> dict[str, int]:
                 continue
             z_route = None if ruled_out or not b else z_score(float(price), b)
             z_trip = None
+            days_left = (rq.depart_date - ctx.run_date).days
+            expected = None
             if not ruled_out:
-                history = [p for _, p in trip_series(s, rq, tracker.id, ctx.run_date)]
+                series = trip_series(s, rq, tracker.id, ctx.run_date)
+                expected = expected_days(series, ctx.run_date, float(price), days_left)
+                history = [p for _, p in series]
                 if len(history) >= config.TRIP_HISTORY_MIN and (own := compute_baseline(history)):
                     z_trip = z_score(float(price), own)
             z = None if ruled_out else conservative_z(z_route, z_trip)
@@ -218,7 +223,7 @@ def run(ctx: RunContext) -> dict[str, int]:
                         z,
                         link.season_rating,  # type: ignore[arg-type]
                         link.efficiency,
-                        (rq.depart_date - ctx.run_date).days,
+                        days_left,
                         ctx.geo.is_international(rq.origin, dest),
                         length_fit=length_fit(link.days_away, tracker.target_days or user.ideal_trip_days),
                         deal_capped=capped,
@@ -227,6 +232,7 @@ def run(ctx: RunContext) -> dict[str, int]:
                     verified=is_verified,
                     verdict=assessment.verdict,
                     misery_note=assessment.note,
+                    expected_days=expected,
                 )
             )
             if ruled_out:

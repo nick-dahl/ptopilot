@@ -319,6 +319,7 @@ class LiveCheck(Base):
     options: Mapped[int] = mapped_column(server_default="0")
     error: Mapped[str | None] = mapped_column(Text)
     checked_at: Mapped[datetime] = created_at()
+    purpose: Mapped[str] = mapped_column(String(8), server_default="trip")  # 'trip' | 'return'
 
 
 class RouteBaseline(Base):
@@ -367,6 +368,21 @@ class Candidate(Base):
     state: Mapped[str] = mapped_column(String(8), server_default="new")
     verdict: Mapped[str] = mapped_column(String(9), server_default="ok")
     misery_note: Mapped[str | None] = mapped_column(Text)
+    expected_days: Mapped[int | None] = mapped_column(SmallInteger)
+
+
+class AlertSend(Base):
+    """One instant alert sent; at most one per user per UTC day."""
+
+    __tablename__ = "alert_sends"
+    __table_args__ = (UniqueConstraint("user_id", "run_date"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    tracker_id: Mapped[int] = mapped_column(ForeignKey("trackers.id", ondelete="CASCADE"))
+    candidate_id: Mapped[int | None] = mapped_column(ForeignKey("candidates.id", ondelete="SET NULL"))
+    run_date: Mapped[date]
+    sent_at: Mapped[datetime] = created_at()
 
 
 class DigestSend(Base):
