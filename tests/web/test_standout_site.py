@@ -32,3 +32,16 @@ def test_ruled_out_rows_never_get_the_standout_tag(client, emailer, clean_engine
     set_verdict(clean_engine, c, "ruled_out", "overnight layover")
     page = client.get(f"/trackers/{t}").text
     assert "Rare:" not in page and "standout" not in page
+
+
+def test_site_says_when_history_is_thin_only_then(client, emailer, clean_engine):
+    t = setup(client, emailer, clean_engine)
+    add_candidate(clean_engine, t, 603, run_date=TODAY, level="great", go_now=92, duration_thin=True)
+    assert "not enough history yet" in client.get(f"/trackers/{t}").text
+    assert "not enough history yet" in client.get("/").text
+
+
+def test_site_is_silent_when_there_is_no_dip(client, emailer, clean_engine):
+    t = setup(client, emailer, clean_engine)
+    add_candidate(clean_engine, t, 603, run_date=TODAY, level="great", go_now=92)
+    assert "not enough history" not in client.get(f"/trackers/{t}").text + client.get("/").text

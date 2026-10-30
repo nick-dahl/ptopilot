@@ -319,7 +319,7 @@ class LiveCheck(Base):
     options: Mapped[int] = mapped_column(server_default="0")
     error: Mapped[str | None] = mapped_column(Text)
     checked_at: Mapped[datetime] = created_at()
-    purpose: Mapped[str] = mapped_column(String(8), server_default="trip")  # 'trip' | 'return'
+    purpose: Mapped[str] = mapped_column(String(8), server_default="trip")  # 'trip' / 'return' / 'dryret'
 
 
 class RouteBaseline(Base):
@@ -369,6 +369,7 @@ class Candidate(Base):
     verdict: Mapped[str] = mapped_column(String(9), server_default="ok")
     misery_note: Mapped[str | None] = mapped_column(Text)
     expected_days: Mapped[int | None] = mapped_column(SmallInteger)
+    duration_thin: Mapped[bool] = mapped_column(server_default="false")  # a dip, but too little history
 
 
 class AlertSend(Base):

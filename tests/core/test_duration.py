@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from ptopilot.core.duration import duration_label, expected_days
+from ptopilot.core.duration import DurationEstimate, duration_estimate, duration_label, expected_days
 
 TODAY = date(2027, 5, 1)
 DIP = 800.0
@@ -74,3 +74,11 @@ def test_labels():
     assert duration_label(7) == "likely gone within ~7 days"
     assert duration_label(9) == "likely to hold for a week or more"
     assert duration_label(None, dips_found=False) == "not enough history yet" and duration_label(None) is None
+
+
+def test_estimate_tells_thin_history_from_no_dip():
+    s = series([(45, 2), (38, 3), (30, 4)])
+    assert duration_estimate(s, TODAY, DIP, 60) == DurationEstimate(3, False)
+    assert duration_estimate(s, TODAY, 1000.0, 60) == DurationEstimate(None, False)  # no dip today
+    assert duration_estimate(series([(40, 3)]), TODAY, DIP, 60) == DurationEstimate(None, True)  # 1 past dip
+    assert duration_estimate(series([], days=9), TODAY, DIP, 60) == DurationEstimate(None, True)  # no window

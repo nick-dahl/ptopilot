@@ -9,7 +9,8 @@ the user's next standout is tried; an unknown one (no source answered) still sen
 Return searches are capped at RETURN_CHECKS_PER_DAY a day for all users together, counted from today's
 `live_checks` rows with purpose 'return' (so a re-run gets no fresh allowance). Every search is recorded
 and charged to the source budgets the same way live_verify's are, dry runs included: the calls are real.
-A dry run checks returns and reports what it would send, but sends nothing and records no alert.
+A dry run checks returns with free sources only (never SerpApi), records them as purpose 'dryret' so
+the real run keeps its allowance, reports what it would send, and sends nothing and records no alert.
 Alerts never mark a candidate as sent: the next digest still carries the offer.
 """
 
@@ -41,11 +42,15 @@ VERDICTS: tuple[ReturnVerdict, ...] = ("pass", "fail", "unknown")
 
 
 class _Recorded:
-    """A live source whose searches for the flight home are charged and recorded (purpose 'return')."""
+    """A live source whose searches for the flight home are charged and recorded.
+
+    Purpose 'return', or 'dryret' in a dry run so it never uses up the real run's allowance.
+    """
 
     def __init__(self, ctx: RunContext, budget: Budget, rq: RouteQuery, source: ExactSearchSource):
         self._ctx, self._budget, self._rq, self._source = ctx, budget, rq, source
         self.name = source.name
+        self._purpose = "dryret" if ctx.dry_run else "return"
         self.supports_open_jaw = source.supports_open_jaw
 
     def exact_search(self, query: ExactQuery) -> ExactResult:
@@ -53,9 +58,11 @@ class _Recorded:
         try:
             result = self._source.exact_search(query)
         except Exception as exc:
-            record_check(self._ctx, self._rq, self.name, ok=False, error=str(exc), purpose="return")
+            record_check(self._ctx, self._rq, self.name, ok=False, error=str(exc), purpose=self._purpose)
             raise
-        record_check(self._ctx, self._rq, self.name, ok=True, options=len(result.options), purpose="return")
+        record_check(
+            self._ctx, self._rq, self.name, ok=True, options=len(result.options), purpose=self._purpose
+        )
         return result
 
 
@@ -68,7 +75,11 @@ def _return_verdict(
     baseline: Baseline | None,
     catalog: AirportCatalog,
 ) -> tuple[ReturnVerdict, str | None]:
-    sources = [_Recorded(ctx, budget, rq, src) for src in ctx.live_sources if budget.allows(src.name)]
+    sources = [  # a dry run uses free sources only: SerpApi's few monthly searches are for real runs
+        _Recorded(ctx, budget, rq, src)
+        for src in ctx.live_sources
+        if budget.allows(src.name) and not (ctx.dry_run and src.name == "serpapi")
+    ]
     try:
         return check_return(
             sources,

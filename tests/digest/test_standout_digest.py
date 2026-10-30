@@ -51,3 +51,19 @@ def test_unknown_duration_shows_no_line(clean_engine):
     add_candidate(clean_engine, t, 600, level="great", go_now=95)
     _, html, text = render(digest(clean_engine))
     assert "likely" not in html and "not enough history" not in html + text
+
+
+def test_thin_history_says_so_but_no_dip_stays_silent(clean_engine):
+    t = add_tracker(clean_engine, add_user(clean_engine))
+    add_candidate(clean_engine, t, 600, level="great", go_now=95, duration_thin=True)
+    d = digest(clean_engine)
+    assert d.deals[0].duration_note == "not enough history yet" and not d.deals[0].standout
+    _, html, text = render(d)
+    assert "not enough history yet" in html and "not enough history yet" in text
+
+
+def test_a_no_dip_deal_has_no_history_line(clean_engine):
+    t = add_tracker(clean_engine, add_user(clean_engine))
+    add_candidate(clean_engine, t, 600, level="great", go_now=95)
+    _, html, text = render(digest(clean_engine))
+    assert "not enough history" not in html + text

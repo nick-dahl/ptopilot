@@ -73,11 +73,12 @@ class DealCard:
     fit_notes: tuple[str, ...] = ()  # soft warnings: overlaps a booked trip, over the PTO left
     misery_note: str | None = None  # a forgiven trade-off, e.g. a long layover worth the price
     expected_days: int | None = None  # how long a dip like this usually lasts; None when unknown
+    duration_thin: bool = False  # a dip today, but too little history to say how long it lasts
     standout: bool = False  # rare: great, verified and likely gone within days
 
     @property
     def duration_note(self) -> str | None:
-        return duration_label(self.expected_days)
+        return duration_label(self.expected_days, dips_found=not self.duration_thin)
 
     @property
     def standout_tag(self) -> str | None:
@@ -270,6 +271,7 @@ def build_digests(
                 sigma=b.sigma if b else None,
                 misery_note=c.misery_note if c.verdict == "forgiven" else None,
                 expected_days=c.expected_days,
+                duration_thin=c.duration_thin,
                 standout=c.verdict != "ruled_out"
                 and is_standout(c.go_now, c.deal_level, c.confidence, c.verified, c.expected_days),
             )

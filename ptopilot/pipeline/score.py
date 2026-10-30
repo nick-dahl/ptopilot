@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from ptopilot import config
 from ptopilot.core.airports import AirportCatalog
-from ptopilot.core.duration import expected_days
+from ptopilot.core.duration import DurationEstimate, duration_estimate
 from ptopilot.core.misery import Assessment, assess, problems
 from ptopilot.core.scoring import conservative_z, go_now, length_fit
 from ptopilot.core.stats import compute_baseline, deal_level, z_score
@@ -196,10 +196,10 @@ def run(ctx: RunContext) -> dict[str, int]:
             z_route = None if ruled_out or not b else z_score(float(price), b)
             z_trip = None
             days_left = (rq.depart_date - ctx.run_date).days
-            expected = None
+            estimate = DurationEstimate(None, False)
             if not ruled_out:
                 series = trip_series(s, rq, tracker.id, ctx.run_date)
-                expected = expected_days(series, ctx.run_date, float(price), days_left)
+                estimate = duration_estimate(series, ctx.run_date, float(price), days_left)
                 history = [p for _, p in series]
                 if len(history) >= config.TRIP_HISTORY_MIN and (own := compute_baseline(history)):
                     z_trip = z_score(float(price), own)
@@ -232,7 +232,8 @@ def run(ctx: RunContext) -> dict[str, int]:
                     verified=is_verified,
                     verdict=assessment.verdict,
                     misery_note=assessment.note,
-                    expected_days=expected,
+                    expected_days=estimate.days,
+                    duration_thin=estimate.thin,
                 )
             )
             if ruled_out:

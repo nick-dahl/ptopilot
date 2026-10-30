@@ -58,6 +58,7 @@ def add_candidate(
     verified=True,
     expected_days=None,
     confidence="normal",
+    duration_thin=False,
 ) -> int:
     """A candidate with its route query, link and live observation."""
     with session_scope(engine) as s:
@@ -133,6 +134,7 @@ def add_candidate(
             confidence=confidence,
             verified=verified,
             expected_days=expected_days,
+            duration_thin=duration_thin,
         )
         s.add(c)
         s.flush()

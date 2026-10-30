@@ -13,6 +13,7 @@ from ptopilot.digest.render import render_alert
 from ptopilot.digest.select import build_digests
 from ptopilot.notify.email import EmailError
 from ptopilot.pipeline import alerts, expand, live_verify, runner, shortlist
+from ptopilot.sources.base import ExactQuery
 from tests.digest.conftest import RUN, add_baseline, add_candidate, add_tracker, add_user
 from tests.pipeline.conftest import GEO, SEASONS, FakeLiveSource, answering, option
 from tests.pipeline.conftest import add_tracker as add_pipeline_tracker
@@ -379,3 +380,50 @@ def test_without_an_emailer_the_stage_is_skipped_before_any_search(make_ctx, mon
     monkeypatch.setattr(alerts, "check_return", lambda *a, **kw: pytest.fail("searched"))
     with pytest.raises(StageSkipped):
         alerts.run(ctx)
+
+
+# --- a dry run leaves the real run's return allowance alone ---
+
+
+def test_a_dry_run_does_not_use_up_the_real_runs_return_checks(make_ctx, monkeypatch):
+    google = FakeLiveSource("google_flights", answering())
+    _, tid = azores(make_ctx().engine)
+    ctx = alert_ctx(make_ctx, live_sources=[google], dry_run=True)
+    for i in range(4):
+        standout(ctx.engine, tid, depart=RUN + timedelta(days=1 + i), ret=RUN + timedelta(days=10 + i))
+    real_check = alerts.check_return
+
+    def failing(sources, **kw):  # every dry-run return search runs, then fails, so all candidates are tried
+        sources[0].exact_search(
+            ExactQuery(kw["from_airport"], kw["home"], kw["depart"], kw["depart"], one_way=True)
+        )
+        return "fail", None
+
+    monkeypatch.setattr(alerts, "check_return", failing)
+    alerts.run(ctx)
+    monkeypatch.setattr(alerts, "check_return", real_check)
+    assert len(google.calls) == config.RETURN_CHECKS_PER_DAY and return_rows(ctx.engine) == []
+    with session_scope(ctx.engine) as s:
+        dry = list(s.scalars(select(LiveCheck).where(LiveCheck.purpose == "dryret")))
+    assert dry
+    real = alert_ctx(make_ctx, live_sources=[google])
+    counts = alerts.run(real)
+    assert counts["return_checks"] >= 1 and counts.get("held_return_check_cap", 0) == 0
+
+
+def test_a_dry_run_never_offers_serpapi(make_ctx, monkeypatch):
+    monkeypatch.setitem(config.SOURCE_BUDGETS, "serpapi", {"per_day": 8, "per_month": 250})
+    google = FakeLiveSource("google_flights", answering())
+    serp = FakeLiveSource("serpapi", answering(source="serpapi"))
+    ctx = alert_ctx(make_ctx, live_sources=[google, serp], dry_run=True)
+    _, tid = azores(ctx.engine)
+    standout(ctx.engine, tid)
+    seen = []
+
+    def spy(sources, **kw):
+        seen.append([s.name for s in sources])
+        return "unknown", None
+
+    monkeypatch.setattr(alerts, "check_return", spy)
+    alerts.run(ctx)
+    assert seen == [["google_flights"]]
