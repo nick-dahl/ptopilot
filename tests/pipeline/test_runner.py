@@ -59,6 +59,7 @@ def test_end_to_end_finds_a_great_deal(make_ctx):
         ("live_verify", "ok"),
         ("baselines", "ok"),
         ("score", "ok"),
+        ("related", "ok"),  # nothing accepted: a quiet watch
         ("alerts", "skipped"),  # no emailer configured
     ]
     with session_scope(ctx.engine) as s:
@@ -74,7 +75,7 @@ def test_failed_core_stage_stops_the_rest(make_ctx, monkeypatch):
 
     monkeypatch.setitem(runner.STAGES, "broad_scan", broken)
     results = runner.run_pipeline(make_ctx())
-    assert [r.status for r in results] == ["ok", "failed"] + ["not_run"] * 6
+    assert [r.status for r in results] == ["ok", "failed"] + ["not_run"] * 7
     assert runs(make_ctx().engine)["broad_scan"].error == "all month scans failed"
 
 
@@ -90,6 +91,7 @@ def test_live_verify_failure_lets_scoring_continue(make_ctx):
         "live_verify": "failed",
         "baselines": "ok",
         "score": "ok",
+        "related": "skipped",  # no month source
         "alerts": "skipped",
     }
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
+from datetime import date
 from functools import cache
 from importlib import resources
 from typing import Literal
@@ -12,7 +13,9 @@ import yaml
 
 from ptopilot import config
 from ptopilot.core.airports import AirportCatalog
+from ptopilot.core.fit import BookedTrip, first_overlap
 from ptopilot.core.geo import Destination
+from ptopilot.core.seasons import Rating
 
 
 @dataclass(frozen=True)
@@ -58,3 +61,26 @@ def suggest(
     for code, km in sorted(nearest.items(), key=lambda t: (t[1], t[0])):
         out.setdefault(code, Suggestion(code, "near", f"~{round(km)} km away", km))
     return list(out.values())[: config.RELATED_MAX_SUGGESTIONS]
+
+
+def fits(
+    depart: date,
+    ret: date,
+    *,
+    ranges: Sequence[tuple[date, date]],
+    pto_cost: int,
+    pto_remaining: int,
+    band: tuple[int, int],
+    rating: Rating | None,
+    booked: Sequence[BookedTrip],
+) -> bool:
+    """A related fare fits when the whole trip lies in an open range, its PTO is left, its days away are in
+    the band, the place's season is exactly good (None: no ratings, never), and no booked trip overlaps."""
+    days_away = (ret - depart).days + 1
+    return (
+        any(start <= depart and ret <= end for start, end in ranges)
+        and pto_cost <= pto_remaining
+        and band[0] <= days_away <= band[1]
+        and rating == "good"
+        and first_overlap(depart, ret, booked) is None
+    )

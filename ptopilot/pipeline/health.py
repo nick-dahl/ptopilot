@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ptopilot import config
-from ptopilot.db.models import AlertSend, Candidate, PriceObservation, SourceBudget
+from ptopilot.db.models import AlertSend, Candidate, PriceObservation, RelatedCheck, SourceBudget
 from ptopilot.db.session import session_scope
 from ptopilot.digest.render import date_range
 from ptopilot.pipeline.context import RunContext
@@ -82,6 +82,14 @@ def audit_lines(s: Session, day: date) -> list[str]:
     return lines
 
 
+def related_line(s: Session, day: date, results: Sequence[StageResult]) -> str:
+    """This run's promising related fares; today's live checks and confirmations, re-runs included."""
+    stage = next((r for r in results if r.stage == "related"), None)
+    promising = stage.counts.get("promising", 0) if stage else 0
+    rows = s.execute(select(RelatedCheck.confirmed).where(RelatedCheck.run_date == day)).scalars().all()
+    return f"Related places: promising {promising}, checked {len(rows)}, confirmed {sum(rows)}"
+
+
 def build_report(ctx: RunContext, results: Sequence[StageResult]) -> tuple[str, str]:
     """(subject, plain-text body)."""
     failed = [r.stage for r in results if r.status == "failed"]
@@ -116,6 +124,7 @@ def build_report(ctx: RunContext, results: Sequence[StageResult]) -> tuple[str, 
             f"Candidates: great={deals['great']} good={deals['good']} none={deals['none']}"
             f" ruled_out={verdicts.get('ruled_out', 0)}",
             f"Alerts sent today: {s.scalar(select(func.count()).where(AlertSend.run_date == ctx.run_date))}",
+            related_line(s, ctx.run_date, results),
             "",
             *audit_lines(s, ctx.run_date),
             "",

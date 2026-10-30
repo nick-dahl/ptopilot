@@ -8,7 +8,7 @@ exact same dates. Month-level minimums only steer the shortlist; they never beco
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import date, timedelta
 
 from sqlalchemy import Date, cast, delete, func, select
@@ -32,21 +32,14 @@ from ptopilot.pipeline.queries import (
     start_of,
     todays_route_queries,
 )
+from ptopilot.sources.base import FlightOption
 
 
-def pick_option(
-    options: list[PriceObservation],
-    user: User,
-    evening_departure: bool,
-    *,
-    judge: Callable[[PriceObservation], Assessment],
-) -> tuple[PriceObservation, Assessment] | None:
-    """Cheapest verified option that passes this user's filters and isn't ruled out as miserable.
-
-    When every filtered option is ruled out, the cheapest one comes back with its ruled-out assessment.
-    """
-    if not options:
-        return None
+def passing_filters[O: (PriceObservation, FlightOption)](  # a stored live option, or one fresh from a source
+    options: Sequence[O], user: User, evening_departure: bool = False
+) -> list[O]:
+    """The options within this user's stop limit (long-haul when the fastest takes SHORT_HAUL_MAX_MIN or
+    more), without an overnight layover unless allowed, and leaving late enough on a Friday evening."""
     durations = [o.duration_min for o in options if o.duration_min]
     fastest = min(durations) if durations else None
     long_haul = fastest is not None and fastest >= config.SHORT_HAUL_MAX_MIN
@@ -62,6 +55,23 @@ def pick_option(
         ):
             continue
         ok.append(o)
+    return ok
+
+
+def pick_option(
+    options: list[PriceObservation],
+    user: User,
+    evening_departure: bool,
+    *,
+    judge: Callable[[PriceObservation], Assessment],
+) -> tuple[PriceObservation, Assessment] | None:
+    """Cheapest verified option that passes this user's filters and isn't ruled out as miserable.
+
+    When every filtered option is ruled out, the cheapest one comes back with its ruled-out assessment.
+    """
+    if not options:
+        return None
+    ok = passing_filters(options, user, evening_departure)
     judged = sorted(((o, judge(o)) for o in ok), key=lambda pair: (pair[0].price, pair[0].id))
     for pair in judged:
         if pair[1].verdict != "ruled_out":
