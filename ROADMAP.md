@@ -1,14 +1,10 @@
 # ptopilot Roadmap
 
-V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](docs/superpowers/specs/2026-10-16-ptopilot-design.md). V1 and Plans 7–13 are live. This page is the agenda: what's queued, what to settle before inviting friends, feature ideas, and the polish backlog from code reviews.
+V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](docs/superpowers/specs/2026-10-16-ptopilot-design.md). V1 and Plans 7–14 are live. This page is the agenda: what's queued, what to settle before inviting friends, feature ideas, and the polish backlog from code reviews.
 
 ## 1. Queued work, in order
 
-- [ ] **Plan 14: related destinations.** The design is approved (`docs/superpowers/specs/2026-10-25-ptopilot-related-destinations-design.md`); the plan is still to write. It covers:
-  - nearby airports within 65 km (under an hour on the ground);
-  - curated groups of major tourist destinations;
-  - at most 5 suggestions per destination;
-  - an "Also worth a look" section.
+Nothing queued. Pick the next item from the pre-invite checklist or the feature ideas below.
 
 ## 2. Before inviting friends
 
@@ -170,6 +166,7 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
 
 ## Done
 
+- [x] **Related destinations:** each destination suggests up to 5 related places (curated look-alikes and airports within 65 km) to accept or dismiss on the destinations page; a light daily watch (free cached fares, at most 5 free live checks a day) surfaces a stunning, fitting fare under "Also worth a look" in the digest and in a "Related" panel on the destination page (Plan 14; spec `docs/superpowers/specs/2026-10-25-ptopilot-related-destinations-design.md`).
 - [x] **Buy now or wait:** a stricter go-now score that judges each trip against its own price history and discounts thin evidence; "likely gone within ~N days" on every deal; "Rare" standout offers on the site and in the digest; and instant alert emails (at most one a day, the same destination at most once a week) after checking the flight home (Plan 13; spec `docs/superpowers/specs/2026-10-25-ptopilot-buy-now-or-wait-design.md`).
 - [x] **Skip miserable flights:** itineraries with very long layovers, needlessly long journeys or a landing far from the destination are ruled out (greyed on the destination page), unless a fare about 40% below typical forgives one moderate problem. Includes a one-way return-flight check for instant alerts (Plan 12; spec `docs/superpowers/specs/2026-10-26-ptopilot-skip-miserable-flights-design.md`).
 - [x] **Your own destinations:** search, add and remove on the website (Plan 9).

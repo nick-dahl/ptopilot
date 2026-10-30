@@ -54,7 +54,7 @@ Destinations must exist in `ptopilot/data/geo.yaml` (with season ratings in `sea
 
 A dry run still makes real return-flight searches, but only with free sources, and they don't use the real run's daily return-check allowance or any SerpApi searches.
 
-Stages: `expand → broad_scan → shortlist → live_verify → baselines → score`. Each run is recorded in `pipeline_runs`. A failed `expand` or `broad_scan` stops the rest; a failed `live_verify` does not. In production, `.github/workflows/scan.yml` runs it daily at 06:00 UTC (and on demand from the Actions tab, with optional date/stage inputs); `keepalive.yml` stops GitHub from disabling the schedule.
+Stages: `expand → broad_scan → shortlist → seed_history → live_verify → baselines → score → related → alerts`. Each run is recorded in `pipeline_runs`. A failed `expand` or `broad_scan` stops the rest; a failed `seed_history`, `live_verify`, `related` or `alerts` does not. In production, `.github/workflows/scan.yml` runs it daily at 06:00 UTC (and on demand from the Actions tab, with optional date/stage inputs); `keepalive.yml` stops GitHub from disabling the schedule.
 
 ## Neon (production database)
 
