@@ -10,10 +10,19 @@ def _clamp(x: float) -> float:
     return max(0.0, min(1.0, x))
 
 
-def deal_component(z: float | None) -> float:
+def deal_component(z: float | None, capped: bool = False) -> float:
+    """0-1 deal strength; thin evidence (low-confidence baseline, unverified price) caps it at half."""
     if z is None:
         return 0.0
-    return _clamp(-z / config.DEAL_Z_FOR_FULL_SCORE)
+    part = _clamp(-z / config.DEAL_Z_FOR_FULL_SCORE)
+    return min(part, 0.5) if capped else part
+
+
+def conservative_z(z_route: float | None, z_trip: float | None) -> float | None:
+    """The less extreme of the route-month z and the exact trip's own z, whichever exist."""
+    if z_route is None or z_trip is None:
+        return z_route if z_trip is None else z_trip
+    return max(z_route, z_trip)
 
 
 def efficiency_component(efficiency: float) -> float:
@@ -39,10 +48,11 @@ def go_now(
     days_until_departure: int,
     international: bool,
     length_fit: float = 1.0,
+    deal_capped: bool = False,
 ) -> int:
     w = config.GO_NOW_WEIGHTS
     total = (
-        w["deal"] * deal_component(z)
+        w["deal"] * deal_component(z, deal_capped)
         + w["weather"] * config.WEATHER_SCORES[rating]
         + w["efficiency"] * efficiency_component(efficiency)
         + w["length"] * _clamp(length_fit)

@@ -9,15 +9,16 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import date, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import Date, cast, delete, func, select
+from sqlalchemy.orm import Session
 
 from ptopilot import config
 from ptopilot.core.airports import AirportCatalog
 from ptopilot.core.misery import Assessment, assess, problems
-from ptopilot.core.scoring import go_now, length_fit
-from ptopilot.core.stats import deal_level, z_score
+from ptopilot.core.scoring import conservative_z, go_now, length_fit
+from ptopilot.core.stats import compute_baseline, deal_level, z_score
 from ptopilot.db.models import Candidate, PriceObservation, RouteQuery, Tracker, TrackerRouteLink, User
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext
@@ -65,6 +66,56 @@ def pick_option(
         if pair[1].verdict != "ruled_out":
             return pair
     return judged[0] if judged else None
+
+
+def trip_series(s: Session, rq: RouteQuery, tracker_id: int, run_date: date) -> list[tuple[date, float]]:
+    """The exact trip's price per day over the trailing BASELINE_WINDOW_DAYS before `run_date`, oldest first.
+
+    A day this tracker scored the trip uses that candidate's price, and is left out when the candidate was
+    ruled out as miserable. Days without a candidate (seeded history, before tracking) use the day's
+    cheapest observation from any source.
+    """
+    first = run_date - timedelta(days=config.BASELINE_WINDOW_DAYS)
+    same_trip = (
+        RouteQuery.origin == rq.origin,
+        RouteQuery.dest_airport == rq.dest_airport,
+        RouteQuery.return_airport == rq.return_airport,
+        RouteQuery.depart_date == rq.depart_date,
+        RouteQuery.return_date == rq.return_date,
+    )
+    scored: dict[date, list[float | None]] = defaultdict(list)  # None marks a ruled-out candidate
+    for day, price, verdict in s.execute(
+        select(Candidate.run_date, Candidate.price, Candidate.verdict)
+        .join(RouteQuery, RouteQuery.id == Candidate.route_query_id)
+        .where(Candidate.tracker_id == tracker_id, *same_trip)
+        .where(Candidate.run_date >= first, Candidate.run_date < run_date)
+    ):
+        scored[day].append(None if verdict == "ruled_out" else float(price))
+    seen = cast(func.timezone("UTC", PriceObservation.observed_at), Date)
+    observed = dict(
+        s.execute(
+            select(seen, func.min(PriceObservation.price))
+            .where(
+                PriceObservation.origin == rq.origin,
+                PriceObservation.dest_airport == rq.dest_airport,
+                PriceObservation.return_airport == rq.return_airport,
+                PriceObservation.depart_date == rq.depart_date,
+                PriceObservation.return_date == rq.return_date,
+                PriceObservation.observed_at >= start_of(first),
+                PriceObservation.observed_at < start_of(run_date),
+            )
+            .group_by(seen)
+        ).all()
+    )
+    series: list[tuple[date, float]] = []
+    for day in sorted(scored.keys() | observed.keys()):
+        if day in scored:
+            prices = [p for p in scored[day] if p is not None]
+            if prices:
+                series.append((day, min(prices)))
+        else:
+            series.append((day, float(observed[day])))
+    return series
 
 
 def run(ctx: RunContext) -> dict[str, int]:
@@ -141,7 +192,14 @@ def run(ctx: RunContext) -> dict[str, int]:
             if tracker.max_price is not None and price > tracker.max_price:
                 counts["over_max_price"] += 1
                 continue
-            z = None if ruled_out or not b else z_score(float(price), b)
+            z_route = None if ruled_out or not b else z_score(float(price), b)
+            z_trip = None
+            if not ruled_out:
+                history = [p for _, p in trip_series(s, rq, tracker.id, ctx.run_date)]
+                if len(history) >= config.TRIP_HISTORY_MIN and (own := compute_baseline(history)):
+                    z_trip = z_score(float(price), own)
+            z = None if ruled_out else conservative_z(z_route, z_trip)
+            capped = not b or b.confidence == "low" or not is_verified
             s.add(
                 Candidate(
                     user_id=user.id,
@@ -163,6 +221,7 @@ def run(ctx: RunContext) -> dict[str, int]:
                         (rq.depart_date - ctx.run_date).days,
                         ctx.geo.is_international(rq.origin, dest),
                         length_fit=length_fit(link.days_away, tracker.target_days or user.ideal_trip_days),
+                        deal_capped=capped,
                     ),
                     confidence=b.confidence if b else "low",
                     verified=is_verified,
