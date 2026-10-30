@@ -1,7 +1,7 @@
 # ptopilot — Site Polish (Design)
 
 **Date:** 2026-10-30
-**Status:** Draft, awaiting review
+**Status:** Approved 2026-10-30
 **Builds on:**
 - [V2 look and feel](2026-10-17-ptopilot-v2-look-and-feel-design.md) (Plan 7: the design system);
 - Plans 9–14 (destinations, planner, booking, misery, buy now or wait, related destinations).
