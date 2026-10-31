@@ -71,12 +71,24 @@ class _Person:
                 return year
         return None
 
+    def fits(self, depart: date, ret: date) -> tuple[bool, int]:
+        """(inside an open range with the PTO cost within that year's remaining, the PTO cost)."""
+        pto = self.calendar.pto_cost(depart, ret)
+        year = self.year_of(depart, ret)
+        return year is not None and pto <= self.remaining.get(year, 0), pto
+
 
 @dataclass(frozen=True)
 class _Due:
     person: _Person
     gem: Gem
     months: tuple[date, ...]
+    last_checked: date | None  # run date of the pair's newest gem_fares row
+
+    @property
+    def order(self) -> tuple[bool, date, int]:
+        """Never checked first, then the longest waiting, then by user: the cap starves nobody."""
+        return (self.last_checked is not None, self.last_checked or date.min, self.person.user.id)
 
 
 @dataclass(frozen=True)
@@ -140,7 +152,7 @@ def _due(s: Session, person: _Person, catalogue: dict[str, Gem], run_date: date)
         if slug in last and (run_date - last[slug]).days < config.GEM_RECHECK_DAYS:
             continue
         months = person.range_months(run_date) or _best_months(gem, run_date)
-        out.append(_Due(person, gem, tuple(months)))
+        out.append(_Due(person, gem, tuple(months), last.get(slug)))
     return out
 
 
@@ -161,27 +173,35 @@ def _scan(
     return found
 
 
+def _scan_keys(due: _Due) -> list[ScanKey]:
+    return [(o, a, m) for o in due.person.homes for a in due.gem.airports for m in due.months]
+
+
 def _cheapest(
     ctx: RunContext, due: _Due, found: dict[ScanKey, list[FareQuote]]
 ) -> tuple[bool, _Candidate | None]:
-    """(whether any of the gem's scans answered, its cheapest round trip of about the right length)."""
-    answered, best = False, None
-    for origin in due.person.homes:
-        for airport in due.gem.airports:
-            for month in due.months:
-                quotes = found.get((origin, airport, month))
-                if quotes is None:
-                    continue
-                answered = True
-                for q in quotes:
-                    if q.return_date is None or q.depart_date <= ctx.run_date:
-                        continue
-                    days = (q.return_date - q.depart_date).days + 1
-                    if abs(days - due.person.length) > TRIP_SLACK_DAYS:
-                        continue
-                    if best is None or q.price < best.price:
-                        best = _Candidate(due, origin, airport, q.depart_date, q.return_date, q.price)
-    return answered, best
+    """(whether any of the gem's scans answered, the round trip of about the right length to check).
+
+    The cheapest that fits the person's dates and PTO wins; with none fitting, the cheapest overall."""
+    answered, best, best_fit = False, None, None
+    for key in _scan_keys(due):
+        quotes = found.get(key)
+        if quotes is None:
+            continue
+        answered = True
+        origin, airport, _ = key
+        for q in quotes:
+            if q.return_date is None or q.depart_date <= ctx.run_date:
+                continue
+            days = (q.return_date - q.depart_date).days + 1
+            if abs(days - due.person.length) > TRIP_SLACK_DAYS:
+                continue
+            c = _Candidate(due, origin, airport, q.depart_date, q.return_date, q.price)
+            if best is None or c.price < best.price:
+                best = c
+            if due.person.fits(c.depart, c.ret)[0] and (best_fit is None or c.price < best_fit.price):
+                best_fit = c
+    return answered, best_fit or best
 
 
 def _miss(ctx: RunContext, due: _Due) -> GemFare:
@@ -231,9 +251,7 @@ def _check(ctx: RunContext, source: ExactSearchSource, c: _Candidate, catalog: A
     if best is None:
         row.status = "none"
         return row
-    pto = person.calendar.pto_cost(c.depart, c.ret)
-    year = person.year_of(c.depart, c.ret)
-    fits = year is not None and pto <= person.remaining.get(year, 0)
+    fits, pto = person.fits(c.depart, c.ret)
     row.status, row.price, row.pto_cost, row.fits = "found", Decimal(str(best.price)), pto, fits
     row.fit_month = trip_month(c.depart, c.ret) if fits else None
     return row
@@ -257,21 +275,24 @@ def run(ctx: RunContext) -> dict[str, int]:
 
     with session_scope(ctx.engine) as s:
         due = [d for user in _users(s) for d in _due(s, _person(s, user, ctx.run_date), live, ctx.run_date)]
+        due.sort(key=lambda d: d.order)  # stable: a person's newest issues stay first among their own
         used = s.scalar(
             select(func.count()).where(GemFare.run_date == ctx.run_date, GemFare.depart_date.is_not(None))
         )
         s.expunge_all()
     counts["priced_due"] = len(due)
-    keys = sorted({(o, a, m) for d in due for o in d.person.homes for a in d.gem.airports for m in d.months})
+    keys = sorted({k for d in due for k in _scan_keys(d)})
     found = _scan(ctx, keys, geo, counts)
 
     source = next((src for src in ctx.live_sources if src.name == LIVE_SOURCE), None)
     catalog = AirportCatalog.load()
     for d in due:
         answered, candidate = _cheapest(ctx, d, found)
-        if not answered:  # every scan for it failed: try again next run rather than store a miss
+        if not answered and _scan_keys(
+            d
+        ):  # every scan for it failed: try again next run rather than store a miss
             continue
-        if candidate is None:
+        if candidate is None:  # no candidate, or nothing to scan: a dateless miss, off the live cap
             if not ctx.dry_run:
                 with session_scope(ctx.engine) as s:
                     s.add(_miss(ctx, d))

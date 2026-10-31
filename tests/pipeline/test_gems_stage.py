@@ -333,3 +333,67 @@ def test_gems_runs_after_related_and_before_photos():
     assert "gems" in runner.CONTINUE_ON_FAILURE
     workflow = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "scan.yml").read_text()
     assert "related, gems, photos" in workflow
+
+
+def test_never_checked_gems_go_ahead_of_rechecks_under_the_cap(make_ctx, monkeypatch):
+    """More due pairs than the cap can cover in GEM_RECHECK_DAYS: day 4's rechecks wait behind the two
+    gems never checked, so every pair is priced within four days rather than the last ones starving."""
+    monkeypatch.setattr(config, "GEM_LIVE_CHECKS_PER_DAY", 2)
+    ctx = make_ctx(month_source=month(quote("ORD", "LJU", *TRIP, 400)), live_sources=[live(option(500))])
+    users = [add_user(ctx.engine, email=f"user{n}@example.com") for n in range(8)]
+
+    for day in range(4):
+        ctx.run_date = RUN + timedelta(days=day)
+        assert stage.run(ctx)["checked"] == 2
+
+    checked = {r.user_id for r in fares(ctx.engine)}
+    assert checked == set(users)
+    assert len(fares(ctx.engine)) == 8  # day 4 checked the last two, not a recheck
+
+
+def test_a_due_gem_with_nothing_to_scan_stores_none(make_ctx, monkeypatch):
+    monkeypatch.setattr(stage, "_best_months", lambda gem, run_date: [])
+    source = FakeMonthSource()
+    ctx = make_ctx(month_source=source, live_sources=[live(option(500))])
+    uid = add_user(ctx.engine, windows=())
+
+    counts = stage.run(ctx)
+
+    assert (counts["none"], counts["scans"], source.calls) == (1, 0, [])
+    [row] = fares(ctx.engine)
+    assert (row.user_id, row.status, row.depart_date, row.price) == (uid, "none", None, None)
+    ctx.run_date = RUN + timedelta(days=1)
+    assert stage.run(ctx)["priced_due"] == 0  # waits the 3 days like any other check
+
+
+OUTSIDE = (date(2027, 6, 25), date(2027, 7, 3))  # 9 days away, but home after the June range ends
+
+
+def test_the_cheapest_fitting_candidate_beats_a_cheaper_one_outside_the_dates(make_ctx):
+    gf = live(option(640))
+    ctx = make_ctx(
+        month_source=month(quote("ORD", "LJU", *TRIP, 600), quote("ORD", "LJU", *OUTSIDE, 400)),
+        live_sources=[gf],
+    )
+    add_user(ctx.engine)
+
+    stage.run(ctx)
+
+    assert [(q.depart_date, q.return_date) for q in gf.calls] == [TRIP]
+    [row] = fares(ctx.engine)
+    assert (row.status, row.fits) == ("found", True)
+
+
+def test_with_no_fitting_candidate_the_cheapest_overall_is_checked(make_ctx):
+    gf = live(option(640))
+    ctx = make_ctx(
+        month_source=month(quote("ORD", "LJU", *TRIP, 600), quote("ORD", "LJU", *OUTSIDE, 400)),
+        live_sources=[gf],
+    )
+    add_user(ctx.engine, pto_days_total=3)  # June's 5-workday trip costs more PTO than is left
+
+    stage.run(ctx)
+
+    assert [(q.depart_date, q.return_date) for q in gf.calls] == [OUTSIDE]
+    [row] = fares(ctx.engine)
+    assert (row.status, row.fits) == ("found", False)
