@@ -150,9 +150,12 @@ a.dest-card:hover { box-shadow: var(--shadow-lift); transform: translateY(-1px);
 .price-sm { font-size: 18px; }
 .price-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .meta { color: var(--muted); font-size: 13px; }
-.related-card { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 10px 12px; border-left: 4px solid var(--track); border-radius: var(--radius-sm); background: var(--bg); }
-.related-card + .related-card { margin-top: 8px; }
-.related-price { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+/* The destination page's Related panel: small photo cards (the cover alone, then the deal). */
+.related-cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
+.related-card { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); }
+.cover.related-cover { min-height: 96px; --cover-height: 96px; }
+.related-body { display: grid; gap: 2px; padding: 10px 12px 12px; }
+.related-price { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-top: 6px; }
 .fit-note { color: #92400e; font-size: 13px; }
 .duration-note { color: var(--muted); font-size: 13px; }
 .tag-rare { background: var(--rare-tint); color: var(--rare); }
@@ -182,6 +185,42 @@ a.dest-card:hover { box-shadow: var(--shadow-lift); transform: translateY(-1px);
   .trips td.flights { grid-column: 1 / -1; }
 }
 .trend-panel .trend { display: block; width: 100%; height: auto; max-height: 220px; margin: 8px 0 4px; }
+
+/* Destination page (Plan 15): the photo header, the chart's tooltip (static/chart.js) and the date grid. */
+:root { --dest-hero-height: 220px; --great-tint: #dcfce7; --great-ink: #14532d; --good-tint: #ecfdf5; --good-ink: #166534; --hatch: #e5e7eb; }
+.cover.dest-hero.has-photo { min-height: var(--dest-hero-height); }
+.dest-hero-season { margin-top: 2px; font-weight: 600; opacity: .92; }
+.trend-plot { position: relative; }
+.trend-pt { opacity: 0; transition: opacity var(--ease); pointer-events: none; }
+.trend-pt.is-active { opacity: 1; }
+.trend-plot.is-live .trend { cursor: crosshair; touch-action: pan-y; }
+.trend-plot .trend:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.trend-tip { position: absolute; top: 0; left: 0; transform: translate(-50%, calc(-100% - 10px)); padding: 6px 10px; border-radius: var(--radius-sm); background: var(--ink); color: #fff; font-size: 12px; line-height: 1.35; white-space: nowrap; box-shadow: var(--shadow); pointer-events: none; }
+.trend-tip b { display: block; font-size: 14px; }
+.grid-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; border-radius: var(--radius-sm); }
+.date-grid { border-collapse: separate; border-spacing: 4px; font-size: 13px; margin: 0 -4px; }
+.date-grid th { font: 600 11px/1.3 var(--sans); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; white-space: nowrap; }
+.date-grid tbody th { text-align: left; position: sticky; left: 0; z-index: 1; background: var(--surface); }
+.date-grid td { padding: 0; }
+.date-grid .cell { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 76px; min-height: 48px; padding: 6px 8px; border-radius: 8px; background: var(--bg); color: var(--ink); text-decoration: none; font-variant-numeric: tabular-nums; transition: box-shadow var(--ease), transform var(--ease); }
+.date-grid a.cell:hover { box-shadow: 0 0 0 2px var(--dest); }
+.date-grid .cell-price { font-weight: 700; }
+.date-grid .cell-note { font-size: 11px; color: var(--muted); }
+.date-grid .lvl-great { background: var(--great-tint); color: var(--great-ink); }
+.date-grid .lvl-good { background: var(--good-tint); color: var(--good-ink); }
+.date-grid .lvl-great .cell-note, .date-grid .lvl-good .cell-note { color: inherit; }
+.date-grid .is-dimmed, .grid-legend .is-dimmed { background: repeating-linear-gradient(135deg, var(--bg) 0 6px, var(--hatch) 6px 8px); color: var(--muted); }
+.date-grid .cell-empty { color: var(--muted); background: transparent; }
+.grid-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 10px 0 0; }
+.grid-legend .key { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--line); }
+.grid-legend .key:not(:first-child) { margin-left: 8px; }
+.grid-legend .lvl-great { background: var(--great-tint); }
+.grid-legend .lvl-good { background: var(--good-tint); }
+/* A grid cell's trip: #trip-{key} lands on the row's first cell, and the whole row lights up. */
+.trips td.trip-anchor { scroll-margin-top: 24px; }
+.trips tr td { transition: background-color var(--ease); }
+.trips tr:has(> td:target) td { background: var(--accent-tint); }
+@media (prefers-reduced-motion: no-preference) { html:has(.date-grid) { scroll-behavior: smooth; } }
 .nowrap { white-space: nowrap; }
 .trend-axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
 

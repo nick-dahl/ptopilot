@@ -111,6 +111,7 @@ class RelatedCard:
     return_date: date
     pto_cost: int
     deep_link: str | None
+    code: str = ""  # the related place's code (for its cover photo)
 
 
 @dataclass(frozen=True)
@@ -209,6 +210,7 @@ def related_cards(
                 return_date=check.return_date,
                 pto_cost=check.pto_cost,
                 deep_link=web_link(check.deep_link) if check.deep_link else None,
+                code=link.place_code,
             )
         )
     cards.sort(key=lambda c: (-c.pct_below, c.price))

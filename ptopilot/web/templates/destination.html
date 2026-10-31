@@ -1,23 +1,62 @@
 {% extends "base.html" %}
-{% from "_components.html" import dest_style, price_bar, vs_typical, season, duration_line %}
+{% from "_components.html" import dest_style, price_bar, vs_typical, season, duration_line, cover %}
 {% block title %}{{ dest.name }} · ptopilot{% endblock %}
 {% block content %}
-<div class="hero dest-head" id="dest-hero" style="{{ dest_style(palette) }}">
-  <div class="eyebrow">{{ stay[0] }}–{{ stay[1] }} days on the ground</div>
+<section id="dest-hero" class="dest-hero-wrap" aria-label="{{ dest.name }}">
+  {% call cover(palette, photo, "hero dest-head dest-hero") %}
+  <div class="eyebrow">{% if target %}~{{ target }} days away · {% endif %}{{ stay[0] }}–{{ stay[1] }} days on the ground</div>
   <h1>{{ dest.name }}</h1>
+  <div class="dest-hero-season">{% if season_rating == "good" %}Good season{% elif season_rating == "shoulder" %}Shoulder season{% else %}Off-season{% endif %} in {{ season_month }}</div>
   <div class="hero-actions">
     {% if snoozed_until %}
     <span class="tag">Snoozed until {{ snoozed_until | day }}</span>
-    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/unsnooze" data-inplace data-after="reload-section" data-section="dest-hero date-options" data-toast="Watching {{ dest.name }} again"><input type="hidden" name="next" value="/trackers/{{ tracker_id }}"><button class="btn btn-secondary btn-sm" type="submit">Unsnooze</button></form>
+    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/unsnooze" data-inplace data-after="reload-section" data-section="dest-hero date-grid date-options" data-toast="Watching {{ dest.name }} again"><input type="hidden" name="next" value="/trackers/{{ tracker_id }}"><button class="btn btn-secondary btn-sm" type="submit">Unsnooze</button></form>
     {% else %}
-    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/snooze" data-inplace data-after="reload-section" data-section="dest-hero date-options" data-toast="Snoozed {{ dest.name }} for 30 days"><input type="hidden" name="days" value="30"><input type="hidden" name="next" value="/trackers/{{ tracker_id }}"><button class="btn btn-secondary btn-sm" type="submit">Snooze 30 days</button></form>
+    <form class="inline" method="post" action="/trackers/{{ tracker_id }}/snooze" data-inplace data-after="reload-section" data-section="dest-hero date-grid date-options" data-toast="Snoozed {{ dest.name }} for 30 days"><input type="hidden" name="days" value="30"><input type="hidden" name="next" value="/trackers/{{ tracker_id }}"><button class="btn btn-secondary btn-sm" type="submit">Snooze 30 days</button></form>
     {% endif %}
     <a class="btn btn-ghost btn-sm" href="/">All trips</a>
   </div>
-</div>
+  {% endcall %}
+</section>
 
 <div class="stack" style="{{ dest_style(palette) }}">
   {% if error %}<div class="panel notice-error" role="alert"><p class="m-0 error">{{ error }}</p></div>{% endif %}
+  <section class="panel trend-panel" id="trend">
+    <h2>Cheapest fare, last 30 days</h2>
+    {% if chart %}
+    <div class="trend-axis"><span>{{ chart.high | money }}</span>{% if band %}<span>shaded: typical {{ band[0] | money }}–{{ band[1] | money }}</span>{% endif %}</div>
+    <div class="trend-plot">{{ chart.svg }}<div class="trend-tip" role="status" aria-live="polite" hidden></div></div>
+    <div class="trend-axis"><span>{{ chart.first | day }} · low {{ chart.low | money }}</span><span>{{ chart.last | day }}</span></div>
+    {% else %}
+    <p class="muted m-0">Price history fills in after a few daily scans.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel grid-panel" id="date-grid">
+    <h2>Date grid</h2>
+    {% if grid.weeks %}
+    <p class="muted small">Best price by the week you leave and days away. Pick one to see the trip.</p>
+    <div class="grid-scroll" role="region" aria-label="Date grid" tabindex="0">
+      <table class="date-grid">
+        <thead><tr><th scope="col"><span class="sr-only">Leaving</span></th>{% for n in grid.lengths %}<th scope="col">{{ n }} days</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for week in grid.weeks %}
+        <tr>
+          <th scope="row">Week of {{ week.strftime("%b") }} {{ week.day }}</th>
+          {% for n in grid.lengths %}{% set c = grid.cells.get((week, n)) %}
+          <td>{% if c %}<a class="cell{{ ' is-dimmed' if c.dimmed else ' lvl-' ~ c.level }}" href="#trip-{{ c.option_key }}"><span class="cell-price">{{ c.price | money(options[0].currency) }}</span>{% if c.dimmed %}<span class="cell-note">unavailable</span>{% elif c.level == "great" %}<span class="cell-note">great</span>{% elif c.level == "good" %}<span class="cell-note">good</span>{% endif %}</a>{% else %}<span class="cell cell-empty"><span aria-hidden="true">–</span><span class="sr-only">No trip</span></span>{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="grid-legend meta"><span class="key lvl-great"></span>Great deal <span class="key lvl-good"></span>Good deal <span class="key is-dimmed"></span>Snoozed, excluded or ruled out</p>
+    {% else %}
+    <p class="muted m-0">The date grid fills in after the next daily scan.</p>
+    {% endif %}
+  </section>
+
   <section class="panel" id="date-options">
     <h2>Date options</h2>
     {% if options %}
@@ -27,7 +66,7 @@
       <tbody>
       {% for o in options %}
       <tr{% if o.dimmed %} class="dimmed"{% elif o.standout %} class="standout"{% endif %}>
-        <td><b>{{ o.depart_date | day }} → {{ o.return_date | day }}</b>
+        <td class="trip-anchor" id="trip-{{ o.option_key }}"><b>{{ o.depart_date | day }} → {{ o.return_date | day }}</b>
           <div class="meta">{{ o.origin }} → {% if o.open_jaw %}into {{ o.dest_airport }} · home from {{ o.return_airport }}{% else %}{{ o.dest_airport }}{% endif %}{% if o.evening_departure %} · leave after work{% endif %}</div></td>
         <td class="nowrap"><span class="price price-sm">{{ o.price | money(o.currency) }}</span><div>{{ vs_typical(o) }}</div>{{ duration_line(o) }}</td>
         <td class="bar-cell">{{ price_bar(o.bar) }}</td>
@@ -37,7 +76,7 @@
           {% if o.deep_link %}<a class="btn btn-sm" href="{{ o.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
           {% if o.ruled_out %}<span class="tag">ruled out</span><div class="meta">{{ o.misery_note }}</div>
           {% elif o.dimmed %}<span class="tag">{{ o.state }}</span>
-          {% else %}<form class="inline" method="post" action="/trackers/{{ tracker_id }}/book" data-inplace data-after="reload-section" data-section="date-options" data-toast="Booked. It's on your plan."><input type="hidden" name="candidate_id" value="{{ o.candidate_id }}"><button class="btn btn-secondary btn-sm" type="submit">I booked this</button></form>{% endif %}
+          {% else %}<form class="inline" method="post" action="/trackers/{{ tracker_id }}/book" data-inplace data-after="reload-section" data-section="date-grid date-options" data-toast="Booked. It's on your plan."><input type="hidden" name="candidate_id" value="{{ o.candidate_id }}"><button class="btn btn-secondary btn-sm" type="submit">I booked this</button></form>{% endif %}
           {% if o.verdict == "forgiven" and o.misery_note %}<div class="fit-note">{{ o.misery_note }}</div>{% endif %}
           {% for note in o.fit_notes %}<div class="fit-note">{{ note }}</div>{% endfor %}
         </td>
@@ -54,31 +93,25 @@
   {% if related %}
   <section class="panel related-panel">
     <h2>Related</h2>
+    <div class="related-cards">
     {% for r in related %}
     <div class="related-card">
-      <div>
+      {{ cover(related_palettes[r.code], photos.get(r.code), "related-cover") }}
+      <div class="related-body">
         <b>{{ r.place }} instead of {{ r.instead_of }}</b>
         <div class="meta">{{ r.depart_date | dates(r.return_date) }} · {{ r.pto_cost }} PTO day{{ "s" if r.pto_cost != 1 }}</div>
         <div class="meta">{{ r.pct_below }}% below {{ r.instead_of }}'s typical</div>
-      </div>
-      <div class="related-price">
-        <span class="price price-sm">{{ r.price | money(r.currency) }}</span>
-        {% if r.deep_link %}<a class="btn btn-sm" href="{{ r.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
+        <div class="related-price">
+          <span class="price price-sm">{{ r.price | money(r.currency) }}</span>
+          {% if r.deep_link %}<a class="btn btn-sm" href="{{ r.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
+        </div>
       </div>
     </div>
     {% endfor %}
+    </div>
   </section>
   {% endif %}
 
-  <section class="panel trend-panel">
-    <h2>Cheapest fare, last 30 days</h2>
-    {% if chart %}
-    <div class="trend-axis"><span>{{ chart.high | money }}</span>{% if band %}<span>shaded: typical {{ band[0] | money }}–{{ band[1] | money }}</span>{% endif %}</div>
-    {{ chart.svg }}
-    <div class="trend-axis"><span>{{ chart.first | day }} · low {{ chart.low | money }}</span><span>{{ chart.last | day }}</span></div>
-    {% else %}
-    <p class="muted m-0">Price history fills in after a few daily scans.</p>
-    {% endif %}
-  </section>
 </div>
 {% endblock %}
+{% block scripts %}{% if chart %}<script type="module" src="/static/chart.js"></script>{% endif %}{% endblock %}

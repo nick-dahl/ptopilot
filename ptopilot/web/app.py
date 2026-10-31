@@ -37,7 +37,7 @@ from ptopilot import config
 from ptopilot.core.airports import AirportCatalog, PlaceMatch
 from ptopilot.core.calendar import WorkCalendar, calendar_codes, upcoming_holiday_names
 from ptopilot.core.geo import Geo, UnknownCodeError, palette
-from ptopilot.core.seasons import SeasonTable
+from ptopilot.core.seasons import SeasonTable, trip_month
 from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import Candidate, Invite, PlannedTrip, PlanningYear, RelatedLink, Tracker, User
 from ptopilot.db.session import make_engine, session_scope
@@ -71,6 +71,7 @@ from ptopilot.sources.climate import fetch_climate
 from ptopilot.trackers import apply_action, snooze, unsnooze
 from ptopilot.web import api, onboarding
 from ptopilot.web.forms import SECTIONS, explain_errors, form_to_profile, merge_section, profile_to_form
+from ptopilot.web.grid import date_grid, grid_band
 from ptopilot.web.history import (
     destination_summaries,
     hero_deal,
@@ -375,6 +376,7 @@ def create_app(
             code, stay = tracker.destination_code, (tracker.min_stay_days, tracker.max_stay_days)
             snoozed = tracker.snoozed_until
             user = signed_in_user(s, request)
+            target = tracker.target_days or user.ideal_trip_days
             bookings = [
                 b
                 for b in booked_trips(s, user, geo=current_geo())
@@ -382,13 +384,17 @@ def create_app(
             ]
         if snoozed is not None and snoozed < today():
             snoozed = None
-        geo = current_geo()
+        geo, seasons = current_geo(), current_seasons()
         dest = geo.destination(code)
-        options = trip_options(engine, geo, current_seasons(), tracker_id, today())
+        options = trip_options(engine, geo, seasons, tracker_id, today())
         band = typical_band(options)
         run_date = latest_run_date(engine, today())
         with session_scope(engine) as s:
             related = related_deals(s, tracker_id, run_date, geo, today()) if run_date else []
+            photos = photos_for({code, *(r.code for r in related)}, s)
+        # The header's season: the month of the best trip on show, else this month.
+        best = next((o for o in options if not o.dimmed), None)
+        month = trip_month(best.depart_date, best.return_date) if best else today().month
         return page(
             request,
             "destination.html",
@@ -396,12 +402,19 @@ def create_app(
             tracker_id=tracker_id,
             dest=dest,
             palette=palette(dest),
+            photo=photos.get(code),
             stay=stay,
+            target=target,
+            season_rating=seasons.rating((dest.code, dest.country), month),
+            season_month=date(2000, month, 1).strftime("%B"),
             snoozed_until=snoozed,
             bookings=bookings,
             options=options,
+            grid=date_grid(options, grid_band(options, target)),
             run_date=run_date,
             related=related,
+            related_palettes={r.code: palette(geo.destination(r.code)) for r in related},
+            photos=photos,
             band=band,
             chart=trend_chart(trend(engine, tracker_id, today()), band, palette(dest)),
             error=error,

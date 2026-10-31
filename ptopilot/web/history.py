@@ -84,6 +84,15 @@ class TripOption:
         return standout_tag(self.expected_days) if self.standout else None
 
     @property
+    def option_key(self) -> str:
+        """The trip, for its row's anchor (#trip-{key}): route, dates and evening departure, URL-safe."""
+        evening = "-eve" if self.evening_departure else ""
+        return (
+            f"{self.origin}-{self.dest_airport}-{self.return_airport}"
+            f"-{self.depart_date:%Y%m%d}-{self.return_date:%Y%m%d}{evening}"
+        ).lower()
+
+    @property
     def open_jaw(self) -> bool:
         return self.return_airport != self.dest_airport
 

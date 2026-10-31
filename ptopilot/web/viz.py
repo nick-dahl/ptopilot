@@ -1,7 +1,7 @@
 """Server-side drawing for the web app and digest: the "where this price sits" bar and the price trend.
 
-No JavaScript: the bar is a set of percentages for CSS (or email table cells), and the trend is a small
-inline SVG.
+No JavaScript needed: the bar is a set of percentages for CSS (or email table cells), and the trend is a small
+inline SVG. Its points carry data-date/data-price, which static/chart.js reads for the hover tooltip.
 """
 
 from __future__ import annotations
@@ -41,6 +41,11 @@ class TrendChart:
     high: Decimal
     first: date
     last: date
+
+
+def plain(price: Decimal) -> str:
+    """A price as plain digits for a data attribute: 660.00 -> "660", 660.50 -> "660.5"."""
+    return format(price.normalize(), "f")
 
 
 def sigma_floor(median: float, sigma: float | None) -> float:
@@ -97,7 +102,10 @@ def trend_chart(
         top = xy(TrendPoint(first, band[1]))[1]
         bottom = xy(TrendPoint(first, band[0]))[1]
         height = round(bottom - top, 1)
-        parts.append(f'<rect x="0" y="{top}" width="{CHART_W}" height="{height}" fill="{palette.tint}"/>')
+        parts.append(
+            f'<rect class="trend-band" x="0" y="{top}" width="{CHART_W}" height="{height}" '
+            f'fill="{palette.tint}"/>'
+        )
     for seg in segments:
         if len(seg) == 1:
             # A lone point: a one-vertex polyline draws nothing. The latest point gets its own circle below.
@@ -112,6 +120,15 @@ def trend_chart(
         )
     cx, cy = xy(points[-1])
     parts.append(f'<circle cx="{cx}" cy="{cy}" r="6" fill="{palette.color}" stroke="#fff" stroke-width="2"/>')
+    # One marker per scan day for the tooltip (static/chart.js), hidden until it is the active point. A path,
+    # not a circle, so the drawn circles stay countable on their own.
+    for p in points:
+        x, y = xy(p)
+        parts.append(
+            f'<path class="trend-pt" data-date="{p.run_date.isoformat()}" data-price="{plain(p.price)}" '
+            f'd="M{x - 6},{y}a6,6 0 1,0 12,0a6,6 0 1,0 -12,0" fill="{palette.color}" stroke="#fff" '
+            'stroke-width="2"/>'
+        )
     parts.append("</svg>")
     return TrendChart(Markup("".join(parts)), low_fare, high_fare, first, last)
 
