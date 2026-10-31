@@ -6,15 +6,15 @@ from tests.web.conftest import is_landing, sign_in
 def test_signed_out_home_is_the_landing_page_with_sign_in(client):
     page = client.get("/")
     assert is_landing(page)
-    assert "Your PTO, spent on the right trips" in page.text
+    assert "Your time off, your places, the right fare." in page.text
     assert 'action="/login"' in page.text and 'type="email"' in page.text
     assert "How it works" in page.text and "Invite-only" in page.text
 
 
 def test_sample_cards_are_labelled_examples_not_real_trips(client):
     page = client.get("/").text
-    assert page.count("Example</span>") == 2
-    assert "Azores" in page and "Patagonia" in page and "below typical" in page
+    assert page.count("Example</span>") == 3  # one per "how it works" panel (test_landing_v2)
+    assert "Azores" in page and "Madeira" in page and "below typical" in page
 
 
 def test_old_sign_in_address_redirects_home(client):

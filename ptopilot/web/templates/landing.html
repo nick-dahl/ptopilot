@@ -1,29 +1,53 @@
 {% extends "base.html" %}
-{% from "_components.html" import dest_card %}
-{% block title %}ptopilot · flight deals that fit your PTO{% endblock %}
-{% block content %}
-<section class="landing-hero">
-  <div>
-    <h1>Your PTO, spent on the right trips at the right price.</h1>
-    <p class="lede">Tell ptopilot your days off, holidays and bucket list. It works out which dates stretch your PTO furthest, watches those fares every day, and emails you when a trip is genuinely cheap.</p>
+{% from "_components.html" import cover, dest_card, month_tables %}
+{% block title %}ptopilot · Your time off, your places, the right fare{% endblock %}
+{% block hero %}
+{# The credit always shows on this cover, so the cover needs no focus stop of its own (link=True). #}
+{% call cover(ex.hero, ex.hero_photo, "landing-hero", link=True) %}
+  <div class="wrap landing-hero-body">
+    <h1>Your time off, your places, the right fare.</h1>
+    <p class="lede">ptopilot watches flights for the trips you want, fits them to your PTO, and tells you when a fare is worth taking.</p>
     <form id="sign-in" class="signin" method="post" action="/login">
       <label class="sr-only" for="email">Email</label>
       <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
       <button class="btn" type="submit">Send sign-in link</button>
     </form>
-    <p class="muted small mt-sm">Invite-only for now. We'll email a link that signs you in, with no password.</p>
+    <p class="small signin-note">Invite-only for now. We'll email a link that signs you in, with no password.</p>
   </div>
-  <div class="samples" aria-label="Example deals">
-    {% for card in samples %}{{ dest_card(card, sample=True) }}{% endfor %}
-  </div>
-</section>
-
-<section>
-  <h2 class="mb">How it works</h2>
-  <div class="steps">
-    <div class="panel step"><h3>Your PTO and windows</h3><p class="muted small">Days off, your holiday calendar, when you can travel, and where you've been meaning to go.</p></div>
-    <div class="panel step"><h3>A daily fare watch</h3><p class="muted small">Every morning it prices the date combinations that cost you the fewest PTO days, in the right season.</p></div>
-    <div class="panel step"><h3>Deals, twice a week</h3><p class="muted small">Monday and Thursday emails flag trips well below their typical price, with one-click snoozes.</p></div>
-  </div>
+{% endcall %}
+{% endblock %}
+{% block content %}
+<section class="how" aria-labelledby="how-title">
+  <h2 id="how-title" class="mb">How it works</h2>
+  <ol class="steps">
+    <li class="panel step">
+      <h3>Mark your free dates</h3>
+      <p class="muted small">Tap the days you could get away. Weekends and holidays cost no PTO, so each trip uses as few days off as it can.</p>
+      <figure class="example">
+        <figcaption><span class="tag example-tag">Example</span></figcaption>
+        <div class="months months-one">{{ month_tables(ex.calendar, interactive=False) }}</div>
+        <ul class="legend small">
+          <li><span class="key day open"></span>Free to travel</li>
+          <li><span class="key day we"></span>Weekend</li>
+        </ul>
+      </figure>
+    </li>
+    <li class="panel step">
+      <h3>Get the deals that fit</h3>
+      <p class="muted small">Every day it prices the trips that fit your dates and your places, and shows how each fare compares with its typical price.</p>
+      <figure class="example">
+        <figcaption><span class="tag example-tag">Example</span></figcaption>
+        {{ dest_card(ex.deal, photo=ex.photos.get(ex.deal.code)) }}
+      </figure>
+    </li>
+    <li class="panel step">
+      <h3>Know when to move</h3>
+      <p class="muted small">When a fare is rare, it says so, along with how long dips like it usually last.</p>
+      <figure class="example">
+        <figcaption><span class="tag example-tag">Example</span></figcaption>
+        {{ dest_card(ex.rare, photo=ex.photos.get(ex.rare.code)) }}
+      </figure>
+    </li>
+  </ol>
 </section>
 {% endblock %}

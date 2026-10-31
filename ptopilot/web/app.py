@@ -83,7 +83,7 @@ from ptopilot.web.history import (
     typical_band,
 )
 from ptopilot.web.planner_view import months_ahead, plan_context, too_short
-from ptopilot.web.samples import sample_cards
+from ptopilot.web.samples import landing
 from ptopilot.web.viz import sparkline, trend_chart, trend_direction
 
 log = logging.getLogger(__name__)
@@ -317,7 +317,7 @@ def create_app(
     @app.get("/")
     def dashboard(request: Request, saved: int = 0):
         if not current_email(request):
-            return page(request, "landing.html", samples=sample_cards(fixed_geo or load_geo()))
+            return page(request, "landing.html", ex=landing(fixed_geo or load_geo()))
         with session_scope(engine) as s:
             user = signed_in_user(s, request)
             if onboarding.needs_welcome(user):

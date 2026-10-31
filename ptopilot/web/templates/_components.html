@@ -159,8 +159,9 @@
 {%- endmacro %}
 
 {# The tap-calendar's month tables (the year planner, and the profile's company days off; static/daygrid.js).
-   months: [(name, weeks of day cells)] from planner_view. year: added to each month's label when given. #}
-{% macro month_tables(months, year=None) -%}
+   months: [(name, weeks of day cells)] from planner_view. year: added to each month's label when given.
+   interactive=False draws a picture of it (the landing page's example): no tap targets. #}
+{% macro month_tables(months, year=None, interactive=True) -%}
 {% for name, weeks in months %}
       <table class="month" aria-label="{{ name }}{% if year %} {{ year }}{% endif %}">
         <caption>{{ name }}</caption>
@@ -169,7 +170,7 @@
         {% for week in weeks %}
         <tr>
           {% for c in week %}
-          {% if c %}<td class="day{{ ' we' if c.weekend }}{{ ' hol' if c.holiday }}{{ ' off' if c.day_off }}{{ ' open' if c.open }}{{ ' booked' if c.booked }}" data-date="{{ c.date.isoformat() }}" tabindex="0"{% if c.booked %} title="{{ c.booked }} (booked)"{% elif c.holiday %} title="{{ c.holiday }}"{% endif %}>{{ c.date.day }}</td>
+          {% if c %}<td class="day{{ ' we' if c.weekend }}{{ ' hol' if c.holiday }}{{ ' off' if c.day_off }}{{ ' open' if c.open }}{{ ' booked' if c.booked }}"{% if interactive %} data-date="{{ c.date.isoformat() }}" tabindex="0"{% endif %}{% if c.booked %} title="{{ c.booked }} (booked)"{% elif c.holiday %} title="{{ c.holiday }}"{% endif %}>{{ c.date.day }}</td>
           {% else %}<td class="pad"></td>{% endif %}
           {% endfor %}
         </tr>

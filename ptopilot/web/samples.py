@@ -1,13 +1,20 @@
-"""Fixed, illustrative deal cards for the landing page. Never real travelers' trips."""
+"""Fixed, illustrative examples for the landing page. Never real travelers' trips."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 
+from ptopilot.core.calendar import WorkCalendar
 from ptopilot.core.geo import Geo, palette
+from ptopilot.photos import PlacePhoto, builtin_photos
 from ptopilot.web.history import DestinationSummary, TripOption
+from ptopilot.web.planner_view import _month_weeks
 from ptopilot.web.viz import bar_geometry
+
+HERO_PLACE = "PATAGONIA"  # Torres del Paine: the landing page's full-width photo
+EXAMPLE_TRIP = (date(2027, 3, 5), date(2027, 3, 15))  # the dates marked free in the example calendar
 
 
 def _option(
@@ -27,7 +34,7 @@ def sample_cards(geo: Geo) -> list[DestinationSummary]:
     return [
         DestinationSummary(
             0, azores.code, azores.name, palette(azores), (7, 10),
-            _option(578, 655, 45, date(2027, 3, 5), date(2027, 3, 15), 6, "Mild, ~16°C"),
+            _option(578, 655, 45, *EXAMPLE_TRIP, 6, "Mild, ~16°C"),
             None, None,
         ),
         DestinationSummary(
@@ -36,3 +43,38 @@ def sample_cards(geo: Geo) -> list[DestinationSummary]:
             None, None,
         ),
     ]  # fmt: skip
+
+
+def sample_rare(geo: Geo) -> DestinationSummary:
+    """A standout: a great fare that dips like it usually end within two days (what the Rare tag says)."""
+    madeira = geo.destination("MADEIRA")
+    trip = replace(
+        _option(468, 690, 60, date(2027, 4, 9), date(2027, 4, 18), 5, "Spring, ~19°C"),
+        deal_level="great", expected_days=2, standout=True,
+    )  # fmt: skip
+    return DestinationSummary(0, madeira.code, madeira.name, palette(madeira), (6, 9), trip, None, None)
+
+
+@dataclass(frozen=True)
+class Landing:
+    hero: DestinationSummary  # only its palette and name are shown, under the photo
+    hero_photo: PlacePhoto | None
+    calendar: list  # [(month name, weeks of day cells)], as the year planner's month_tables takes
+    deal: DestinationSummary
+    rare: DestinationSummary
+    photos: dict[str, PlacePhoto]
+
+
+def landing(geo: Geo) -> Landing:
+    """Everything the landing page shows. Reads geo.yaml only, never the database."""
+    photos = builtin_photos()
+    cards = sample_cards(geo)
+    weeks = _month_weeks(2027, 3, WorkCalendar("US"), [EXAMPLE_TRIP])
+    return Landing(
+        hero=next(c for c in cards if c.code == HERO_PLACE),
+        hero_photo=photos.get(HERO_PLACE),
+        calendar=[("March 2027", weeks)],
+        deal=cards[0],
+        rare=sample_rare(geo),
+        photos=photos,
+    )
