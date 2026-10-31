@@ -172,6 +172,40 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
   - no test that a snoozed destination's related places aren't watched;
   - the panel test matches "Related" anywhere on the page, and the snoozed-panel test accepts either of two strings.
 
+**Hidden gems (Plan 16)**
+- [ ] **Measure it:** after the first catalogue session and a few scans, check that gems are published weekly, priced, and that the fit pill reads right.
+- [ ] **Catalogue and its check command:**
+  - a trip-styles entry that isn't a list in a profile misbehaves (a word is read letter by letter, a number crashes), and repeated styles are quietly merged;
+  - a missing catalogue folder (a typo in the folder setting or option) reads as an empty, valid catalogue, and `.yml` files are ignored without a word;
+  - the duplicate-name check can never fire, because a gem's name must match its file name;
+  - the check command's help says "the shipped folder" even though the folder setting wins;
+  - the photo check is looser than the one in the place-data test (it accepts full-size originals), and that test keeps its own copy of the rules;
+  - overlapping bold and italic can nest wrongly, and emphasis can't span a link (cosmetic).
+- [ ] **Weekly issues:**
+  - publishing takes no row lock, so two different gems are possible only if styles or trackers change between same-day reads;
+  - the gem fares table has no index for the recheck lookup;
+  - with the catalogue used up for a person, /gems works out the next gem and tracked airports on every visit (it writes nothing);
+  - a retired gem's tracking page isn't tested for someone who was never sent it (should be a 404).
+- [ ] **Fares and the scan step:**
+  - gems ignore the live-horizon limit, so best-month candidates can be up to 12 months out;
+  - the gems step never reports a failure when every month scan fails;
+  - a miss records the first return airport while live checks record a round trip (cosmetic);
+  - the photos step works out each gem's places twice per run;
+  - the trip cost is worked out for every quote that passes the length check, and one condition has an awkward line wrap.
+- [ ] **Pages:**
+  - /gems makes about six queries plus one per issue (tracker lookups scan destinations per gem, and the issues list is built twice);
+  - the card says "checked {day}" rather than "checked today / yesterday";
+  - an invalid catalogue is re-checked and logged with a full error trace on every request;
+  - every card render loads place data once more (one extra query per page);
+  - the fit pill's "travel" month fallback is dead code outside its exact wording.
+- [ ] **Tests and code tidiness:**
+  - none covers a profile with no styles, an empty list or unknown styles, nor a bare `country: NO`;
+  - the repeat-publish test only hits the 7-day gate, never the "already exists" path, and none covers only the return airport overlapping a tracked one;
+  - gems use a private month helper from the related-destinations code (make it shared and public);
+  - the best-option function says it takes a destination though it is handed a gem (only the name is read);
+  - two tests import inside their bodies;
+  - running the gems pages tests before the gem issues tests in one run fails 4 tests on a duplicate email (already so before this plan; the default order is green).
+
 **Site polish (Plan 15)**
 - [ ] **Owner's signed-in look:** check the dashboard hero, profile inputs, a destination page and the planner on the live site.
 - [ ] **Inputs and onboarding:**
