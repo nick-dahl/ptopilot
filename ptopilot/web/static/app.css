@@ -356,7 +356,7 @@ form.is-autosaving .section-save .btn { display: none; }
 .holiday-toggles { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
 .holiday-toggle { padding: 4px 10px; border: 1px solid var(--chip-line); border-radius: 999px; background: var(--surface); color: inherit; font: inherit; font-size: 13px; cursor: pointer; transition: background-color var(--ease), border-color var(--ease); }
 .holiday-toggle[aria-pressed="true"] { background: var(--chip); border-color: var(--accent); font-weight: 600; }
-.holiday-toggle[aria-pressed="true"]::before { content: "¹3  "; }
+.holiday-toggle[aria-pressed="true"]::before { content: "\2713\00a0"; }
 .chip-x { display: inline-grid; place-items: center; flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); font: 16px/1 var(--sans); cursor: pointer; transition: background-color var(--ease), color var(--ease); }
 .chip-x:hover { background: var(--chip-line); color: var(--ink); }
 .chips:not(.is-live) .chip-x { display: none; }

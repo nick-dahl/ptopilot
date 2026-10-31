@@ -128,3 +128,11 @@ def test_non_web_deep_links_are_dropped_on_the_page_and_in_the_digest(clean_engi
     (option,) = trip_options(clean_engine, GEO, SEASONS, t, RUN)
     (digest,) = build_digests(clean_engine, GEO, SEASONS, RUN)
     assert option.deep_link is None and digest.deals[0].deep_link is None
+
+
+def test_pressed_holiday_chip_tick_is_a_css_escape():
+    """The tick is written as an escape, so no encoding slip can garble it into stray characters."""
+    css = (ROOT / "ptopilot" / "web" / "static" / "app.css").read_text(encoding="utf-8")
+    rule = next(line for line in css.splitlines() if '.holiday-toggle[aria-pressed="true"]::before' in line)
+    assert r'content: "\2713\00a0"' in rule
+    assert rule.isascii()
