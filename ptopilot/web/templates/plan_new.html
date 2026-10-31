@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_components.html" import field %}
+{% from "_inputs.html" import stepper %}
 {% block title %}Start planning · ptopilot{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -19,17 +19,26 @@
         {% for y in years %}<option value="{{ y }}" {{ "selected" if y == year }}>{{ y }}</option>{% endfor %}
       </select></label>
     <div class="fields-2">
-      {{ field("pto_days", "PTO days", pto_days, "number", attrs='min="0" max="365" required') }}
-      {{ field("other_time_off", "Other time off (not trips)", other_time_off, "number", "PTO days already spoken for", attrs='min="0" max="365" required') }}
+      <div class="field">
+        <label class="field-label" for="pto_days">PTO days</label>
+        {{ stepper("pto_days", pto_days, 0, 365, label="PTO days") }}
+      </div>
+      <div class="field">
+        <label class="field-label" for="other_time_off">Other time off (not trips)</label>
+        {{ stepper("other_time_off", other_time_off, 0, 365, label="Other time off") }}
+        <small>PTO days already spoken for</small>
+      </div>
     </div>
   </section>
 
   <section class="panel">
     <h2>Trips to carry over</h2>
     {% if trips %}
+    <div class="segmented trip-cards">
     {% for t in trips %}
-    <label class="check"><input type="checkbox" name="tracker_ids" value="{{ t.id }}" {{ "checked" if t.id in checked }}> {{ t.name }}, {{ t.target }}{% if t.booked_year %} <span class="muted small">· booked in {{ t.booked_year }}</span>{% endif %}</label>
+    <label class="seg"><input type="checkbox" name="tracker_ids" value="{{ t.id }}" {{ "checked" if t.id in checked }}><span class="seg-label">{{ t.name }}</span><small>{{ t.target }}{% if t.booked_year %} · booked in {{ t.booked_year }}{% endif %}</small></label>
     {% endfor %}
+    </div>
     {% else %}
     <p class="muted small m-0">No destinations yet.</p>
     {% endif %}
@@ -39,3 +48,4 @@
   <div class="form-actions"><button class="btn" type="submit">Start planning</button><a class="muted small" href="/">Cancel</a></div>
 </form>
 {% endblock %}
+{% block scripts %}<script type="module" src="/static/range.js"></script>{% endblock %}

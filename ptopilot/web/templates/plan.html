@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% from "_components.html" import dest_style, field, month_tables %}
+{% from "_components.html" import dest_style, month_tables %}
+{% from "_inputs.html" import stepper %}
 {% block title %}{{ year }} plan · ptopilot{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -25,8 +26,8 @@
           {% if t.booking %}
           <span class="num">{{ t.days_away }}</span>
           {% else %}
-          <form class="inline target-form" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}" data-inplace data-after="reload-section" data-section="plan-trips combos-panel calendar-panel">
-            <input class="num-input" name="target_days" type="number" min="2" max="60" value="{{ t.target_days if t.target_days is not none else '' }}" aria-label="Days away for {{ t.name }}">
+          <form class="inline target-form" method="post" action="/plan/{{ year }}/trips/{{ t.tracker_id }}" data-inplace data-autosave data-after="reload-section" data-section="plan-trips combos-panel calendar-panel">
+            {{ stepper("target_days", t.target_days if t.target_days is not none else "", 2, 60, label="Days away for " ~ t.name, id="target_days_" ~ t.tracker_id) }}
             <button class="link-btn small" type="submit">Set</button>
           </form>
           {% if t.band %}<span class="muted small">searching {{ t.band[0] }}–{{ t.band[1] }}</span>{% endif %}
@@ -96,12 +97,20 @@
 
   <div class="panel">
     <h2>Your PTO in {{ year }}</h2>
-    <form method="post" action="/plan/{{ year }}/pto">
+    <form method="post" action="/plan/{{ year }}/pto" data-inplace data-autosave data-after="reload-section" data-section="plan-trips combos-panel">
       <div class="fields-2">
-        {{ field("pto_days", "PTO days", pto_days, "number", attrs='min="0" max="365" required') }}
-        {{ field("other_time_off", "Already committed", other_time_off, "number", "PTO days already spoken for", attrs='min="0" max="365" required') }}
+        <div class="field">
+          <label class="field-label" for="pto_days">PTO days</label>
+          {{ stepper("pto_days", pto_days, 0, 365, label="PTO days") }}
+        </div>
+        <div class="field">
+          <label class="field-label" for="other_time_off">Already committed</label>
+          {{ stepper("other_time_off", other_time_off, 0, 365, label="Already committed") }}
+          <small>PTO days already spoken for</small>
+        </div>
       </div>
-      <button class="btn" type="submit">Save PTO</button>
+      <div data-error-slot></div>
+      <div class="section-save"><button class="btn" type="submit">Save PTO</button></div>
     </form>
   </div>
 
@@ -134,5 +143,6 @@
   </div>
 </div>
 {% endblock %}
-{% block scripts %}<script src="/static/daygrid.js" defer></script>
+{% block scripts %}<script type="module" src="/static/range.js"></script>
+<script src="/static/daygrid.js" defer></script>
 <script src="/static/planner.js" defer></script>{% endblock %}

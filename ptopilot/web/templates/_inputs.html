@@ -49,10 +49,10 @@
 {%- endmacro %}
 
 {# − value +. The buttons appear only with JS (range.js); the number field works alone. #}
-{% macro stepper(name, value, min, max, label="") -%}
+{% macro stepper(name, value, min, max, label="", id="") -%}
 <div class="stepper" data-stepper data-enhance>
   <button class="step-btn" type="button" data-step="-1" aria-label="Fewer{% if label %} {{ label }}{% endif %}">&minus;</button>
-  <input id="{{ name }}" name="{{ name }}" type="number" inputmode="numeric" min="{{ min }}" max="{{ max }}" value="{{ value }}"{% if label %} aria-label="{{ label }}"{% endif %} required>
+  <input id="{{ id or name }}" name="{{ name }}" type="number" inputmode="numeric" min="{{ min }}" max="{{ max }}" value="{{ value }}"{% if label %} aria-label="{{ label }}"{% endif %} required>
   <button class="step-btn" type="button" data-step="1" aria-label="More{% if label %} {{ label }}{% endif %}">+</button>
 </div>
 {%- endmacro %}

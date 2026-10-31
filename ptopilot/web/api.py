@@ -47,6 +47,8 @@ def place_rows(catalog: AirportCatalog, q: str) -> list[dict]:
             "name": m.airport.city,
             "country": m.country_name,
             "airports": [{"code": a.code, "name": a.name} for a in (m.airport, *m.nearby)],
+            # the airports the add card starts with: the place's own city, as the plain search checks them
+            "default": [a.code for a in (m.airport, *m.nearby) if a.city == m.airport.city],
         }
         for m in catalog.search(q, limit=MAX_ROWS)
     ]

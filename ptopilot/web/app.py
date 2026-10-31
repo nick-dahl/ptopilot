@@ -538,17 +538,20 @@ def create_app(
         chosen = list(dict.fromkeys(a.strip().upper() for a in airports or [] if a.strip()))
         allowed = {picked.code, *(a.code for a in catalog.nearby(picked.code))} if picked else set()
         if picked is None or picked.code not in chosen or not set(chosen) <= allowed:
-            return destinations_page(request, user_id, code, "Pick a place and at least one airport.", 400)
+            message = "Pick a place and at least one airport."
+            return rejected(request, message, lambda: destinations_page(request, user_id, code, message, 400))
         if not 2 <= target_days <= 60:
-            return destinations_page(request, user_id, code, "Days away must be between 2 and 60.", 400)
+            message = "Days away must be between 2 and 60."
+            return rejected(request, message, lambda: destinations_page(request, user_id, code, message, 400))
         match = PlaceMatch(picked, (), catalog.country_name(picked.country))
         with session_scope(engine) as s:  # a short read first: the slow climate lookup holds no transaction
             fetched = prefetch_climate(s, match, chosen, climate)
         with session_scope(engine) as s:
-            add_destination(
+            tracker = add_destination(
                 s, s.get(User, user_id), match, chosen, target_days, climate=fetched, today=today()
             )
-        return redirect("/destinations")
+            tracker_id = tracker.id
+        return json_or_redirect(request, "/destinations", tracker_id=tracker_id)
 
     @app.post("/destinations/{tracker_id}/remove")
     def remove_place(request: Request, tracker_id: TRACKER_ID):
@@ -763,8 +766,9 @@ def create_app(
             with session_scope(engine) as s:
                 set_year_pto(s, s.get(User, user_id), year, pto_days, other_time_off)
         except ValueError as exc:
-            return plan_page(request, user_id, year, 400, str(exc))
-        return redirect(f"/plan/{year}?saved=pto")
+            message = str(exc)
+            return rejected(request, message, lambda: plan_page(request, user_id, year, 400, message))
+        return json_or_redirect(request, f"/plan/{year}?saved=pto")
 
     def planned_tracker(s, user_id: int, year: int, tracker_id: int) -> bool:
         return (

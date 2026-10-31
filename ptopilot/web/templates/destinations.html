@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_components.html" import dest_style %}
+{% from "_inputs.html" import chips, stepper %}
 {% block title %}Destinations · ptopilot{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -28,7 +29,7 @@
         {% if r.related or r.suggestions %}
         <div class="related-places">
           {% for p in r.related %}
-          <div class="related-row">
+          <div class="related-row related-chip">
             <span>Also watching <b>{{ p.name }}</b> <span class="muted small">({{ p.airport }})</span></span>
             <form class="inline" method="post" action="/destinations/{{ r.id }}/related" data-inplace data-after="reload-section" data-section="your-destinations">
               <input type="hidden" name="airport" value="{{ p.airport }}">
@@ -37,7 +38,7 @@
           </div>
           {% endfor %}
           {% for g in r.suggestions %}
-          <div class="related-row">
+          <div class="related-row related-chip">
             <span>Consider <b>{{ g.name }}</b> <span class="muted small">({{ g.airport }}) · {{ g.label }}</span></span>
             <form class="inline" method="post" action="/destinations/{{ r.id }}/related" data-inplace data-after="reload-section" data-section="your-destinations">
               <input type="hidden" name="airport" value="{{ g.airport }}">
@@ -56,14 +57,42 @@
     {% endif %}
   </div>
 
-  <div class="panel">
+  <div class="panel" id="add-place">
     <h2>Add a place</h2>
-    <form method="get" action="/destinations" class="search-row">
-      <label class="field"><span>City, airport or country</span>
-        <input id="q" name="q" type="search" value="{{ q }}" placeholder="Tokyo, LIS, Portugal" autocomplete="off">
-      </label>
-      <button class="btn" type="submit">Search</button>
+    {# One search box. With JS, picking a place opens the add card below (static/places.js); without,
+       Search reloads the page with the matches and their own forms. #}
+    <form method="get" action="/destinations" class="search-row place-search" data-place-search>
+      <div class="field">
+        <label class="field-label" for="q">City, airport or country</label>
+        {{ chips("q", [], "Tokyo, LIS, Portugal", "places", label="Place to add", max=1) }}
+      </div>
+      <button class="btn search-go" type="submit">Search</button>
     </form>
+    <div class="add-card-slot" id="add-card-slot" aria-live="polite"></div>
+    <template id="add-card">
+      <form class="add-card" method="post" action="/destinations" data-inplace data-after="reload-section" data-section="your-destinations add-place" data-toast="Added to your destinations">
+        <input type="hidden" name="code" value="">
+        <div class="add-card-head">
+          <h3 class="m-0" data-place-name></h3>
+          <button class="link-btn small" type="button" data-close-card>Cancel</button>
+        </div>
+        <p class="muted small m-0" data-place-country></p>
+        <div class="field">
+          <span class="field-label">Airports to watch</span>
+          <ul class="chip-list" data-airport-chips aria-label="Airports to watch"></ul>
+          <div class="offers" data-airport-offers hidden>
+            <span class="muted small">Also nearby:</span>
+            <ul class="chip-list" data-airport-offer-list aria-label="Nearby airports you can add"></ul>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="add_target_days">Days away</label>
+          {{ stepper("target_days", 10, 2, 60, label="Days away", id="add_target_days") }}
+        </div>
+        <div data-error-slot></div>
+        <button class="btn" type="submit">Add<span class="sr-only"> this place</span></button>
+      </form>
+    </template>
     {% if q %}
     <div class="mt-sm">
       {% for m in matches %}
@@ -90,4 +119,9 @@
     {% endif %}
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="/static/chips.js"></script>
+<script type="module" src="/static/range.js"></script>
+<script type="module" src="/static/places.js"></script>
 {% endblock %}

@@ -379,6 +379,20 @@ form.is-autosaving .section-save .btn { display: none; }
 .day-picker .day.drag-open { background: var(--accent-tint); filter: brightness(.95); }
 .day-picker .day.off.drag-close { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-weight: 400; }
 
+/* destinations, planner and Start planning use the same inputs as the profile */
+.place-search .field { margin: 0; }
+.place-search:has(.chips.is-live) .search-go { display: none; }
+.add-card { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius-sm); background: var(--bg); animation: fade-in var(--ease); }
+.add-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+.add-card .field { margin-top: 12px; }
+.add-card .offers { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; }
+.add-card .offers .chip-list:empty { display: flex; }
+.related-chip { padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); }
+.target-form.is-autosaving .link-btn { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.target-form .stepper input { width: 3.5em; }
+.trip-cards { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); margin-bottom: 12px; }
+@media (max-width: 480px) { .trip-cards { grid-template-columns: 1fr; } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
   a.dest-card:hover { transform: none; }
