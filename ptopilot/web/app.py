@@ -686,10 +686,11 @@ def create_app(
         catalogue = gem_catalogue()
         with session_scope(engine) as s:
             user = s.get(User, user_id)
-            if not gems_view.issues(s, user):  # the first visit writes the first issue; the scan, the rest
-                publish_due(s, user, today(), catalogue, current_geo())
-                s.flush()
             cards = gems_view.feed(s, user, catalogue)
+            if not cards:  # nothing to show (no issues, or only retired ones): publish one now
+                publish_due(s, user, today(), catalogue, current_geo(), now=True)  # the scan does the rest
+                s.flush()
+                cards = gems_view.feed(s, user, catalogue)
             return page(
                 request,
                 "gems.html",
@@ -724,6 +725,9 @@ def create_app(
             gem = openable_gem(s, user, slug)
             if gem is None:
                 return missing(request, "No such hidden gem.")
+            tracking = gems_view.trackers_for(s, user, [gem]).get(gem.slug)
+            if tracking is not None:  # already tracked: leave the tracker's lengths as they are
+                return json_or_redirect(request, f"/trackers/{tracking}", tracker_id=tracking)
             target = user.ideal_trip_days or 10
             match, airports = gems_view.gem_match(gem), gems_view.track_airports(gem)
             fetched = prefetch_climate(s, match, airports, climate)

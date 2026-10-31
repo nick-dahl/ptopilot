@@ -263,13 +263,9 @@ def test_track_adds_the_destination_in_place(make_client, emailer, clean_engine)
 
         dest = load_geo(clean_engine).destination(tracker.destination_code)
         assert list(dest.airports) == ["BOO"] and not dest.return_airports  # round trip on the arrival
-    # Without JS: a redirect to the destination page; tracking again keeps the one tracker.
-    with session_scope(clean_engine) as s:
-        s.get(User, uid).ideal_trip_days = None
+    # Without JS: a redirect to the destination page.
     r = c.post("/gems/hoegvik-islands/track")
     assert (r.status_code, r.headers["location"]) == (303, f"/trackers/{tracker_id}")
-    with session_scope(clean_engine) as s:
-        assert s.get(Tracker, tracker_id).target_days == 10  # no ideal length: 10
 
 
 def test_track_button_reads_tracking_when_already_tracked(make_client, emailer, clean_engine):  # noqa: F811
@@ -329,3 +325,42 @@ def test_only_failed_checks_read_checking(client, emailer, clean_engine):
     uid = signed_in(client, emailer, clean_engine)
     fare(clean_engine, uid, "hoegvik-islands", status="failed")
     assert "Checking fares…" in client.get("/gems/hoegvik-islands").text
+
+
+def test_tracking_again_keeps_the_tracker_as_it_is(make_client, emailer, clean_engine):  # noqa: F811
+    c = make_client()
+    signed_in(c, emailer, clean_engine)
+    tracker_id = c.post("/gems/hoegvik-islands/track", headers=JSON).json()["tracker_id"]
+    with session_scope(clean_engine) as s:
+        tracker = s.get(Tracker, tracker_id)
+        tracker.target_days, tracker.min_stay_days, tracker.max_stay_days = 14, 12, 16
+    r = c.post("/gems/hoegvik-islands/track", headers=JSON)
+    assert r.json() == {"ok": True, "tracker_id": tracker_id}
+    r = c.post("/gems/hoegvik-islands/track")
+    assert (r.status_code, r.headers["location"]) == (303, f"/trackers/{tracker_id}")
+    with session_scope(clean_engine) as s:
+        tracker = s.get(Tracker, tracker_id)
+        assert (tracker.target_days, tracker.min_stay_days, tracker.max_stay_days) == (14, 12, 16)
+        tracker.active = False  # removed: tracking it again goes through the add flow
+    r = c.post("/gems/hoegvik-islands/track", headers=JSON)
+    assert r.json()["tracker_id"] == tracker_id
+    with session_scope(clean_engine) as s:
+        tracker = s.get(Tracker, tracker_id)
+        assert tracker.active and tracker.target_days == 10
+
+
+def test_only_retired_issues_get_a_new_one(client, emailer, clean_engine, monkeypatch, tmp_path):
+    for path in FIXTURES.glob("*.yaml"):
+        shutil.copy(path, tmp_path / path.name)
+    retired = tmp_path / "lipnica-valley.yaml"
+    text = retired.read_text(encoding="utf-8").replace("status: approved", "status: retired")
+    retired.write_text(text, encoding="utf-8")
+    monkeypatch.setenv(gems.GEMS_DIR_ENV, str(tmp_path))
+    uid = signed_in(client, emailer, clean_engine)
+    issue(clean_engine, uid, "lipnica-valley", TODAY - timedelta(days=2))  # inside the weekly cadence
+    page = client.get("/gems").text
+    assert "The first issue is on its way." not in page
+    assert "Høgvik Islands" in page
+    with session_scope(clean_engine) as s:
+        issued = set(s.scalars(select(GemIssue.gem_slug).where(GemIssue.user_id == uid)))
+    assert issued == {"lipnica-valley", "hoegvik-islands"}

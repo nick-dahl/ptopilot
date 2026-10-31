@@ -52,15 +52,23 @@ def tracked_airports(s: Session, user: User, geo: Geo) -> set[str]:
 
 
 def publish_due(
-    s: Session, user: User, today: date, gems: Sequence[Gem], geo: Geo | None = None
+    s: Session,
+    user: User,
+    today: date,
+    gems: Sequence[Gem],
+    geo: Geo | None = None,
+    *,
+    now: bool = False,
 ) -> GemIssue | None:
     """Publish the person's next gem if their latest issue is GEM_ISSUE_DAYS old (or they have none).
 
+    `now=True` skips the wait (the gems page, for someone with nothing left to show: every issue retired).
     Idempotent: a repeat or concurrent call inserts nothing (unique on user and gem)."""
     issues = s.execute(
         select(GemIssue.gem_slug, GemIssue.published_on).where(GemIssue.user_id == user.id)
     ).all()
-    if issues and today - max(p for _, p in issues) < timedelta(days=config.GEM_ISSUE_DAYS):
+    wait = timedelta(days=config.GEM_ISSUE_DAYS)
+    if issues and not now and today - max(p for _, p in issues) < wait:
         return None
     if geo is None:
         from ptopilot.data import load_geo
