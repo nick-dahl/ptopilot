@@ -1123,17 +1123,20 @@ def create_app(
         try:
             with session_scope(engine) as s:
                 user = s.scalar(select(User).where(User.email == email))
-                if user is None:  # step 1 makes the user: only these fields, the rest the table's defaults
+                if user is None:  # step 1 makes the user
                     u = profile.user
                     home, country, calendar = u["home_airport"], u["country"], u["holiday_calendar"]
-                    s.add(
-                        user := onboarding.new_user(email, home, profile.nearby_airports, country, calendar)
-                    )
+                    user = onboarding.create_user(s, email, home, profile.nearby_airports, country, calendar)
                 else:
                     apply_profile(s, profile, replace_plan=False)
                 onboarding.step_done(user, n)
-        except IntegrityError:  # a double-tapped Next on step 1: the other request made the user
-            pass
+        except IntegrityError as exc:  # validated, so not expected: say so rather than move on unsaved
+            # Only the constraint's name: the error's detail can quote the row, email and all.
+            constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+            log.error("welcome step %s not saved: constraint %s", n, constraint)
+            message = "That didn't save. Check your choices and try again."
+            html = lambda: welcome_page(request, n, form, status=400, error=message)  # noqa: E731
+            return rejected(request, message, html)
         url = f"/welcome/{n + 1}"
         return json_or_redirect(request, url, next=url)
 
@@ -1150,8 +1153,8 @@ def create_app(
             user = s.scalar(select(User).where(User.email == email))
             country = user.country if user else None
         if found and found.country != country:
-            calendar = found.country if found.country in calendar_codes() else "US"
-            fields |= {"country": found.country, "holiday_calendar": calendar}
+            home_country, calendar = onboarding.home_country(found.country, calendar_codes())
+            fields |= {"country": home_country, "holiday_calendar": calendar}
         if country is None:
             fields |= {
                 "pto_days_total": str(onboarding.START_PTO_DAYS),

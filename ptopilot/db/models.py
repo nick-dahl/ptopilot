@@ -79,8 +79,8 @@ class User(Base):
     friday_evening_departure: Mapped[bool] = mapped_column(server_default="false")
     friday_evening_min_time: Mapped[time] = mapped_column(Time, server_default="17:00")
     # The guided /welcome flow (web/onboarding.py). A user made any other way (the YAML loader, a full
-    # profile form) is onboarded on creation; the flow's step 1 creates its user with None explicitly.
-    onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=func.now())
+    # profile form, plain SQL) is onboarded on creation; the flow's step 1 inserts NULL explicitly.
+    onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
     welcome_step: Mapped[int] = mapped_column(SmallInteger, server_default="0")  # furthest step finished
     created_at: Mapped[datetime] = created_at()
 

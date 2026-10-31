@@ -1,12 +1,20 @@
 """The /welcome flow (spec §3.2): four steps that build a new traveler's profile, then the planner."""
 
 from html.parser import HTMLParser
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
+from ptopilot.core.airports import AirportCatalog
+from ptopilot.core.calendar import calendar_codes
+from ptopilot.data import load_geo
 from ptopilot.db.models import PlannedTrip, PlanningYear, Tracker, User
 from ptopilot.db.session import session_scope
+from ptopilot.profiles import parse_profile
+from ptopilot.web import onboarding
+from ptopilot.web.forms import form_to_profile, profile_to_form
 from tests.web.conftest import TODAY, seed_profile, sign_in
 from tests.web.test_destinations_page import make_client  # noqa: F401  (fixture)
 
@@ -210,3 +218,68 @@ def test_welcome_needs_sign_in(client):
     assert client.post("/welcome/1", data={"airports": "JFK"}).headers["location"] == "/"
     assert client.post("/welcome/1", data={"airports": "JFK"}, headers=JSON).status_code == 401
     assert client.get("/welcome/9").status_code == 400
+
+
+def test_a_double_tapped_step_one_keeps_one_user(clean_engine):
+    """Two step-1 saves racing: the second insert finds the first's row and carries on with it."""
+    for _ in range(2):
+        with session_scope(clean_engine) as s:
+            made = onboarding.create_user(s, "nick@example.com", "PHL", ["JFK"], "US", "US")
+            assert (made.home_airport, made.onboarded_at) == ("PHL", None)
+    with session_scope(clean_engine) as s:
+        assert len(s.scalars(select(User.id)).all()) == 1
+
+
+def test_a_save_the_database_refuses_is_explained_not_skipped(newcomer, clean_engine, monkeypatch, caplog):
+    newcomer.post("/welcome/1", data={"airports": "JFK"})
+    orig = SimpleNamespace(diag=SimpleNamespace(constraint_name="ck_users_trip_days"))
+
+    def refuse(*args, **kwargs):
+        raise IntegrityError("UPDATE users ...", {}, orig)
+
+    monkeypatch.setattr("ptopilot.web.app.apply_profile", refuse)
+    r = newcomer.post("/welcome/2", data=TIME_OFF)
+    assert r.status_code == 400 and "That didn&#39;t save" in r.text and HEADINGS[1] in r.text
+    bad = newcomer.post("/welcome/2", data=TIME_OFF, headers=JSON)
+    assert bad.status_code == 400 and bad.json() == {
+        "ok": False,
+        "errors": ["That didn't save. Check your choices and try again."],
+    }
+    u = user(clean_engine)
+    assert (u.welcome_step, u.pto_days_total) == (1, 15)  # nothing saved, nothing marked done
+    assert "ck_users_trip_days" in caplog.text and "@" not in caplog.text
+
+
+def test_a_home_country_without_a_holiday_calendar_falls_back_to_us(newcomer, clean_engine, monkeypatch):
+    without_portugal = [c for c in calendar_codes() if c != "PT"]
+    monkeypatch.setattr("ptopilot.web.app.calendar_codes", lambda current="": without_portugal)
+    r = newcomer.post("/welcome/1", data={"airports": "LIS"})
+    assert (r.status_code, r.headers["location"]) == (303, "/welcome/2")
+    u = user(clean_engine)
+    assert (u.home_airport, u.country, u.holiday_calendar) == ("LIS", "PT", "US")
+
+
+def test_every_catalog_country_passes_step_one_validation():
+    """Whatever airport someone picks first, step 1's country and calendar are ones validation takes."""
+    catalog, geo, calendars = AirportCatalog.load(), load_geo(), calendar_codes()
+    first_airport = {}
+    for code in sorted(catalog._by_code):
+        first_airport.setdefault(catalog.get(code).country, code)
+    assert len(first_airport) > 100
+    failing = []
+    for country, code in first_airport.items():
+        home_country, calendar = onboarding.home_country(country, calendars)
+        form = profile_to_form(None, None) | {
+            "home_airport": code,
+            "country": home_country,
+            "holiday_calendar": calendar,
+            "pto_days_total": "15",
+            "max_trip_days": "14",
+        }
+        try:
+            parse_profile(form_to_profile(form, "x@example.com"), geo, require_plan=False)
+        except ValueError as exc:
+            failing.append((country, code, str(exc)))
+    assert failing == []
+    assert onboarding.home_country("", calendars) == ("US", "US")
+    assert onboarding.home_country("ZZ", calendars) == ("ZZ", "US")

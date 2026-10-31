@@ -195,6 +195,13 @@ def test_migration_0013_counts_every_existing_user_as_onboarded(engine):
         with engine.connect() as conn:
             onboarded, step = conn.execute(text("SELECT onboarded_at, welcome_step FROM users")).one()
         assert onboarded is not None and step == 0
+        with engine.begin() as conn:  # users made outside the welcome flow (plain SQL, older code): onboarded
+            conn.execute(text("UPDATE users SET email = 'old@example.com'"))
+            _insert_user_with_trackers(conn, [], [])
+            later = conn.execute(
+                text("SELECT onboarded_at FROM users WHERE email = 'm@example.com'")
+            ).scalar()
+        assert later is not None
         with pytest.raises(IntegrityError, match="welcome_step"):
             with engine.begin() as conn:
                 conn.execute(text("UPDATE users SET welcome_step = 5"))

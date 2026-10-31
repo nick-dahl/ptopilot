@@ -9,10 +9,13 @@ Finishing (Start planning, or Skip for now on steps 2-4) sets users.onboarded_at
 
 from __future__ import annotations
 
+import re
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import func, null, select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from ptopilot.db.models import Tracker, User
@@ -74,19 +77,33 @@ def airport_codes(raw: str) -> list[str]:
     return list(dict.fromkeys(part.strip().upper() for part in (raw or "").split(",") if part.strip()))
 
 
-def new_user(email: str, home: str, nearby: list[str], country: str, calendar: str) -> User:
-    """Step 1's user: the airports, the home airport's country and calendar, and the starting numbers."""
-    return User(
-        email=email,
-        home_airport=home,
-        nearby_airports=nearby,
-        country=country,
-        holiday_calendar=calendar,
-        pto_days_total=START_PTO_DAYS,
-        max_trip_days=START_MAX_TRIP_DAYS,
-        onboarded_at=null(),  # NULL outright: a plain None would let the model's "onboarded now" default in
-        welcome_step=1,
+def home_country(country: str, calendars: Collection[str]) -> tuple[str, str]:
+    """The country and holiday calendar a home airport brings: its own, or US wherever profile validation
+    couldn't take them (a country code that isn't 2 letters, or a country with no holiday calendar), so
+    step 1 never shows an error about fields that aren't on it. Step 2 lets the person pick the calendar."""
+    country = country if re.fullmatch(r"[A-Z]{2}", country or "") else "US"
+    return country, country if country in calendars else "US"
+
+
+def create_user(s: Session, email: str, home: str, nearby: list[str], country: str, calendar: str) -> User:
+    """Step 1's user: the airports, the home country and calendar, and the starting numbers; everything
+    else takes the table's defaults. onboarded_at is NULL outright, since the table's default means
+    "onboarded now". A double-tapped Next races two of these: the loser keeps the winner's row."""
+    s.execute(
+        insert(User)
+        .values(
+            email=email,
+            home_airport=home,
+            nearby_airports=nearby,
+            country=country,
+            holiday_calendar=calendar,
+            pto_days_total=START_PTO_DAYS,
+            max_trip_days=START_MAX_TRIP_DAYS,
+            onboarded_at=None,
+        )
+        .on_conflict_do_nothing(index_elements=["email"])
     )
+    return s.scalar(select(User).where(User.email == email))
 
 
 def step_done(user: User, n: int) -> None:
