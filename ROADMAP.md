@@ -1,17 +1,12 @@
 # ptopilot Roadmap
 
-V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](docs/superpowers/specs/2026-10-16-ptopilot-design.md). V1 and Plans 7–15 are live. This page is the agenda: what's queued, what to settle before inviting friends, feature ideas, and the polish backlog from code reviews.
+V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](docs/superpowers/specs/2026-10-16-ptopilot-design.md). V1 and Plans 7–16 are live. This page is the agenda: what's queued, what to settle before inviting friends, feature ideas, and the polish backlog from code reviews.
 
 ## 1. Queued work, in order
 
 The owner wants the site to feel like a polished travel product before friends see it: the calm, data-first polish of Google Flights and Capital One Travel, and "the first website I want to go to when I'm daydreaming about how to spend my time off". The checklist in §2 follows these.
 
-- [ ] **Plan 16: hidden gems (planned, runs after Plan 15).** Plan: `docs/superpowers/plans/2026-10-31-ptopilot-plan-16-hidden-gems.md`; design approved 2026-10-31. It covers:
-  - a weekly magazine of off-the-beaten-path, affordable places, matched to your trip styles;
-  - a live-checked fare with a "fits your dates" pill;
-  - a "Track this place" button.
-
-  Write-ups are drafted and approved with the owner in sessions, with no AI API for now.
+- [ ] **First hidden-gems catalogue session (with the owner).** Write Lofoten and Ljubljana together as the style guide's reference examples, then draft about 10 more across trip styles for approval. Routine: `docs/gems/README.md`. Until then /gems shows "The first issue is on its way."
 - [ ] **Then the pre-invite checklist (§2).**
 
 ## 2. Before inviting friends
@@ -240,6 +235,7 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
 
 ## Done
 
+- [x] **Hidden gems:** a weekly magazine of off-the-beaten-path, affordable places matched to your trip styles, each with a live-checked fare and a "fits your dates" pill, a full guide with the facts we checked, and "Track this place". The catalogue is curated with the owner in working sessions, with no AI API (Plan 16; spec `docs/superpowers/specs/2026-10-31-ptopilot-hidden-gems-design.md`).
 - [x] **Site polish:** guided four-step onboarding; Google-Flights-style inputs everywhere (type-ahead airport chips, plain-language choices, a trip-length slider, the tap-calendar for days off) that save in place; a "reason you came" dashboard hero with a countdown and a once-per-deal Rare pop-up; Wikimedia cover photos with credits; a destination page with a hoverable price chart and a date grid; and a landing page that sells it (Plan 15; spec `docs/superpowers/specs/2026-10-30-ptopilot-site-polish-design.md`).
 - [x] **Related destinations:** each destination suggests up to 5 related places (curated look-alikes and airports within 65 km) to accept or dismiss on the destinations page; a light daily watch (free cached fares, at most 5 free live checks a day) surfaces a stunning, fitting fare under "Also worth a look" in the digest and in a "Related" panel on the destination page (Plan 14; spec `docs/superpowers/specs/2026-10-25-ptopilot-related-destinations-design.md`).
 - [x] **Buy now or wait:** a stricter go-now score that judges each trip against its own price history and discounts thin evidence; "likely gone within ~N days" on every deal; "Rare" standout offers on the site and in the digest; and instant alert emails (at most one a day, the same destination at most once a week) after checking the flight home (Plan 13; spec `docs/superpowers/specs/2026-10-25-ptopilot-buy-now-or-wait-design.md`).

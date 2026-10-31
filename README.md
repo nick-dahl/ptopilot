@@ -90,6 +90,8 @@ Sign-in is by emailed link (valid 15 minutes). Without `RESEND_API_KEY` the serv
 
 The free service sleeps after ~15 idle minutes; the first request after that takes ~30–60 s.
 
+**Hidden gems catalogue.** Gems are YAML files in `ptopilot/data/gems/`, written and approved with the owner in working sessions; `docs/gems/README.md` has the routine and `docs/gems/style-guide.md` the voice. Validate with `.venv/Scripts/python -m ptopilot.gems check`. The daily scan's `gems` stage publishes a new gem to each person weekly and live-checks their fares.
+
 ## Configuration
 
 Environment variables (never committed; GitHub Actions secrets in production):
