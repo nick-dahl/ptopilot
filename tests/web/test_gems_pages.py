@@ -303,3 +303,29 @@ def test_dashboard_shows_this_weeks_gem(client, emailer, clean_engine):
     card = page.split("This week's hidden gem")[1]
     assert "Høgvik Islands" in card and 'href="/gems"' in card
     assert page.index('id="cards"') < page.index("This week's hidden gem")  # under the destination cards
+
+
+def test_a_failed_check_keeps_the_known_fare(client, emailer, clean_engine):
+    uid = signed_in(client, emailer, clean_engine)
+    fare(
+        clean_engine,
+        uid,
+        "hoegvik-islands",
+        price=Decimal("642"),
+        fits=True,
+        fit_month=8,
+        pto_cost=6,
+        depart_date=TODAY + timedelta(days=150),
+        return_date=TODAY + timedelta(days=159),
+        run_date=TODAY - timedelta(days=3),
+    )
+    fare(clean_engine, uid, "hoegvik-islands", status="failed")  # a newer, transient failure
+    page = client.get("/gems/hoegvik-islands").text
+    assert "$642" in page and "Fits your August range · 6 PTO" in page
+    assert "Checking fares…" not in page
+
+
+def test_only_failed_checks_read_checking(client, emailer, clean_engine):
+    uid = signed_in(client, emailer, clean_engine)
+    fare(clean_engine, uid, "hoegvik-islands", status="failed")
+    assert "Checking fares…" in client.get("/gems/hoegvik-islands").text

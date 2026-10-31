@@ -112,13 +112,20 @@ def track_airports(gem: Gem) -> list[str]:
 
 
 def latest_fares(s: Session, user_id: int, slugs: Iterable[str]) -> dict[str, GemFare]:
-    """The person's newest fare check of each gem."""
+    """The person's newest answered fare check of each gem (`found` or `none`).
+
+    A `failed` check is a transient miss that is tried again, so it never hides a fare already known; it
+    shows only while a gem has no other row ("Checking fares…")."""
     rows = s.scalars(
         select(GemFare)
         .where(GemFare.user_id == user_id, GemFare.gem_slug.in_(set(slugs)))
         .order_by(GemFare.checked_at, GemFare.id)
     )
-    return {row.gem_slug: row for row in rows}  # later rows overwrite earlier ones
+    out: dict[str, GemFare] = {}
+    for row in rows:  # oldest first: later answered rows overwrite earlier ones
+        if row.status != "failed" or out.get(row.gem_slug) is None or out[row.gem_slug].status == "failed":
+            out[row.gem_slug] = row
+    return out
 
 
 def gem_photos(s: Session, gems: Iterable[Gem]) -> dict[str, PlacePhoto]:
