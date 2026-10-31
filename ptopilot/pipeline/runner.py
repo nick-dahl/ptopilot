@@ -14,6 +14,7 @@ from ptopilot.pipeline import (
     baselines,
     broad_scan,
     expand,
+    gems,
     live_verify,
     photos,
     related,
@@ -35,13 +36,14 @@ STAGES: dict[str, Callable[[RunContext], dict[str, int]]] = {
     "baselines": baselines.run,
     "score": score.run,
     "related": related.run,
+    "gems": gems.run,
     "photos": photos.run,
     "alerts": alerts.run,
 }
 # A failure here still lets later stages run on whatever data exists (cached or unverified prices).
-# `related` and `photos` are extras: their failure never holds back the alerts. `alerts` runs last, so its
-# failure only matters for the health report.
-CONTINUE_ON_FAILURE = frozenset({"seed_history", "live_verify", "related", "photos", "alerts"})
+# `related`, `gems` and `photos` are extras: their failure never holds back the alerts. `alerts` runs last,
+# so its failure only matters for the health report.
+CONTINUE_ON_FAILURE = frozenset({"seed_history", "live_verify", "related", "gems", "photos", "alerts"})
 
 
 @dataclass

@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ptopilot import config
-from ptopilot.db.models import AlertSend, Candidate, PriceObservation, RelatedCheck, SourceBudget
+from ptopilot.db.models import AlertSend, Candidate, GemFare, PriceObservation, RelatedCheck, SourceBudget
 from ptopilot.db.session import session_scope
 from ptopilot.digest.render import date_range
 from ptopilot.pipeline.context import RunContext
@@ -90,6 +90,14 @@ def related_line(s: Session, day: date, results: Sequence[StageResult]) -> str:
     return f"Related places: promising {promising}, checked {len(rows)}, confirmed {sum(rows)}"
 
 
+def gems_line(s: Session, day: date, results: Sequence[StageResult]) -> str:
+    """Gems this run published; today's priced rows and fares found, re-runs included."""
+    stage = next((r for r in results if r.stage == "gems"), None)
+    published = stage.counts.get("published", 0) if stage else 0
+    rows = s.scalars(select(GemFare.status).where(GemFare.run_date == day)).all()
+    return f"Hidden gems: published {published}, priced {len(rows)}, found {rows.count('found')}"
+
+
 def build_report(ctx: RunContext, results: Sequence[StageResult]) -> tuple[str, str]:
     """(subject, plain-text body)."""
     failed = [r.stage for r in results if r.status == "failed"]
@@ -125,6 +133,7 @@ def build_report(ctx: RunContext, results: Sequence[StageResult]) -> tuple[str, 
             f" ruled_out={verdicts.get('ruled_out', 0)}",
             f"Alerts sent today: {s.scalar(select(func.count()).where(AlertSend.run_date == ctx.run_date))}",
             related_line(s, ctx.run_date, results),
+            gems_line(s, ctx.run_date, results),
             "",
             *audit_lines(s, ctx.run_date),
             "",
