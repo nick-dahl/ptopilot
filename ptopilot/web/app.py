@@ -1063,6 +1063,9 @@ def create_app(
         if not email:
             return signed_out(request)
         submitted = {k: str(v) for k, v in (await request.form()).items()}
+        for key in ("home_airport", "nearby_airports"):  # a city typed without JS counts when it's clear
+            if key in submitted:
+                submitted[key] = api.resolve_airports(catalog, submitted[key])
         section = submitted.get("section", "")
         if section not in SECTIONS:
             section = submitted["section"] = "" if wants_json(request) else "all"
@@ -1209,7 +1212,7 @@ def create_app(
 
     def welcome_airports(request: Request, email: str, raw: str) -> Response:
         """Step 1: one chip list, the home airport first. A new home country brings its holiday calendar."""
-        codes = onboarding.airport_codes(raw)
+        codes = onboarding.airport_codes(api.resolve_airports(catalog, raw))
         fields = {
             "section": "airports",
             "home_airport": codes[0] if codes else "",

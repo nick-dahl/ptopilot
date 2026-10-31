@@ -73,8 +73,10 @@ def reachable(user: User | None, n: int) -> bool:
 
 
 def airport_codes(raw: str) -> list[str]:
-    """The step-1 chips as codes, in order and each once: the first is the home airport."""
-    return list(dict.fromkeys(part.strip().upper() for part in (raw or "").split(",") if part.strip()))
+    """The step-1 chips as codes, in order and each once: the first is the home airport. Anything longer
+    than a code stays as typed ("London"), so the error can quote it."""
+    parts = (part.strip() for part in (raw or "").split(",") if part.strip())
+    return list(dict.fromkeys(p.upper() if len(p) <= 4 else p for p in parts))
 
 
 def home_country(country: str, calendars: Collection[str]) -> tuple[str, str]:

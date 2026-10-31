@@ -164,9 +164,13 @@ def _explain(problem: str, form: Mapping[str, str]) -> tuple[str | None, str]:
     if m := re.fullmatch(r"missing required field '(\w+)'", problem):
         return m[1], _REQUIRED.get(m[1], "This is required.")
     if m := re.fullmatch(r"unknown airport '([^']*)'.*", problem):
-        home = (form.get("home_airport") or "").strip().upper()
-        field = "home_airport" if m[1] == home else "nearby_airports"
-        return field, f"We don't know an airport with the code {m[1]}. Pick one from the suggestions."
+        home = (form.get("home_airport") or "").strip()
+        field = "home_airport" if m[1] == home.upper() else "nearby_airports"
+        if len(m[1]) <= 4:
+            return field, f"We don't know an airport with the code {m[1]}. Pick one from the suggestions."
+        typed = [home, *_list(form.get("nearby_airports", ""))]
+        name = next((t for t in typed if t.upper() == m[1]), m[1].title())  # as typed, not shouted
+        return field, f"We couldn't pick one airport for '{name}'. Pick one from the list, or type its code."
     if m := re.fullmatch(r"nearby_airports: (\[.*\]) repeat the home airport or each other", problem):
         names = _names(m[1])
         return "nearby_airports", f"{names} is already your home airport or listed twice."

@@ -131,6 +131,16 @@ def test_unknown_airport_codes_are_refused(client, emailer, clean_engine):
     assert user_row(clean_engine)["nearby_airports"] == ["EWR", "PHL"]
 
 
+def test_a_typed_city_name_saves_as_its_airport(client, emailer, clean_engine):
+    signed_in_with_profile(client, emailer, clean_engine)
+    page = client.post(
+        "/profile", data={"section": "airports", "home_airport": "Lisbon", "nearby_airports": "Porto, EWR"}
+    )
+    assert page.status_code == 303
+    row = user_row(clean_engine)
+    assert (row["home_airport"], row["nearby_airports"]) == ("LIS", ["OPO", "EWR"])
+
+
 def test_a_section_saves_on_its_own(client, emailer, clean_engine):
     signed_in_with_profile(client, emailer, clean_engine)
     before = user_row(clean_engine)
@@ -347,3 +357,19 @@ def test_each_component_turns_itself_on():
         assert 'classList.add("is-live")' in (STATIC / name).read_text(encoding="utf-8"), name
     for root in (".chips", ".trip-range", ".stepper", ".day-picker"):
         assert f"{root}:not(.is-live)" in css or f"{root}.is-live" in css, root
+
+
+def test_typed_text_is_picked_or_explained_when_the_form_is_sent():
+    """Next or Save with text still in a chip box picks the top suggestion, as Enter would, or holds the
+    form and says nothing matches; it never drops the text silently."""
+    js = (STATIC / "chips.js").read_text(encoding="utf-8")
+    assert 'form.addEventListener(\n      "submit",' in js and "true,\n    );" in js  # capture: before ui.js
+    assert "matches '${q}' — pick one from the list." in js
+    assert "form.requestSubmit(submitter" in js
+
+
+def test_a_failed_lookup_leaves_no_stale_suggestions():
+    js = (STATIC / "chips.js").read_text(encoding="utf-8")
+    failed = js[js.index(".catch((err) => {") : js.index("function choose")]
+    assert "close();" in failed  # Enter can't add a row from an earlier query
+    assert "=== null) return false" in js  # and Enter after a failure says so instead of "no match"

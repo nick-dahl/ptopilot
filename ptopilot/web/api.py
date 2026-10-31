@@ -39,6 +39,29 @@ def airport_rows(catalog: AirportCatalog, q: str, near: str = "") -> list[dict]:
     ]
 
 
+def resolve_airport(catalog: AirportCatalog, text: str) -> str | None:
+    """The airport a typed name clearly means: a known code ("phl"), or a city with one airport that
+    stands out ("Philadelphia", or "Denver" for DEN over BJC). None when it's unclear ("London") or
+    unknown: the person picks from the list instead."""
+    if catalog.get(text.strip().upper()):
+        return text.strip().upper()
+    if len(text.strip()) < MIN_QUERY:
+        return None
+    exact = [a for kind, is_exact, a in catalog.matches(text) if kind == 1 and is_exact and a.size in SIZES]
+    large = [a for a in exact if a.size == "large"]
+    for pick in (large, exact):
+        if len(pick) == 1:
+            return pick[0].code
+    return None
+
+
+def resolve_airports(catalog: AirportCatalog, raw: str) -> str:
+    """A typed comma list with each clear name swapped for its code; unclear parts stay as typed, so
+    validation names them."""
+    parts = [p.strip() for p in (raw or "").split(",") if p.strip()]
+    return ", ".join(resolve_airport(catalog, p) or p for p in parts)
+
+
 def place_rows(
     catalog: AirportCatalog, q: str, photos: Callable[[list[list[str]]], list[str | None]] | None = None
 ) -> list[dict]:

@@ -11,10 +11,13 @@
 // Without this script (or before it runs) the visible text field (a comma list) is submitted. Here the hidden field carries
 // the list instead, and a "change" event on it lets the form save itself (ui.js, data-autosave).
 // Keys: ↑ ↓ move, Enter adds, Esc closes, Backspace in an empty field removes the last chip.
+// Text still in the box when the form is sent (Next, Save) is treated like Enter: the top suggestion is
+// picked, or the form waits and says nothing matches.
 
 const MAX_ROWS = 6;
 const DEBOUNCE_MS = 150;
 const NOUN = { airports: "airport", places: "place", holidays: "holiday" };
+const OFFLINE = "Couldn't load suggestions. Check your connection.";
 
 const holidayCache = new Map(); // calendar code -> Promise<string[]>
 
@@ -241,8 +244,10 @@ function setup(root) {
         return found;
       })
       .catch((err) => {
-        if (err.name !== "AbortError") say("Couldn't load suggestions. Check your connection.");
-        return [];
+        if (err.name === "AbortError") return [];
+        if (mine === controller) close(); // no stale rows from an earlier query for Enter to add
+        say(OFFLINE);
+        return null;
       });
   }
 
@@ -256,22 +261,46 @@ function setup(root) {
     input.focus();
   }
 
+  // Adds the highlighted (or top) suggestion for the typed text; false when there is none.
   async function enter() {
     const q = input.value.trim();
-    if (!q) return;
+    if (!q) return true;
     if (timer) {
       clearTimeout(timer);
       timer = null;
       search();
     }
-    if (pending) await pending;
-    if (rows.length) return choose(Math.max(active, 0));
-    say(`No ${NOUN[source] || "match"} matches '${q}'.`);
+    if (pending && (await pending) === null) return false; // the lookup failed: OFFLINE is showing
+    if (rows.length) {
+      choose(Math.max(active, 0));
+      return true;
+    }
+    say(`No ${NOUN[source] || "match"} matches '${q}' — pick one from the list.`);
     const box = root.querySelector(".chip-box");
     box.classList.remove("is-shaking");
     void box.offsetWidth;
     box.classList.add("is-shaking");
     box.addEventListener("animationend", () => box.classList.remove("is-shaking"), { once: true });
+    input.focus();
+    return false;
+  }
+
+  // Sending the form with text still typed: pick for it first (as Enter would), then send; or stay put.
+  // A capture listener on the form runs before ui.js's (on document), so an in-place save waits too.
+  if (form && source !== "dates") {
+    form.addEventListener(
+      "submit",
+      async (e) => {
+        if (!input.value.trim() || !root.isConnected) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const submitter = e.submitter;
+        if (!(await enter()) || input.value.trim()) return; // nothing picked, or it was already added
+        // An autosaving form already saves on the hidden field's change.
+        if (!form.hasAttribute("data-autosave")) form.requestSubmit(submitter || undefined);
+      },
+      true,
+    );
   }
 
   list.addEventListener("click", (e) => {

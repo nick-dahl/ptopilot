@@ -36,8 +36,8 @@
       <label class="field-label" for="airports">Airports you fly from</label>
       {{ chips("airports", airports, "City or code, like PHL", "airports", label="Airports you fly from",
                near=form.home_airport, near_first=True,
-               hint="Your home airport first · nearby airports are suggested next",
-               plain_hint="Airport codes, comma-separated, home first, like PHL, EWR") }}
+               hint="Your home airport first. Type a city or airport code; we'll suggest the nearest airports as you type.",
+               plain_hint="Airport codes or cities, comma-separated, home first, like PHL, EWR") }}
       {{ field_error("airports home_airport nearby_airports", field_errors) }}
     </div>
     {% elif n == 2 %}

@@ -84,6 +84,29 @@ def test_step_one_explains_a_bad_airport_and_saves_nothing(newcomer, clean_engin
     assert bad.status_code == 400 and bad.json()["ok"] is False and bad.json()["errors"]
 
 
+def test_step_one_hint_says_what_happens(newcomer):
+    page = newcomer.get("/welcome/1").text
+    assert "Type a city or airport code; we&#39;ll suggest the nearest airports as you type." in page
+    assert "suggested next" not in page  # nothing is offered before typing
+
+
+def test_step_one_takes_a_typed_city_name(newcomer, clean_engine):
+    # Without JS the visible text field is sent: a city with one clear airport counts as picking it.
+    r = newcomer.post("/welcome/1", data={"airports": "Philadelphia, jfk"})
+    assert (r.status_code, r.headers["location"]) == (303, "/welcome/2")
+    u = user(clean_engine)
+    assert (u.home_airport, u.nearby_airports) == ("PHL", ["JFK"])
+
+
+def test_step_one_explains_a_city_it_cannot_pick(newcomer, clean_engine):
+    for typed in ("London", "Atlantis"):  # two big airports; none at all
+        r = newcomer.post("/welcome/1", data={"airports": typed})
+        assert r.status_code == 400
+        assert f"We couldn&#39;t pick one airport for &#39;{typed}&#39;" in r.text
+        assert "Pick one from the list, or type its code" in r.text
+    assert user(clean_engine) is None
+
+
 def test_onboarding_resumes_at_the_next_step(newcomer, emailer, clean_engine):
     assert newcomer.post("/welcome/1", data={"airports": "PHL"}).status_code == 303
     r = newcomer.post("/welcome/2", data=TIME_OFF)
