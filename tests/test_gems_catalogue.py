@@ -180,3 +180,19 @@ def test_any_broken_file_is_a_named_error(tmp_path, capsys):
     assert gems.main(["check", "--folder", str(tmp_path)]) == 1  # a clean report, not a traceback
     out = capsys.readouterr().out
     assert "2 invalid file(s)" in out
+
+
+def test_drafts_folder_is_not_the_catalogue_but_check_validates_it(tmp_path, capsys):
+    shutil.copytree(FIXTURES, tmp_path, dirs_exist_ok=True)
+    drafts = tmp_path / "drafts"
+    _write(drafts, "new-coast", {**_valid(), "slug": "new-coast", "status": "draft"})
+    _write(drafts, "half-done", {**_valid(), "slug": "half-done", "styles": ["spelunking"]})
+    assert len(load_catalogue(tmp_path)) == 3  # the drafts subfolder is never loaded
+
+    assert gems.main(["check", "--folder", str(tmp_path), "--date", "2026-10-31"]) == 0  # drafts: a report
+    out = capsys.readouterr().out
+    assert "3 gems OK" in out
+    catalogue, drafted = out.split("Drafts")
+    assert "half-done" not in catalogue
+    assert "1 invalid draft(s)" in drafted and "half-done.yaml" in drafted and "spelunking" in drafted
+    assert "1 draft(s) OK" in drafted

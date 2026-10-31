@@ -14,3 +14,4 @@ profiles/*
 !profiles/example.yaml
 out/
 .superpowers/
+ptopilot/data/gems/drafts/

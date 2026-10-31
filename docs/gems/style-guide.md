@@ -72,9 +72,19 @@ Also out: "off the beaten path", "something for everyone", "a feast for the sens
 - `country` is the ISO code; quote it (`"NO"` is Norway, a bare `NO` is YAML for false).
 - `body` uses a small Markdown subset: paragraphs, `**bold**`, `*italic*`, `[text](https://...)`
   links, `- ` bullet lists and `## ` subheadings. Anything else shows as plain text.
+- Drafts are written in `ptopilot/data/gems/drafts/` (git-ignored); an approved file moves up a level.
 - A `photo` block is optional; if given, it follows the built-in photo rules (a Wikimedia Commons
   file, a free licence, `source_url` the Commons file page). Otherwise the photos stage finds one.
 - Nothing personal: the repo is public.
+
+## Formatting
+
+How `body` renders, so a draft doesn't come out as one run-on paragraph:
+
+- Separate paragraphs with a blank line.
+- A `## ` heading and a `- ` list must each be their own block, with a blank line before and after.
+- `* ` at the start of a line is italics, not a bullet: lists use `- `.
+- Links must be `https://` (anything else shows as its text).
 
 ## Notes from the owner
 

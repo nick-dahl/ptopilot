@@ -10,6 +10,8 @@ tests/fixtures/gems); `gems_dir()` resolves it, and `load_catalogue()` with no f
     python -m ptopilot.gems check [--folder DIR] [--date YYYY-MM-DD]
 
 validates every file and lists the claims older than GEM_CLAIM_STALE_DAYS; it exits 1 on invalid files.
+Drafts in progress live in the folder's `drafts/` subfolder (git-ignored): the loader never reads it, and
+`check` validates it separately, as a report only.
 """
 
 from __future__ import annotations
@@ -36,6 +38,7 @@ from ptopilot.photos import PlacePhoto, photo_block_problem
 
 GEMS_DIR = DATA_DIR / "gems"
 GEMS_DIR_ENV = "PTOPILOT_GEMS_DIR"
+DRAFTS = "drafts"  # {folder}/drafts/: work in progress, git-ignored; only `check` reads it
 
 Status = Literal["draft", "approved", "retired"]
 STATUSES: tuple[str, ...] = get_args(Status)
@@ -350,6 +353,14 @@ def main(argv: list[str] | None = None) -> int:
             print(f"    checked {claim.checked_on}: {claim.source_url}")
     else:
         print("No stale claims.")
+    drafts = folder / DRAFTS
+    if drafts.is_dir():  # work in progress: reported, but never the catalogue and never a failed check
+        drafted, draft_errors = validate_folder(drafts)
+        print(f"Drafts in {drafts}: {len(drafted)} draft(s) OK")
+        if draft_errors:
+            print(f"  {len(draft_errors)} invalid draft(s):")
+            for error in draft_errors:
+                print(f"    {error}")
     return 1 if errors else 0
 
 
