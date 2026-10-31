@@ -131,9 +131,9 @@ def _users(s: Session) -> list[User]:
 
 def _due(s: Session, person: _Person, catalogue: dict[str, Gem], run_date: date) -> list[_Due]:
     """The person's newest issues of live gems that weren't priced in the last GEM_RECHECK_DAYS."""
-    newest = s.scalars(
+    newest = s.scalars(  # retired, demoted or removed gems are never priced, and take no slot
         select(GemIssue.gem_slug)
-        .where(GemIssue.user_id == person.user.id)
+        .where(GemIssue.user_id == person.user.id, GemIssue.gem_slug.in_(list(catalogue)))
         .order_by(GemIssue.published_on.desc(), GemIssue.id.desc())
         .limit(config.GEM_PRICED_ISSUES)
     ).all()
@@ -146,9 +146,7 @@ def _due(s: Session, person: _Person, catalogue: dict[str, Gem], run_date: date)
     )
     out = []
     for slug in newest:
-        gem = catalogue.get(slug)
-        if gem is None:  # retired, demoted or removed: never priced
-            continue
+        gem = catalogue[slug]
         if slug in last and (run_date - last[slug]).days < config.GEM_RECHECK_DAYS:
             continue
         months = person.range_months(run_date) or _best_months(gem, run_date)

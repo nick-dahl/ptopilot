@@ -473,3 +473,24 @@ def test_the_stage_stops_its_network_work_when_out_of_time(make_ctx):
     assert (counts["scans"], counts["scans_skipped"]) == (1, 2)
     assert counts["out_of_time"] == 1 and gf.calls == []
     assert fares(ctx.engine) == []  # tried again next run
+
+
+def test_retired_issues_use_up_no_pricing_slots(make_ctx, tmp_path, monkeypatch):
+    for path in FIXTURES.glob("*.yaml"):
+        (tmp_path / path.name).write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+    hoegvik = tmp_path / "hoegvik-islands.yaml"
+    hoegvik.write_text(
+        hoegvik.read_text(encoding="utf-8").replace("status: approved", "status: retired"), encoding="utf-8"
+    )
+    monkeypatch.setenv(gems.GEMS_DIR_ENV, str(tmp_path))
+    monkeypatch.setattr(config, "GEM_PRICED_ISSUES", 1)
+    ctx = make_ctx(month_source=month(quote("ORD", "LJU", *TRIP, 400)), live_sources=[live(option(500))])
+    uid = add_user(ctx.engine)
+    with session_scope(ctx.engine) as s:
+        s.add(GemIssue(user_id=uid, gem_slug=LIPNICA, published_on=RUN - timedelta(days=1)))
+        s.add(GemIssue(user_id=uid, gem_slug="hoegvik-islands", published_on=RUN))  # newest, but retired
+
+    counts = stage.run(ctx)
+
+    assert counts["priced_due"] == 1
+    assert [(r.gem_slug, r.status) for r in fares(ctx.engine)] == [(LIPNICA, "found")]
