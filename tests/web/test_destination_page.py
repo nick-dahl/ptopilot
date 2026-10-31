@@ -98,7 +98,7 @@ def test_a_removed_destination_is_not_found(client, emailer, clean_engine):
 def test_ids_beyond_the_database_range_are_a_styled_400(client, emailer, clean_engine):
     setup(client, emailer, clean_engine)
     page = client.get("/trackers/3000000000")
-    assert page.status_code == 400 and 'href="/static/app.css"' in page.text
+    assert page.status_code == 400 and 'href="/static/app.css?v=' in page.text
     assert client.post("/trackers/3000000000/snooze", data={"days": "30"}).status_code == 400
     assert client.post("/trackers/3000000000/unsnooze").status_code == 400
 

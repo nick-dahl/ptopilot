@@ -18,7 +18,7 @@ def test_stylesheet_is_served(client):
 
 def test_pages_use_the_stylesheet_and_fonts(client):
     page = client.get("/s/not-a-token").text
-    assert '<link rel="stylesheet" href="/static/app.css">' in page
+    assert '<link rel="stylesheet" href="/static/app.css?v=' in page
     assert "family=Fraunces" in page and "family=Inter" in page
 
 

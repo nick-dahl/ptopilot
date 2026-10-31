@@ -60,3 +60,41 @@ def test_landing_links_credits(client):
     page = client.get("/").text
     footer = page[page.index('<footer class="site-footer"') :]
     assert 'href="/credits"' in footer
+
+
+def test_landing_hero_credit_is_not_hover_only():
+    """Touch has no hover: the hero's own rule shows the credit (spec §3.6)."""
+    from pathlib import Path
+
+    css = (Path(__file__).parents[2] / "ptopilot/web/static/app.css").read_text(encoding="utf-8")
+    rules = re.findall(r"([^{}]*\.landing-hero[^{}]*\.cover-credit[^{}]*)\{([^}]*)\}", css)
+    shown = [body for selector, body in rules if ":hover" not in selector and ":focus" not in selector]
+    assert shown and all(re.search(r"opacity:\s*(\.[1-9]|0\.[1-9]|1)", body) for body in shown)
+
+
+def test_landing_examples_are_always_ahead_of_today():
+    """The example calendar and trips move with today, so they never show a trip in the past."""
+    from datetime import date
+
+    from ptopilot.data import load_geo
+    from ptopilot.web.samples import example_trip, landing
+
+    geo = load_geo()
+    for month in range(1, 13):
+        today = date(2026, month, 28)
+        ex = landing(geo, today)
+        depart, ret = example_trip(today)
+        assert today < depart < ret and depart.month == ret.month and depart.weekday() == 4
+        assert ex.deal.best.depart_date == depart and ex.rare.best.depart_date > ret
+        name, weeks = ex.calendar[0]
+        assert name.endswith(str(depart.year))
+        assert [c["date"] for w in weeks for c in w if c and c["open"]][0] == depart
+        assert 0 < ex.deal.best.pto_cost <= 7
+
+
+def test_landing_page_shows_the_month_ahead_of_its_today(client):
+    from ptopilot.web.samples import example_trip
+    from tests.web.conftest import TODAY
+
+    depart, _ = example_trip(TODAY)
+    assert f"<caption>{depart.strftime('%B %Y')}</caption>" in client.get("/").text

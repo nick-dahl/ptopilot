@@ -12,6 +12,7 @@ with `{"ok": false, "errors": [...]}`. Without that header they redirect or re-r
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import time
@@ -97,6 +98,9 @@ def css_url(url: str) -> str:
 
 
 TEMPLATES.env.filters.update(money=money, day=day, dates=date_range, stops=stops, css_url=css_url)
+# The stylesheet's URL changes with its content, so a browser never keeps an old copy after a deploy.
+CSS_VERSION = hashlib.sha1((WEB_DIR / "static" / "app.css").read_bytes()).hexdigest()[:10]
+TEMPLATES.env.globals["css_version"] = CSS_VERSION
 # Postgres int4 range: anything inside it is looked up (0 or negative are simply not found, a 404); ids
 # beyond it would make the database raise, so they're a styled 400 instead.
 TRACKER_ID = Annotated[int, PathParam(ge=-(2**31), le=2**31 - 1)]
@@ -317,7 +321,7 @@ def create_app(
     @app.get("/")
     def dashboard(request: Request, saved: int = 0):
         if not current_email(request):
-            return page(request, "landing.html", ex=landing(fixed_geo or load_geo()))
+            return page(request, "landing.html", ex=landing(fixed_geo or load_geo(), today()))
         with session_scope(engine) as s:
             user = signed_in_user(s, request)
             if onboarding.needs_welcome(user):
