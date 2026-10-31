@@ -37,15 +37,26 @@ from starlette.middleware.sessions import SessionMiddleware
 from ptopilot import config
 from ptopilot.core.airports import AirportCatalog, PlaceMatch
 from ptopilot.core.calendar import WorkCalendar, calendar_codes, upcoming_holiday_names
+from ptopilot.core.gem_feed import publish_due
 from ptopilot.core.geo import Geo, UnknownCodeError, palette
 from ptopilot.core.seasons import SeasonTable, trip_month
 from ptopilot.core.trip_styles import STYLES
 from ptopilot.data import load_geo, load_seasons
-from ptopilot.db.models import Candidate, Invite, PlannedTrip, PlanningYear, RelatedLink, Tracker, User
+from ptopilot.db.models import (
+    Candidate,
+    GemIssue,
+    Invite,
+    PlannedTrip,
+    PlanningYear,
+    RelatedLink,
+    Tracker,
+    User,
+)
 from ptopilot.db.session import make_engine, session_scope
 from ptopilot.destinations import add_destination, prefetch_climate, remove_destination
 from ptopilot.digest.render import banner_text, date_range, day, money, stops
 from ptopilot.digest.select import latest_run_date
+from ptopilot.gems import Gem, load_catalogue, render_markdown
 from ptopilot.links import ACTION_LABELS, TokenError, login_token, read_action_token, read_login_token
 from ptopilot.notify.email import Emailer, EmailError, ResendEmailer
 from ptopilot.photos import all_photos, photo_urls, photos_for
@@ -71,7 +82,7 @@ from ptopilot.related_links import place_for, refresh_missing_seasons, suggestio
 from ptopilot.settings import Settings
 from ptopilot.sources.climate import fetch_climate
 from ptopilot.trackers import apply_action, snooze, unsnooze
-from ptopilot.web import api, onboarding
+from ptopilot.web import api, gems_view, onboarding
 from ptopilot.web.forms import (
     SECTIONS,
     explain_errors,
@@ -347,6 +358,7 @@ def create_app(
         summaries = destination_summaries(engine, geo, current_seasons(), user_id, today())
         with session_scope(engine) as s:
             photos = photos_for({c.code for c in summaries}, s)
+            gem = next(iter(gems_view.feed(s, s.get(User, user_id), gem_catalogue(), limit=1)), None)
         hero = hero_deal(summaries)
         card_trends = trends(engine, [x.tracker_id for x in summaries], today())
         return page(
@@ -367,6 +379,7 @@ def create_app(
             totals=totals,
             banner=banner_text(totals) if totals else None,
             saved=bool(saved),
+            gem=gem,
         )
 
     @app.get("/credits")
@@ -650,6 +663,77 @@ def create_app(
             message = str(exc)
             return rejected(request, message, lambda: destinations_page(request, user_id, "", message, 400))
         return json_or_redirect(request, "/destinations")
+
+    # --- hidden gems --------------------------------------------------------------------------------
+
+    def gem_catalogue() -> tuple[Gem, ...]:
+        """The catalogue; an invalid one costs the pages their gems, never the rest of the site."""
+        try:
+            return load_catalogue()
+        except ValueError:
+            log.exception("the gem catalogue is invalid")
+            return ()
+
+    def openable_gem(s, user: User, slug: str) -> Gem | None:
+        gem = next((g for g in gem_catalogue() if g.slug == slug), None)
+        return gem if gem and gems_view.can_open(s, user, gem) else None
+
+    @app.get("/gems")
+    def gems_page(request: Request):
+        user_id = destinations_user_id(request)
+        if not isinstance(user_id, int):
+            return user_id
+        catalogue = gem_catalogue()
+        with session_scope(engine) as s:
+            user = s.get(User, user_id)
+            if not gems_view.issues(s, user):  # the first visit writes the first issue; the scan, the rest
+                publish_due(s, user, today(), catalogue, current_geo())
+                s.flush()
+            cards = gems_view.feed(s, user, catalogue)
+            return page(
+                request,
+                "gems.html",
+                active="gems",
+                feature=cards[0] if cards else None,
+                feature_new=bool(cards) and gems_view.is_new(cards[0].issue, today()),
+                earlier=cards[1:],
+                styles=[STYLES[k] for k in user.trip_styles if k in STYLES],
+            )
+
+    @app.get("/gems/{slug}")
+    def gem_page(request: Request, slug: str):
+        user_id = destinations_user_id(request)
+        if not isinstance(user_id, int):
+            return user_id
+        with session_scope(engine) as s:
+            user = s.get(User, user_id)
+            gem = openable_gem(s, user, slug)
+            if gem is None:  # a draft, someone else's retired gem, or no such gem: the same answer
+                return missing(request, "No such hidden gem.")
+            issued = s.scalar(select(GemIssue).where(GemIssue.user_id == user_id, GemIssue.gem_slug == slug))
+            [card] = gems_view.cards(s, user, [(gem, issued)])
+            return page(request, "gem.html", active="gems", c=card, body=render_markdown(gem.body))
+
+    @app.post("/gems/{slug}/track")
+    def track_gem(request: Request, slug: str):
+        user_id = destinations_user_id(request)
+        if not isinstance(user_id, int):
+            return user_id
+        with session_scope(engine) as s:  # a short read first: the slow climate lookup holds no transaction
+            user = s.get(User, user_id)
+            gem = openable_gem(s, user, slug)
+            if gem is None:
+                return missing(request, "No such hidden gem.")
+            target = user.ideal_trip_days or 10
+            match, airports = gems_view.gem_match(gem), gems_view.track_airports(gem)
+            fetched = prefetch_climate(s, match, airports, climate)
+        with session_scope(engine) as s:
+            user = s.get(User, user_id)
+            tracker = add_destination(
+                s, user, match, airports, target, name=gem.name, climate=fetched, today=today()
+            )
+            tracker_id = tracker.id
+        return json_or_redirect(request, f"/trackers/{tracker_id}", tracker_id=tracker_id)
 
     # --- the year planner ---------------------------------------------------------------------------
 

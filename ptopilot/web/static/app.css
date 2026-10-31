@@ -543,7 +543,64 @@ form.is-autosaving .section-save .btn { display: none; }
 @keyframes arrival-in { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
 
+/* Hidden gems (templates/gems.html, gem.html; the dashboard's teaser). A magazine: the week's feature as
+   a cover beside its write-up, earlier issues as photo cards, and the full guide as a readable column.
+   The fit pill: green fits the person's dates, orange is outside them, grey is still checking or none. */
+:root { --fit-green: #ecfdf5; --fit-green-ink: #065f46; --fit-green-line: #a7f3d0; --fit-orange: #fff7ed; --fit-orange-ink: #9a3412; --fit-orange-line: #fed7aa; --gem-feature-height: 260px; --gem-guide-height: 300px; --gem-thumb-height: 110px; --measure: 68ch; }
+.fit { display: inline-block; padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--muted); font-size: 12px; font-weight: 600; line-height: 1.4; }
+.fit-green { background: var(--fit-green); color: var(--fit-green-ink); border-color: var(--fit-green-line); }
+.fit-orange { background: var(--fit-orange); color: var(--fit-orange-ink); border-color: var(--fit-orange-line); }
+.gems-for-you { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.gems-for-you .chip, .gem-tags .chip { padding: 3px 10px; }
+.gem-cover .cover-credit { top: auto; bottom: 10px; left: 12px; right: auto; opacity: .85; }
+.gem-cover .pill { position: absolute; top: 14px; left: 14px; }
+.cover.gem-feature-cover { min-height: var(--gem-feature-height); }
+.cover.gem-guide-cover { min-height: var(--gem-guide-height); border-radius: var(--radius); }
+.cover.gem-thumb { min-height: var(--gem-thumb-height); }
+.gem-feature { display: grid; grid-template-columns: minmax(0, 1fr); background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lift); overflow: hidden; }
+.gem-feature-body { padding: 18px 20px 20px; min-width: 0; }
+.gem-feature-body h2 { font-size: 26px; margin-bottom: 4px; }
+@media (min-width: 768px) {
+  .gem-feature { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+  .cover.gem-feature-cover { min-height: 100%; }
+}
+.gem-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.gem-lede { font: 17px/1.55 var(--serif); color: #334155; }
+.gem-budget { margin: 0 0 14px; padding: 10px 12px; border-radius: var(--radius-sm); background: #f1f5f9; color: #334155; font-size: 14px; }
+.gem-budget .eyebrow { display: block; margin-bottom: 4px; color: var(--muted); }
+.gem-fare { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 12px; }
+.gem-fare-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; flex-basis: 100%; }
+.gem-fare-line .price { font: 700 26px/1.2 var(--sans); }
+.gem-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.gem-track { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.gems-earlier { margin-top: 28px; }
+.gems-earlier h2 { margin-bottom: 12px; }
+.gem-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.gem-card { display: flex; flex-direction: column; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; text-decoration: none; transition: box-shadow var(--ease), transform var(--ease); }
+.gem-card:hover { box-shadow: var(--shadow-lift); transform: translateY(-1px); }
+.gem-card-body { display: grid; gap: 4px; padding: 10px 12px 12px; min-width: 0; }
+.gem-card-fare { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; }
+.gem-teaser h2 { margin-bottom: 8px; }
+.gem-teaser .gem-card { max-width: 480px; }
+.back-link { color: var(--muted); text-decoration: none; }
+.back-link:hover { color: var(--ink); }
+.gem-guide { margin-top: 12px; }
+.gem-guide-head { margin: 18px 0 8px; max-width: var(--measure); }
+.gem-guide-head h1 { margin: 2px 0 8px; }
+.gem-guide-grid { display: grid; gap: 22px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 860px) { .gem-guide-grid { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; } }
+.gem-body { max-width: var(--measure); font: 17px/1.65 var(--serif); color: #1e293b; overflow-wrap: anywhere; }
+.gem-body h2 { margin: 22px 0 8px; font-size: 21px; }
+.gem-body h2:first-child { margin-top: 0; }
+.gem-body ul { margin: 0 0 14px; padding-left: 22px; }
+.gem-body li + li { margin-top: 4px; }
+.gem-fare-box h2 { font-size: 17px; }
+.gem-facts { margin-top: 28px; max-width: var(--measure); }
+.gem-facts h2 { margin-bottom: 8px; }
+.gem-facts ul { margin: 0; padding-left: 20px; }
+.gem-facts li + li { margin-top: 6px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
-  a.dest-card:hover { transform: none; }
+  a.dest-card:hover, .gem-card:hover { transform: none; }
 }

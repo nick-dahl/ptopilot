@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_components.html" import cover, gem_budget, gem_fare, gem_track %}
+{% block title %}{{ c.gem.name }} · Hidden gems · ptopilot{% endblock %}
+{% block content %}
+<p class="small m-0"><a class="back-link" href="/gems">← Hidden gems</a></p>
+<article class="gem-guide">
+  {{ cover(c, c.photo, "gem-cover gem-guide-cover") }}
+  <header class="gem-guide-head">
+    <div class="eyebrow muted">{{ c.gem.country_name }}{% if c.gem.status == "retired" %} · no longer in the feed{% endif %}</div>
+    <h1>{{ c.gem.name }}</h1>
+    <div class="gem-tags">{% for label in c.styles %}<span class="chip">{{ label }}</span>{% endfor %}<span>best {{ c.best }}</span></div>
+    <p class="gem-lede">{{ c.gem.headline }}</p>
+  </header>
+  <div class="gem-guide-grid">
+    <div class="gem-body">{{ body }}</div>
+    <aside class="gem-aside">
+      {{ gem_budget(c.gem) }}
+      <div class="panel gem-fare-box">
+        <h2>Your fare</h2>
+        {{ gem_fare(c) }}
+        {{ gem_track(c) }}
+      </div>
+    </aside>
+  </div>
+  {% if c.gem.claims %}
+  <section class="gem-facts" aria-labelledby="facts-title">
+    <h2 id="facts-title">Facts we checked</h2>
+    <ul>
+      {% for claim in c.gem.claims %}
+      <li>{{ claim.text }} <a href="{{ claim.source_url }}" rel="noopener">Source</a> <span class="muted small">checked {{ claim.checked_on.strftime("%b %Y") }}</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</article>
+{% endblock %}

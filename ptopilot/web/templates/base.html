@@ -19,6 +19,7 @@
       <a href="/" {% if active == "dashboard" %}aria-current="page"{% endif %}>Dashboard</a>
       <a href="/plan" {% if active == "plan" %}aria-current="page"{% endif %}>Plan</a>
       <a href="/destinations" {% if active == "destinations" %}aria-current="page"{% endif %}>Destinations</a>
+      <a href="/gems" {% if active == "gems" %}aria-current="page"{% endif %}>Hidden gems</a>
       <a href="/profile" {% if active == "profile" %}aria-current="page"{% endif %}>Profile</a>
       <form class="inline" method="post" action="/logout"><button class="link-btn" type="submit">Sign out</button></form>
       {% else %}

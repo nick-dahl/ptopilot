@@ -179,3 +179,43 @@
       </table>
 {% endfor %}
 {%- endmacro %}
+
+{# Hidden gems (templates/gems.html, gem.html, dashboard.html). c: a web.gems_view.GemCard. #}
+{% macro fit_pill(c) -%}
+{% set copy, tone = c.pill %}<span class="fit fit-{{ tone }}">{{ copy }}</span>
+{%- endmacro %}
+
+{# The person's latest fare (it always shows once known, fitting or not) and its fit pill. #}
+{% macro gem_fare(c) -%}
+<div class="gem-fare">
+  {% if c.priced %}{% set f = c.fare %}
+  <div class="gem-fare-line"><span class="price">{{ f.price | money(f.currency) }}</span><span class="muted small">{{ "open-jaw" if c.home_from else "round trip" }} {{ f.origin }} → {{ c.arrival }}{% if c.home_from %}, home from {{ c.home_from }}{% endif %} · {{ f.depart_date | dates(f.return_date) }} · checked {{ f.checked_at | day }}</span></div>
+  {% endif %}
+  {{ fit_pill(c) }}{% if c.priced and c.fare.deep_link %} <a class="small" href="{{ c.fare.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
+</div>
+{%- endmacro %}
+
+{# "Track this place", in place; once tracked, "Tracking" links to the destination page. #}
+{% macro gem_track(c) -%}
+<div id="gem-track-{{ c.gem.slug }}" class="gem-track">
+  {% if c.tracked %}<a class="btn btn-secondary" href="/trackers/{{ c.tracker_id }}"><span aria-hidden="true">✓</span> Tracking</a>
+  {% else %}<form class="inline" method="post" action="/gems/{{ c.gem.slug }}/track" data-inplace data-after="reload-section" data-section="gem-track-{{ c.gem.slug }}" data-toast="Tracking {{ c.gem.name }}"><button class="btn btn-secondary" type="submit">Track this place</button></form>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro gem_budget(gem) -%}
+<div class="gem-budget"><b class="eyebrow">How to do it on a budget</b><p class="m-0">{{ gem.budget }} · ~${{ gem.daily_cost_usd }}/day</p></div>
+{%- endmacro %}
+
+{# A gem's photo card: the whole card links to href (its guide, or /gems from the dashboard). #}
+{% macro gem_card(c, href, headline=False) -%}
+<a class="gem-card" href="{{ href }}">
+  {{ cover(c, c.photo, "gem-cover gem-thumb", link=True) }}
+  <div class="gem-card-body">
+    <h3>{{ c.gem.name }}</h3>
+    <div class="muted small">{{ c.styles | join(" · ") }}</div>
+    {% if headline %}<p class="small m-0">{{ c.gem.headline }}</p>{% endif %}
+    <div class="gem-card-fare">{% if c.priced %}<b>{{ c.fare.price | money(c.fare.currency) }}</b> {% endif %}{{ fit_pill(c) }}</div>
+  </div>
+</a>
+{%- endmacro %}

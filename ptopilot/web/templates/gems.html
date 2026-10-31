@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_components.html" import cover, gem_budget, gem_card, gem_fare, gem_track %}
+{% block title %}Hidden gems · ptopilot{% endblock %}
+{% block content %}
+<div class="page-head gems-head">
+  <div>
+    <h1>Hidden gems</h1>
+    <p class="muted small">One off-the-beaten-path place a week, picked for how you like to travel, with a live fare.</p>
+  </div>
+  <div class="gems-for-you small">
+    <span>For you:{% if not styles %} everything{% endif %}</span>
+    {% for label in styles %}<span class="chip">{{ label }}</span>{% endfor %}
+    <a href="/profile#travel-style">edit</a>
+  </div>
+</div>
+{% if feature %}
+{% set c = feature %}
+<article class="gem-feature" aria-labelledby="feature-title">
+  {% call cover(c, c.photo, "gem-cover gem-feature-cover") %}
+    <span class="pill pill-rare">{{ "New this week" if feature_new else "Latest issue" }}</span>
+  {% endcall %}
+  <div class="gem-feature-body">
+    <h2 id="feature-title">{{ c.gem.name }}, {{ c.gem.country_name }}</h2>
+    <div class="gem-tags">{{ c.styles | join(" · ") }} · best {{ c.best }}</div>
+    <p class="gem-lede">{{ c.gem.headline }}</p>
+    {{ gem_budget(c.gem) }}
+    {{ gem_fare(c) }}
+    <div class="gem-buttons">
+      <a class="btn" href="/gems/{{ c.gem.slug }}">Read the full guide</a>
+      {{ gem_track(c) }}
+    </div>
+  </div>
+</article>
+{% if earlier %}
+<section class="gems-earlier" aria-labelledby="earlier-title">
+  <h2 id="earlier-title">Earlier issues</h2>
+  <div class="gem-grid">
+    {% for e in earlier %}{{ gem_card(e, "/gems/%s" % e.gem.slug) }}{% endfor %}
+  </div>
+</section>
+{% endif %}
+{% else %}
+<div class="panel"><p class="m-0">The first issue is on its way.</p></div>
+{% endif %}
+{% endblock %}

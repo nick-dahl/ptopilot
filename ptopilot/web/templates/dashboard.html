@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_components.html" import dest_card, deal_hero, pto_bar %}
+{% from "_components.html" import dest_card, deal_hero, gem_card, pto_bar %}
 {% block title %}Your trips · ptopilot{% endblock %}
 {% block content %}
 {% if saved %}<div class="panel notice">Profile saved. The next morning scan will use it.</div>{% endif %}
@@ -32,6 +32,12 @@
   </div>
   {% else %}
   <div class="panel"><p class="m-0">No destinations yet. <a href="/destinations">Add somewhere you want to go</a>, then <a href="/plan">plan your year</a>.</p></div>
+  {% endif %}
+  {% if gem %}
+  <section class="gem-teaser" aria-labelledby="gem-teaser-title">
+    <h2 class="eyebrow muted" id="gem-teaser-title">This week's hidden gem</h2>
+    {{ gem_card(gem, "/gems", headline=True) }}
+  </section>
   {% endif %}
 </div>
 {% endblock %}
