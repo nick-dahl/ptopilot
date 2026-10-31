@@ -109,12 +109,13 @@
 
 {# The dashboard's hero: today's best deal (web/history.hero_deal), over its cover photo. s.headline is
    the trip; arrival: the arrival airport's city; spark: a viz.sparkline points string or None. A standout
-   carries data-candidate-id, which static/hero.js reads to open the arrival dialog once. #}
+   carries data-deal-key (the trip, not the day's candidate row, so a standout lasting several
+   days is one deal), which static/hero.js reads to open the arrival dialog once. #}
 {% macro deal_hero(s, photo, arrival, spark) -%}
 {% set o = s.headline %}
 {% set pct = o.pct_below %}
 {% set soon = o.expected_days is not none and o.expected_days <= 7 %}
-<section id="hero" class="deal-hero-wrap" aria-label="Today's best deal"{% if o.standout %} data-candidate-id="{{ o.candidate_id }}"{% endif %}>
+<section id="hero" class="deal-hero-wrap" aria-label="Today's best deal"{% if o.standout %} data-deal-key="{{ s.tracker_id }}:{{ o.origin }}:{{ o.dest_airport }}:{{ o.depart_date.isoformat() }}:{{ o.return_date.isoformat() }}"{% endif %}>
   {% call cover(s, photo, "deal-hero", link=True) %}
     <div class="deal-hero-body">
       <span class="pill{{ ' pill-rare' if o.standout }}">{% if o.standout %}Rare · {{ o.duration_note }}{% elif o.expected_days is not none %}{{ o.duration_note }}{% else %}Great deal{% endif %}</span>

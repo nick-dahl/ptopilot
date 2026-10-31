@@ -1,8 +1,9 @@
-// The arrival dialog for a rare deal (dashboard). The hero carries data-candidate-id only when its deal is
-// a standout; this opens the hero's <dialog> once per deal per browser, remembered in localStorage under
-// ptopilot:seen:{candidate_id}. At 768px and up it is a centred dialog; below that a sheet that slides up
-// after the page has painted, so it never covers the content on first paint. Esc, ×, "Not now" or a click
-// outside closes it. Without this script (or without <dialog> support) nothing appears: the hero is enough.
+// The arrival dialog for a rare deal (dashboard). The hero carries data-deal-key only when its deal is a
+// standout; this opens the hero's <dialog> once per deal per browser, remembered in localStorage under
+// ptopilot:seen:{tracker_id}:{origin}:{dest_airport}:{depart}:{return}. The key is the trip, not the day's
+// candidate row, so a standout that lasts several scan days still shows only once. At 768px and up it is
+// a centred dialog; below that a sheet that slides up after the page has painted, so it never covers the
+// content on first paint. Esc, ×, "Not now" or a click outside closes it. Without this script (or without <dialog> support) nothing appears: the hero is enough.
 
 const PHONE_DELAY_MS = 700;
 
@@ -27,10 +28,10 @@ function markSeen(id) {
 }
 
 function init() {
-  const root = document.querySelector("#hero[data-candidate-id]");
+  const root = document.querySelector("#hero[data-deal-key]");
   const dialog = root && root.querySelector("dialog.arrival");
   if (!dialog || typeof dialog.showModal !== "function") return;
-  const id = root.dataset.candidateId;
+  const id = root.dataset.dealKey;
   root.classList.add("is-live");
   if (wasSeen(id)) return;
 

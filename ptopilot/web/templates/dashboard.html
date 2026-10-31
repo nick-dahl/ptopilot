@@ -14,7 +14,7 @@
   {% if hero %}
   {{ deal_hero(hero, photos.get(hero.code), hero_arrival, hero_spark) }}
   {% elif checked %}
-  <p class="quiet-day" id="hero"{% if scanned_at %} title="Scan times are UTC"{% endif %}>No standout fares today · checked {{ checked }} trip{{ "s" if checked != 1 }}{% if scanned_at %} at {{ scanned_at.strftime("%H:%M") }}{% endif %}</p>
+  <p class="quiet-day" id="hero">No standout fares today · checked {{ checked }} trip{{ "s" if checked != 1 }}{% if scanned_at %} at {{ scanned_at.strftime("%H:%M") }} UTC{% endif %}</p>
   {% endif %}
   <div id="pto-bar">{{ pto_bar(totals, banner, pto_total, pto_committed) }}</div>
   {% if summaries %}

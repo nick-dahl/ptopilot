@@ -120,8 +120,8 @@ def test_quiet_day_has_no_hero(client, emailer, clean_engine):
             )
         )
     page = client.get("/").text
-    assert hero(page) is None and "data-candidate-id" not in page
-    assert "No standout fares today · checked 2 trips at 06:12" in page
+    assert hero(page) is None and "data-deal-key" not in page
+    assert "No standout fares today · checked 2 trips at 06:12 UTC" in page
     assert 'class="dest-card' in page  # the photo cards still show
 
 
@@ -154,7 +154,7 @@ def test_standout_hero_carries_the_dialog_hook(client, emailer, clean_engine):
     great = add_candidate(clean_engine, ids["AZORES"], 603, run_date=TODAY, level="great", go_now=80)
     page = client.get("/").text
     assert hero(page) is not None and "Great deal" in hero(page)
-    assert "data-candidate-id" not in page and 'role="dialog"' not in page
+    assert "data-deal-key" not in page and 'role="dialog"' not in page
 
     rare = add_candidate(
         clean_engine,
@@ -167,10 +167,45 @@ def test_standout_hero_carries_the_dialog_hook(client, emailer, clean_engine):
         dest="FNC",
     )
     page = client.get("/").text
-    assert f'data-candidate-id="{rare}"' in page and f'data-candidate-id="{great}"' not in page
+    assert f'data-deal-key="{ids["MADEIRA"]}:JFK:FNC:2027-03-05:2027-03-14"' in page
+    assert str(rare) != str(great) and page.count("data-deal-key") == 1
     assert "Rare · likely gone within ~2 days" in hero(page)
     assert 'role="dialog"' in page and 'aria-modal="true"' in page and 'aria-label="Close"' in page
     assert '<script type="module" src="/static/hero.js"></script>' in page
+
+
+def deal_key(page: str) -> str | None:
+    found = re.search(r'data-deal-key="([^"]+)"', page)
+    return found.group(1) if found else None
+
+
+def test_the_dialog_key_is_the_trip_not_the_days_candidate(client, emailer, clean_engine):
+    """A standout that lasts several days is one deal: the dialog is remembered across scan days."""
+    ids = setup(client, emailer, clean_engine)
+    add_baseline(clean_engine, 900)
+    rare = {"level": "great", "go_now": 95, "expected_days": 2}
+    first = add_candidate(clean_engine, ids["AZORES"], 610, run_date=TODAY - timedelta(days=1), **rare)
+    yesterday = deal_key(client.get("/").text)
+    second = add_candidate(clean_engine, ids["AZORES"], 603, run_date=TODAY, **rare)
+    page = client.get("/").text
+    assert first != second and "$603" in hero(page)  # today's scan is the one shown
+    assert yesterday is not None and deal_key(page) == yesterday
+    assert yesterday == f"{ids['AZORES']}:JFK:PDL:2027-03-05:2027-03-14"
+
+
+def test_the_hero_snooze_without_js_returns_to_the_dashboard(client, emailer, clean_engine):
+    ids = setup(client, emailer, clean_engine)
+    add_baseline(clean_engine, 900)
+    add_candidate(clean_engine, ids["AZORES"], 603, run_date=TODAY, level="great", go_now=80)
+    form = re.search(
+        r'<form[^>]*action="(/trackers/\d+/snooze)"[^>]*>(.*?)</form>', hero(client.get("/").text), re.S
+    )
+    data = dict(re.findall(r'<input type="hidden" name="([^"]+)" value="([^"]*)"', form.group(2)))
+    response = client.post(form.group(1), data=data)  # a plain form post: no Accept: application/json
+    assert response.status_code == 303 and response.headers["location"] == "/"
+    with session_scope(clean_engine) as s:
+        assert s.get(Tracker, ids["AZORES"]).snoozed_until == TODAY + timedelta(days=30)
+    assert hero(client.get("/").text) is None
 
 
 def test_cards_link_to_the_destination_page(client, emailer, clean_engine):
