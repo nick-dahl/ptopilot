@@ -60,6 +60,7 @@ def test_end_to_end_finds_a_great_deal(make_ctx):
         ("baselines", "ok"),
         ("score", "ok"),
         ("related", "ok"),  # nothing accepted: a quiet watch
+        ("gems", "ok"),  # the shipped catalogue has no approved gems yet: a quiet no-op
         ("photos", "skipped"),  # no Wikimedia client among the fakes
         ("alerts", "skipped"),  # no emailer configured
     ]
@@ -76,7 +77,7 @@ def test_failed_core_stage_stops_the_rest(make_ctx, monkeypatch):
 
     monkeypatch.setitem(runner.STAGES, "broad_scan", broken)
     results = runner.run_pipeline(make_ctx())
-    assert [r.status for r in results] == ["ok", "failed"] + ["not_run"] * 8
+    assert [r.status for r in results] == ["ok", "failed"] + ["not_run"] * 9
     assert runs(make_ctx().engine)["broad_scan"].error == "all month scans failed"
 
 
@@ -93,6 +94,7 @@ def test_live_verify_failure_lets_scoring_continue(make_ctx):
         "baselines": "ok",
         "score": "ok",
         "related": "skipped",  # no month source
+        "gems": "ok",  # nothing approved to publish
         "photos": "skipped",  # no Wikimedia client
         "alerts": "skipped",
     }
