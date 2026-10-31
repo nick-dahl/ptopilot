@@ -1,0 +1,14 @@
+# A fictional gem for tests only; still a draft.
+slug: ardmore-falls
+name: Ardmore Falls
+country: PT
+airports: [LIS]
+styles: [adventure]
+best_months: [4, 10]
+headline: A road trip to waterfalls almost nobody stops for.
+body: Rent the smallest car you can and take the back roads.
+budget: Split a rental car four ways and it costs less than the train.
+daily_cost_usd: 60
+claims: []
+status: draft
+approved_on: null

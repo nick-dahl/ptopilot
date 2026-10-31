@@ -126,3 +126,11 @@ RELATED_MAX_IN_DIGEST = 3
 # Cover photos (Plan 15)
 PHOTO_LOOKUPS_PER_RUN = 20  # Wikipedia/Commons lookups per daily scan
 PHOTO_RETRY_DAYS = 30  # a place with no acceptable photo is looked up again after this long
+
+# Hidden gems (Plan 16)
+GEM_ISSUE_DAYS = 7
+GEM_WILDCARD_EVERY = 4
+GEM_PRICED_ISSUES = 4
+GEM_LIVE_CHECKS_PER_DAY = 8
+GEM_RECHECK_DAYS = 3
+GEM_CLAIM_STALE_DAYS = 365

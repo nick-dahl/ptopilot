@@ -1,0 +1,36 @@
+# A fictional gem for tests only: the place, its claims and its photo are made up.
+slug: hoegvik-islands
+name: Høgvik Islands
+country: "NO"
+airports: [BOO]
+return_airports: [SVJ]
+styles: [hiking_camping, islands]
+best_months: [6, 7, 8]
+headline: Granite ridges straight out of the sea, and you can pitch a tent on most of them for free.
+body: |
+  ## Getting there
+
+  Fly into **Bodø** and take the morning ferry out; fly home from Svolvær.
+
+  - Camp on open land away from houses
+  - Carry a stove: fires are banned in summer
+
+  The ferry timetable is on [the operator's site](https://example.org/hoegvik/ferry).
+budget: Free wild camping takes lodging off the bill; a supermarket shop and the ferry are most of what you spend.
+daily_cost_usd: 45
+claims:
+  - text: Wild camping is allowed on uncultivated land away from houses.
+    source_url: https://example.org/hoegvik/camping
+    checked_on: 2026-05-20
+  - text: The ferry from Bodø runs daily in summer.
+    source_url: https://example.org/hoegvik/ferry
+    checked_on: 2026-05-20
+status: approved
+approved_on: 2026-06-01
+photo:
+  image_url: https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Example_coast.jpg/1280px-Example_coast.jpg
+  width: 1280
+  height: 853
+  author: Example Photographer
+  licence: CC BY-SA 4.0
+  source_url: https://commons.wikimedia.org/wiki/File:Example_coast.jpg

@@ -1,0 +1,18 @@
+# A fictional gem for tests only.
+slug: lipnica-valley
+name: Lipnica Valley
+country: SI
+airports: [LJU]
+styles: [rail, food_wine]
+best_months: [5, 6, 9]
+headline: A slow train up a green valley, with a tavern lunch at every second stop.
+body: |
+  Take the regional train from the capital and get off wherever the *view* tells you to.
+budget: Regional trains cost a few euros a ride, and guesthouses in the villages are cheaper than the city.
+daily_cost_usd: 70
+claims:
+  - text: A regional train runs up the valley every two hours.
+    source_url: https://example.org/lipnica/trains
+    checked_on: 2026-02-15
+status: approved
+approved_on: 2026-03-01

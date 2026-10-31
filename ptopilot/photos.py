@@ -36,6 +36,7 @@ TIMEOUT_S = 10
 COMMONS_FILE = re.compile(
     r"^https://(?:upload|thumb)\.wikimedia\.org/wikipedia/commons/(?:thumb/)?([0-9a-f])/([0-9a-f]{2})/([^/?#]+)"
 )
+COMMONS_FILE_PAGE = "https://commons.wikimedia.org/wiki/File:"
 JPEG = re.compile(r"\.jpe?g$", re.IGNORECASE)
 FREE_LICENCE = re.compile(r"^(CC0|CC BY(-SA)? \d|Public domain|PD\b)", re.IGNORECASE)
 
@@ -177,6 +178,30 @@ def builtin_photos() -> dict[str, PlacePhoto]:
         for code, d in data["destinations"].items()
         if (p := d.get("photo"))
     }
+
+
+def photo_block_problem(block: object) -> str | None:
+    """Why a hand-picked photo block (geo.yaml, a gem) breaks the built-in photo rules, or None.
+
+    The rules: the image is a Commons file, the author is named, the licence is free and source_url
+    is the Commons file page."""
+    if not isinstance(block, dict):
+        return "photo must be a mapping"
+    if not COMMONS_FILE.match(str(block.get("image_url") or "")):
+        return "photo image_url must be a Wikimedia Commons file"
+    if not str(block.get("author") or "").strip():
+        return "photo needs an author"
+    if not FREE_LICENCE.match(str(block.get("licence") or "")):
+        return f"photo licence {block.get('licence')!r} is not a free licence"
+    if not str(block.get("source_url") or "").startswith(COMMONS_FILE_PAGE):
+        return "photo source_url must be its Commons file page"
+    for key in ("width", "height"):
+        if block.get(key) is not None and (not isinstance(block[key], int) or block[key] <= 0):
+            return f"photo {key} must be a positive whole number"
+    unknown = set(block) - {"image_url", "width", "height", "author", "licence", "source_url"}
+    if unknown:
+        return f"photo has unknown fields: {', '.join(sorted(unknown))}"
+    return None
 
 
 def _from_row(row: PlacePhotoRow) -> PlacePhoto:

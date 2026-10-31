@@ -36,7 +36,7 @@ build-backend = "setuptools.build_meta"
 include = ["ptopilot*"]
 
 [tool.setuptools.package-data]
-"ptopilot.data" = ["*.yaml", "*.csv"]
+"ptopilot.data" = ["*.yaml", "*.csv", "gems/*.yaml"]
 "ptopilot.digest" = ["templates/*.j2"]
 "ptopilot.web" = ["templates/*.html", "static/*.css", "static/*.js"]
 
