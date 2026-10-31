@@ -177,6 +177,47 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
   - no test that a snoozed destination's related places aren't watched;
   - the panel test matches "Related" anywhere on the page, and the snoozed-panel test accepts either of two strings.
 
+**Site polish (Plan 15)**
+- [ ] **Owner's signed-in look:** check the dashboard hero, profile inputs, a destination page and the planner on the live site.
+- [ ] **Inputs and onboarding:**
+  - catalog city names leak into suggestions ("Omitama" for Ibaraki, "Vila Baleira" for Porto Santo, "Gran Canaria Island"), and the add card offers small airports (CAT Cascais) as nearby;
+  - the place card names the airport city ("Ponta Delgada") though it maps to the built-in Azores;
+  - without JS, switching the holiday calendar while an office-works holiday isn't in the new one is refused until it's removed (with JS the toggles drop it);
+  - re-saving step 1 with a home airport in another country quietly resets a chosen calendar;
+  - the "Start planning" button doesn't refresh after an in-place add on step 4 (the server checks the count), and the full nav shows during onboarding;
+  - the PTO stepper caps at 99 and the trip slider at 30 with no matching validation bound;
+  - the profile's days-off calendar marks holidays your office works as holidays, and its 12 months are tall;
+  - the country field left the page, so `User.country` (unread) could go stale; set it from the calendar's country;
+  - typed range dates under the planner calendar are lost when another planner action saves in place, and a planner restore could re-open carried-over days a booking has since used (unverified);
+  - a narrow retry race can revert a stepper burst on the planner's target form after a section swap;
+  - places.js's `|| rows[0]` can open the card for a different place when the code lookup misses.
+- [ ] **Dashboard and destination page:**
+  - `last_scan` uses the latest candidate date, so a missed scan shows yesterday's numbers as today;
+  - any booking this year rules a destination out as the hero, even for a different trip; the deal key omits price, so a later drop on the same trip won't re-open the dialog;
+  - photo and gradient cards have different header heights, so mixed cards misalign;
+  - the chart tooltip hard-codes "$" and can overlap the high-price label near the top;
+  - the landing page has a blank strip under the header and "How it works" sits tight under the hero;
+  - the tracker-page booking toast could link to /plan/{year}.
+- [ ] **Photos:**
+  - on dashboard cards the whole card is a link, so touch users can't see the photo credit (/credits has it);
+  - "Unknown author" is stored when Commons has no Artist;
+  - an unknown or always-crashing place code is never stored, so it takes one of the 20 lookup slots every run;
+  - /credits lists every user-added place with a photo, including untracked ones (mild on an invite-only site; revisit if it opens up);
+  - /api/places loads every destination row and a photo query per keystroke (debounced; fine at this scale).
+- [ ] **Accessibility:**
+  - the profile/welcome days-off calendar is about 365 tab stops (wants a roving tabindex), and its `aria-labelledby` on a plain div names nothing;
+  - the destination header photo is a tab stop with no role or name;
+  - the trend chart is a tab stop with `role="img"` (`role="group"` with a key hint would be truer).
+- [ ] **Code and tests:**
+  - no Origin check on POSTs: SameSite=Lax is the whole CSRF defence; add one before a custom domain;
+  - a signed-out POST with a malformed field gets a 400 before the sign-in redirect;
+  - `.is-live` is set before a component's setup finishes, so a later setup error hides its plain fields;
+  - places.js and chips.js both build chip markup; the stop-cards list is mutated in Jinja; `forms._names` fails on an empty list (never produced); welcome.html hard-codes `n < 4`; range.js loads on every welcome step; welcome_places repeats a loop from the destinations page;
+  - private imports (`planner_view._month_weeks` in samples.py, `catalog._by_code` in tests), `make_client` imported across test modules, an unused `.is-live` on the hero, a hard-coded sparkline viewBox, a second `:root` block, a long hero.js comment, a stale cover-macro comment, and `lookup_photo` with no production caller;
+  - app.css is hashed at import with no fallback; the example calendar always uses US holidays;
+  - the ui.js, planner.js and dropdown-photo tests read source text rather than run behaviour; test_landing_v2 slices the page by a class string; a leftover string-replace in test_destination_v2.py;
+  - missing tests: signed-out JSON POST /profile → 401; /plan and /plan/new sending a user with no profile to /welcome; a validation error re-rendering welcome step 2 or 3; Skip ignored on step 1; /api/places `default` for a multi-airport city (Tokyo); the Booked badge and the "Great deal" tag; a JSON success for related accept/dismiss.
+
 **Digest and email**
 - [ ] **The 7-day trend shows "new"** if the scan exactly a week earlier didn't run.
 - [ ] **The tracker table always shows `$`,** and "best now" counts excluded trips.
