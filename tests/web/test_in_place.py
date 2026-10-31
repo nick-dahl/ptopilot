@@ -149,4 +149,5 @@ def test_planner_swaps_the_calendar_and_rebinds_it(signed_in, clean_engine):
     assert 'new CustomEvent("ui:swapped"' in (STATIC / "ui.js").read_text(encoding="utf-8")
     planner = (STATIC / "planner.js").read_text(encoding="utf-8")
     assert 'addEventListener("ui:swapped"' in planner and "data-planner-bound" in planner
-    assert 'removeEventListener("pointerup"' in planner  # the old calendar's window handlers go
+    assert "teardown" in planner  # the old calendar's window handlers go (the shared tap-calendar's)
+    assert 'removeEventListener("pointerup"' in (STATIC / "daygrid.js").read_text(encoding="utf-8")

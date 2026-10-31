@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_components.html" import dest_style, field %}
+{% from "_components.html" import dest_style, field, month_tables %}
 {% block title %}{{ year }} plan · ptopilot{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -117,22 +117,7 @@
       <li><span class="key day open hol"></span>Holiday in a range</li>
     </ul>
     <div class="months" id="year-calendar" data-spill='{{ spill | tojson }}'>
-      {% for name, weeks in months %}
-      <table class="month" aria-label="{{ name }} {{ year }}">
-        <caption>{{ name }}</caption>
-        <thead><tr>{% for d in ["S","M","T","W","T","F","S"] %}<th scope="col">{{ d }}</th>{% endfor %}</tr></thead>
-        <tbody>
-        {% for week in weeks %}
-        <tr>
-          {% for c in week %}
-          {% if c %}<td class="day{{ ' we' if c.weekend }}{{ ' hol' if c.holiday }}{{ ' off' if c.day_off }}{{ ' open' if c.open }}{{ ' booked' if c.booked }}" data-date="{{ c.date.isoformat() }}" tabindex="0"{% if c.booked %} title="{{ c.booked }} (booked)"{% elif c.holiday %} title="{{ c.holiday }}"{% endif %}>{{ c.date.day }}</td>
-          {% else %}<td class="pad"></td>{% endif %}
-          {% endfor %}
-        </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-      {% endfor %}
+      {{ month_tables(months, year) }}
     </div>
 
     <form method="post" action="/plan/{{ year }}/ranges" class="range-form mt-sm" id="ranges-form">
@@ -149,4 +134,5 @@
   </div>
 </div>
 {% endblock %}
-{% block scripts %}<script src="/static/planner.js" defer></script>{% endblock %}
+{% block scripts %}<script src="/static/daygrid.js" defer></script>
+<script src="/static/planner.js" defer></script>{% endblock %}

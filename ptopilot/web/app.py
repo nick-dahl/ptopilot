@@ -34,7 +34,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from ptopilot import config
 from ptopilot.core.airports import AirportCatalog, PlaceMatch
-from ptopilot.core.calendar import calendar_codes, upcoming_holiday_names
+from ptopilot.core.calendar import WorkCalendar, calendar_codes, upcoming_holiday_names
 from ptopilot.core.geo import Geo, UnknownCodeError, palette
 from ptopilot.core.seasons import SeasonTable
 from ptopilot.data import load_geo, load_seasons
@@ -68,9 +68,9 @@ from ptopilot.settings import Settings
 from ptopilot.sources.climate import fetch_climate
 from ptopilot.trackers import apply_action, snooze, unsnooze
 from ptopilot.web import api
-from ptopilot.web.forms import SECTIONS, form_to_profile, merge_section, profile_to_form
+from ptopilot.web.forms import SECTIONS, explain_errors, form_to_profile, merge_section, profile_to_form
 from ptopilot.web.history import destination_summaries, related_deals, trend, trip_options, typical_band
-from ptopilot.web.planner_view import plan_context, too_short
+from ptopilot.web.planner_view import months_ahead, plan_context, too_short
 from ptopilot.web.samples import sample_cards
 from ptopilot.web.viz import trend_chart
 
@@ -904,20 +904,40 @@ def create_app(
             codes.append(current)  # keep what was typed, so the page shows it and validation explains it
         return sorted(((code, label(code)) for code in codes), key=lambda c: (c[1].casefold(), c[0]))
 
-    def profile_page(request: Request, form: dict, errors: list[str], status: int = 200):
+    def days_off_calendar(code: str, days_off: list[dict]):
+        """The coming year as the planner's tap-calendar, with the company days off marked."""
+        picked = []
+        for item in days_off:
+            try:
+                picked.append(date.fromisoformat(item["value"]))
+            except ValueError:
+                pass  # a mistyped date is explained beside the field; the calendar just can't show it
+        try:
+            cal = WorkCalendar.from_code(code or "US", picked)
+        except ValueError:  # an unknown calendar is explained beside its field
+            cal = WorkCalendar.from_code("US", picked)
+        return months_ahead(today(), cal)
+
+    def profile_page(request: Request, form: dict, errors: list[dict], status: int = 200):
+        """errors: [{"field", "message"}] (forms.explain_errors); each is also shown beside its field."""
         calendar = form.get("holiday_calendar", "")
+        by_field: dict[str, list[str]] = {}
+        for e in errors:
+            by_field.setdefault(e["field"] or "", []).append(e["message"])
         return page(
             request,
             "profile.html",
             status,
             active="profile",
             form=form,
-            errors=errors,
+            errors=[e["message"] for e in errors],
+            field_errors=by_field,
             saved=request.query_params.get("saved") == "1" and not errors,
             home=chip_items(form.get("home_airport", ""), "airports"),
             nearby=chip_items(form.get("nearby_airports", ""), "airports"),
             ignored=chip_items(form.get("ignored_holidays", ""), "holidays"),
-            days_off=chip_items(form.get("extra_days_off", ""), "dates"),
+            days_off=(days_off := chip_items(form.get("extra_days_off", ""), "dates")),
+            days_off_months=days_off_calendar(calendar, days_off),
             calendars=calendar_choices(calendar),
             holiday_names=upcoming_holiday_names(calendar, today()) if calendar else [],
         )
@@ -949,9 +969,11 @@ def create_app(
         try:
             profile = parse_profile(form_to_profile(form, email), current_geo(), require_plan=False)
         except ValueError as exc:
-            errors = [line.removeprefix("  - ") for line in str(exc).splitlines()[1:]]
+            problems = [line.removeprefix("  - ") for line in str(exc).splitlines()[1:]]
+            errors = explain_errors(problems, form)
             if wants_json(request):
-                return json_error(400, *errors)
+                body = {"ok": False, "errors": [e["message"] for e in errors], "field_errors": errors}
+                return JSONResponse(body, status_code=400)
             return profile_page(request, form, errors, 400)
         with session_scope(engine) as s:
             is_new = s.scalar(select(User.id).where(User.email == profile.email)) is None

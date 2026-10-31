@@ -38,7 +38,7 @@ def test_an_ideal_outside_the_trip_range_is_explained_on_the_page(client, emaile
     sign_in(client, emailer, clean_engine)
     response = client.post("/profile", data={**PROFILE_FORM, "ideal_trip_days": "30"})
     assert response.status_code == 400
-    assert "ideal_trip_days: 30 is outside your trip length 7..16" in response.text
+    assert "Your ideal trip (30 days) has to fall between 7 and 16 days." in response.text
     assert 'class="panel notice-error"' in response.text
 
 

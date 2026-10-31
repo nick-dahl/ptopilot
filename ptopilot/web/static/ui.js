@@ -8,14 +8,13 @@
 //   data-after="none"            leave the page as it is (the default)
 //   data-toast="..."             optional message for the toast shown when the control is gone
 //   data-autosave                save whenever a named field changes (the profile's sections); the
-//                                "Saved" tick goes after the form's submit button, and errors into its
-//                                [data-error-slot] when it has one
+//                                form gets .is-autosaving (app.css hides its Save button), the "Saved"
+//                                tick goes after that button, and errors beside their fields: an answer's
+//                                field_errors ([{field, message}]) go into [data-error-for~=field] slots,
+//                                the rest into the form's [data-error-slot]
 //
 // After swapping a section it dispatches "ui:swapped" on document ({ detail: { element } }) so scripts
 // bound to the old markup can re-bind.
-
-// Scripts run: app.css swaps the no-JS fallbacks (plain fields, Save buttons) for the enhanced controls.
-document.documentElement.classList.add("js");
 
 const SAVED_MS = 2200;
 const TOAST_MS = 3200;
@@ -46,12 +45,25 @@ function clearErrors(form) {
   form.querySelectorAll(".inline-error").forEach((el) => el.remove());
 }
 
-function showErrors(form, control, errors) {
-  clearErrors(form);
+function errorBox(text) {
   const box = document.createElement("span");
   box.className = "inline-error";
   box.setAttribute("role", "alert");
-  box.textContent = (errors && errors.length ? errors : ["That didn't work. Try again."]).join(" ");
+  box.textContent = text;
+  return box;
+}
+
+function showErrors(form, control, errors, fieldErrors) {
+  clearErrors(form);
+  const rest = [];
+  for (const e of fieldErrors || []) {
+    const slot = e.field && form.querySelector(`[data-error-for~="${CSS.escape(e.field)}"]`);
+    if (slot) slot.append(errorBox(e.message));
+    else rest.push(e.message);
+  }
+  if (!fieldErrors) rest.push(...(errors || []));
+  if (!rest.length && fieldErrors && fieldErrors.length) return;
+  const box = errorBox((rest.length ? rest : ["That didn't work. Try again."]).join(" "));
   const slot = form.querySelector("[data-error-slot]");
   if (slot) slot.append(box);
   else (control || form.lastElementChild || form).after(box);
@@ -127,7 +139,7 @@ async function submitInPlace(form, submitter) {
     });
     data = await response.json().catch(() => null);
     if (!response.ok || !data || !data.ok) {
-      showErrors(form, submitter, data && data.errors);
+      showErrors(form, submitter, data && data.errors, data && data.field_errors);
       return;
     }
   } catch (err) {
@@ -186,6 +198,13 @@ function autosave(form) {
     }, AUTOSAVE_MS),
   );
 }
+
+function markAutosaving(scope) {
+  scope.querySelectorAll("form[data-autosave]").forEach((form) => form.classList.add("is-autosaving"));
+}
+
+if (window.fetch) markAutosaving(document);
+document.addEventListener("ui:swapped", (e) => window.fetch && markAutosaving(e.detail.element));
 
 document.addEventListener("change", (event) => {
   const field = event.target;

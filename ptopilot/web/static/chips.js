@@ -7,7 +7,7 @@
 //   data-source="dates"     a date picker; each picked date is a chip
 //   data-max="1"            one chip at most: picking another replaces it
 //
-// Without this script the visible text field (a comma list) is submitted. Here the hidden field carries
+// Without this script (or before it runs) the visible text field (a comma list) is submitted. Here the hidden field carries
 // the list instead, and a "change" event on it lets the form save itself (ui.js, data-autosave).
 // Keys: ↑ ↓ move, Enter adds, Esc closes, Backspace in an empty field removes the last chip.
 
@@ -61,6 +61,7 @@ function setup(root) {
 
   hidden.disabled = false;
   input.removeAttribute("name");
+  root.classList.add("is-live"); // app.css switches to the chip box only now
   input.value = "";
   if (source === "dates") {
     input.type = "date";
@@ -94,7 +95,7 @@ function setup(root) {
     const text = el("span", "chip-text");
     if (item.code) {
       text.append(el("b", null, item.code));
-      if (item.label && item.label !== item.code) text.append(" " + item.label);
+      if (item.label && item.label !== item.code) text.append(` · ${item.label}`); // "PHL · Philadelphia"
     } else {
       text.textContent = item.label || item.value;
     }

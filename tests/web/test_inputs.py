@@ -3,6 +3,7 @@
 import html
 import re
 from html.parser import HTMLParser
+from pathlib import Path
 
 from sqlalchemy import select
 
@@ -12,6 +13,7 @@ from ptopilot.web.forms import merge_section
 from tests.web.conftest import seed_profile, sign_in
 
 JSON = {"Accept": "application/json"}
+STATIC = Path(__file__).resolve().parents[2] / "ptopilot" / "web" / "static"
 
 
 class Forms(HTMLParser):
@@ -172,7 +174,8 @@ def test_section_errors_come_back_as_json(client, emailer, clean_engine):
     )
     assert response.status_code == 400
     body = response.json()
-    assert body["ok"] is False and any("min_trip_days/max_trip_days" in e for e in body["errors"])
+    assert body["ok"] is False and any("can't be longer than the longest" in e for e in body["errors"])
+    assert body["field_errors"][0]["field"] == "max_trip_days"
     assert user_row(clean_engine) == before
 
 
@@ -231,3 +234,116 @@ def test_the_leave_after_work_time_sits_with_its_switch(client, emailer, clean_e
     assert 'role="switch"' in page
     block = page[page.index('class="after-work"') :]
     assert block.index('name="friday_evening_departure"') < block.index('name="friday_evening_min_time"')
+
+
+# --- fix round 1: field errors in plain words, the days-off calendar, self-enhancing components ----
+
+RAW = ("_days", "_airport", "geo.yaml", "expected", "YYYY", "[")
+
+
+def field_errors(response) -> dict[str, str]:
+    body = response.json()
+    assert response.status_code == 400 and body["ok"] is False
+    assert [e["message"] for e in body["field_errors"]] == body["errors"]
+    return {e["field"]: e["message"] for e in body["field_errors"]}
+
+
+def test_errors_name_their_field_in_plain_words(client, emailer, clean_engine):
+    signed_in_with_profile(client, emailer, clean_engine)
+
+    def post(**data):
+        return field_errors(client.post("/profile", data=data, headers=JSON))
+
+    cases = [
+        (post(section="travel", min_trip_days="12", max_trip_days="6"), "max_trip_days", "12"),
+        (post(section="travel", ideal_trip_days="30"), "ideal_trip_days", "30"),
+        (post(section="airports", home_airport="XXX", nearby_airports="EWR"), "home_airport", "XXX"),
+        (post(section="airports", nearby_airports="ZZZ"), "nearby_airports", "ZZZ"),
+        (post(section="airports", nearby_airports="JFK"), "nearby_airports", "JFK"),
+        (post(section="time_off", ignored_holidays="Columbus Day", holiday_calendar="GB"), "ignored_holidays",
+         "Columbus Day"),
+        (post(section="time_off", extra_days_off="2027-13-45"), "extra_days_off", "2027-13-45"),
+        (post(section="time_off", pto_days_total="-2"), "pto_days_total", ""),
+        (post(section="travel", friday_evening_min_time="late"), "friday_evening_min_time", "late"),
+    ]  # fmt: skip
+    for errors, field, mentions in cases:
+        assert field in errors, (field, errors)
+        message = errors[field]
+        assert mentions in message and not any(raw in message for raw in RAW), message
+        assert message[0].isupper() and message.endswith("."), message
+
+
+def test_errors_sit_beside_their_field_without_js(client, emailer, clean_engine):
+    signed_in_with_profile(client, emailer, clean_engine)
+    page = client.post("/profile", data={"section": "airports", "nearby_airports": "ZZZ"}).text
+    slot = re.search(r'data-error-for="nearby_airports"[^>]*>(.*?)</', page, re.S)
+    assert slot and "ZZZ" in slot.group(1) and "geo.yaml" not in page
+    for field in (
+        "home_airport",
+        "pto_days_total",
+        "holiday_calendar",
+        "ignored_holidays",
+        "extra_days_off",
+        "weather_tolerance",
+        "max_stops_short",
+        "max_stops_long",
+        "friday_evening_min_time",
+    ):
+        assert f'data-error-for="{field}"' in page, field  # fmt: skip
+    assert re.search(r'data-error-for="[^"]*\bmax_trip_days\b', page)
+
+
+def test_chips_read_code_dot_city(client, emailer, clean_engine):
+    signed_in_with_profile(client, emailer, clean_engine)
+    page = client.get("/profile").text
+    texts = re.findall(r'<span class="chip-text">(.*?)</span>', page)
+    chips = [re.sub(r"<[^>]+>", "", t).strip() for t in texts]
+    assert "EWR · Newark" in chips and "PHL · Philadelphia" in chips and "JFK · New York" in chips
+    assert "Columbus Day" in chips
+    assert "` · ${" in (STATIC / "chips.js").read_text(encoding="utf-8")  # chips added later read the same
+
+
+def test_every_stop_card_has_a_plain_description(client, emailer, clean_engine):
+    signed_in_with_profile(client, emailer, clean_engine, max_stops_short="1", max_stops_long="2")
+    page = client.get("/profile").text
+    for name, count in (("max_stops_short", 3), ("max_stops_long", 2), ("weather_tolerance", 3)):
+        card = (
+            rf'name="{name}" value="[^"]+"[^>]*>'
+            + r'\s*<span class="seg-label">[^<]+</span>\s*<small>[^<]+</small>'
+        )
+        assert len(re.findall(card, page)) == count, name
+
+
+def test_company_days_off_use_the_planner_calendar(client, emailer, clean_engine):
+    signed_in_with_profile(client, emailer, clean_engine)
+    page = client.get("/profile").text
+    picker = page[page.index("data-day-picker") :]
+    # The planner's month tables, from this month (TODAY is Mar 2027) for a year, saved days marked
+    assert '<table class="month" aria-label="March 2027">' in picker
+    assert '<table class="month" aria-label="February 2028">' in picker
+    assert re.search(r'<td class="day[^"]*\boff\b[^"]*" data-date="2027-12-24" tabindex="0"', picker)
+    # The same comma list either way: hidden (the script's) and the plain text field (without JS)
+    assert re.search(r'<input type="hidden" name="extra_days_off" value="2027-12-24" disabled', picker)
+    assert re.search(r'<input[^>]*type="text"[^>]*name="extra_days_off"[^>]*value="2027-12-24"', picker)
+    assert '<script src="/static/daygrid.js" defer></script>' in page
+    shared = (STATIC / "daygrid.js").read_text(encoding="utf-8")
+    assert "data-day-picker" in shared and "window.DayGrid" in shared
+    assert "DayGrid(" in (STATIC / "planner.js").read_text(encoding="utf-8")  # the planner uses it too
+
+
+def test_the_plan_page_loads_the_shared_calendar_first(client, emailer, clean_engine):
+    sign_in(client, emailer, clean_engine)
+    seed_profile(clean_engine)
+    html = client.get("/plan/2027").text
+    assert html.index('src="/static/daygrid.js"') < html.index('src="/static/planner.js"')
+
+
+def test_each_component_turns_itself_on():
+    """A script that fails to load leaves its component's plain fields in place: the enhanced layout
+    keys off a class the component's own script adds, never a page-wide one."""
+    css = (STATIC / "app.css").read_text(encoding="utf-8")
+    assert "html.js" not in css and "html:not(.js)" not in css
+    for name in ("chips.js", "range.js", "daygrid.js"):
+        assert 'classList.add("is-live")' in (STATIC / name).read_text(encoding="utf-8"), name
+    for root in (".chips", ".trip-range", ".stepper", ".day-picker"):
+        assert f"{root}:not(.is-live)" in css or f"{root}.is-live" in css, root

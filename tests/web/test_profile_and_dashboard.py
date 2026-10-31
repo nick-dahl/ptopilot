@@ -40,7 +40,8 @@ def test_invalid_profile_lists_every_problem_and_saves_nothing(client, emailer, 
     bad = {**PROFILE_FORM, "pto_days_total": "-3", "home_airport": "XXX", "max_trip_days": "2"}
     response = client.post("/profile", data=bad)
     assert response.status_code == 400
-    for fragment in ("Please fix 3 things", "pto_days_total", "XXX", "min_trip_days/max_trip_days"):
+    friendly = ("PTO days per year can&#39;t be below 0", "XXX", "longer than the longest")
+    for fragment in ("Please fix 3 things", *friendly):
         assert fragment in response.text
     assert 'value="XXX"' in response.text  # the submitted values are kept
     with session_scope(clean_engine) as s:

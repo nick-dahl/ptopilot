@@ -17,6 +17,7 @@ function plural(n) {
 function setupRange(root) {
   if (root.hasAttribute("data-range-live")) return;
   root.setAttribute("data-range-live", "");
+  root.classList.add("is-live"); // app.css swaps the number fields for the slider only now
   const lo = Number(root.dataset.lo);
   const hi = Number(root.dataset.hi);
   const minSlider = root.querySelector(".range-min");
@@ -104,6 +105,7 @@ function setupRange(root) {
 function setupStepper(root) {
   if (root.hasAttribute("data-stepper-live")) return;
   root.setAttribute("data-stepper-live", "");
+  root.classList.add("is-live"); // the − and + buttons show only now
   const input = root.querySelector("input");
   root.querySelectorAll("[data-step]").forEach((button) => {
     button.addEventListener("click", () => {

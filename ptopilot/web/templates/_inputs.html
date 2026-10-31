@@ -1,15 +1,26 @@
-{# Input components (spec §3.3). Each works as plain HTML; static/chips.js and static/range.js enhance them. #}
+{# Input components (spec §3.3). Each works as plain HTML. Its script (static/chips.js, range.js, daygrid.js)
+   adds .is-live to the component's root ([data-enhance]) when it takes over, and only then does app.css
+   switch to the enhanced layout: if a script fails to load, that component keeps its plain fields.
+   Inside a component, .live-only and .plain-only mark the parts for each state. #}
+
+{# The slot beside a field where its problems show (the server's, and ui.js's after a save).
+   fields: one form field name, or several separated by spaces. errors: {field: [messages]}. #}
+{% macro field_error(fields, errors) -%}
+<span class="field-error" data-error-for="{{ fields }}">
+  {%- for f in fields.split() %}{% for m in errors.get(f, []) %}<span class="inline-error" role="alert">{{ m }}</span>{% endfor %}{% endfor -%}
+</span>
+{%- endmacro %}
 
 {# Chips: one per saved item, in a list with "Remove …" buttons. Without JS the visible text field (a comma
    list) is what's submitted; chips.js turns it into the type-ahead box and submits the hidden field instead.
    items: [{value, label, code?}]. source: airports | places | holidays | dates. #}
-{% macro chips(name, items, placeholder, source, label="", max=0, near="") -%}
-<div class="chips" data-chips data-source="{{ source }}"{% if max %} data-max="{{ max }}"{% endif %}{% if near %} data-near="{{ near }}"{% endif %}>
+{% macro chips(name, items, placeholder, source, label="", max=0, near="", hint="", plain_hint="") -%}
+<div class="chips" data-chips data-enhance data-source="{{ source }}"{% if max %} data-max="{{ max }}"{% endif %}{% if near %} data-near="{{ near }}"{% endif %}>
   <div class="chip-box">
     <ul class="chip-list" aria-label="{{ label or name }}">
       {%- for item in items %}
       <li class="chip" data-value="{{ item.value }}" data-label="{{ item.label }}"{% if item.code %} data-code="{{ item.code }}"{% endif %}>
-        <span class="chip-text">{% if item.code %}<b>{{ item.code }}</b> {% endif %}{% if item.label != item.code %}{{ item.label }}{% endif %}</span>
+        <span class="chip-text">{% if item.code %}<b>{{ item.code }}</b>{% if item.label != item.code %} · {{ item.label }}{% endif %}{% else %}{{ item.label }}{% endif %}</span>
         <button class="chip-x" type="button" aria-label="Remove {{ item.code or item.label }}">&times;</button>
       </li>
       {%- endfor %}
@@ -19,6 +30,8 @@
   </div>
   <ul class="chip-menu" id="{{ name }}-menu" role="listbox" aria-label="Suggestions" hidden></ul>
   <small class="chip-note" aria-live="polite"></small>
+  {% if hint %}<small class="hint live-only">{{ hint }}</small>{% endif %}
+  {% if plain_hint %}<small class="hint plain-only">{{ plain_hint }}</small>{% endif %}
 </div>
 {%- endmacro %}
 
@@ -37,7 +50,7 @@
 
 {# − value +. The buttons appear only with JS (range.js); the number field works alone. #}
 {% macro stepper(name, value, min, max, label="") -%}
-<div class="stepper" data-stepper>
+<div class="stepper" data-stepper data-enhance>
   <button class="step-btn" type="button" data-step="-1" aria-label="Fewer{% if label %} {{ label }}{% endif %}">&minus;</button>
   <input id="{{ name }}" name="{{ name }}" type="number" inputmode="numeric" min="{{ min }}" max="{{ max }}" value="{{ value }}"{% if label %} aria-label="{{ label }}"{% endif %} required>
   <button class="step-btn" type="button" data-step="1" aria-label="More{% if label %} {{ label }}{% endif %}">+</button>
@@ -49,7 +62,7 @@
 {% macro trip_range(min_value, max_value, ideal, lo=1, hi=30) -%}
 {% set a, b = min_value | default('', true) | int, max_value | default('', true) | int %}
 {% set hi = [hi, a, b] | max %}
-<div class="trip-range" data-trip-range data-lo="{{ lo }}" data-hi="{{ hi }}">
+<div class="trip-range" data-trip-range data-enhance data-lo="{{ lo }}" data-hi="{{ hi }}">
   <div class="range-ui">
     <div class="range-star">
       <span class="star-label" aria-hidden="true"></span>

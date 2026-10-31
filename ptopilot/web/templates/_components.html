@@ -87,3 +87,24 @@
   {% if hint %}<small>{{ hint }}</small>{% endif %}
 </label>
 {%- endmacro %}
+
+{# The tap-calendar's month tables (the year planner, and the profile's company days off; static/daygrid.js).
+   months: [(name, weeks of day cells)] from planner_view. year: added to each month's label when given. #}
+{% macro month_tables(months, year=None) -%}
+{% for name, weeks in months %}
+      <table class="month" aria-label="{{ name }}{% if year %} {{ year }}{% endif %}">
+        <caption>{{ name }}</caption>
+        <thead><tr>{% for d in ["S","M","T","W","T","F","S"] %}<th scope="col">{{ d }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for week in weeks %}
+        <tr>
+          {% for c in week %}
+          {% if c %}<td class="day{{ ' we' if c.weekend }}{{ ' hol' if c.holiday }}{{ ' off' if c.day_off }}{{ ' open' if c.open }}{{ ' booked' if c.booked }}" data-date="{{ c.date.isoformat() }}" tabindex="0"{% if c.booked %} title="{{ c.booked }} (booked)"{% elif c.holiday %} title="{{ c.holiday }}"{% endif %}>{{ c.date.day }}</td>
+          {% else %}<td class="pad"></td>{% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+{% endfor %}
+{%- endmacro %}

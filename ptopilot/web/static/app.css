@@ -258,10 +258,11 @@ form.inline .inline-error { display: inline; margin: 0 0 0 8px; }
 .is-leaving { opacity: 0; transition: opacity var(--ease); }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-/* Input components (templates/_inputs.html; static/chips.js, static/range.js). html.js is set by ui.js
-   when scripts run, so the no-JS fallbacks (plain fields, Save buttons) show only without it. */
+/* Input components (templates/_inputs.html; static/chips.js, range.js, daygrid.js). Each component's own
+   script adds .is-live to its root when it takes over; until then (or if it never loads) the plain fields
+   show. ui.js marks the forms it saves on change with .is-autosaving, which hides their Save buttons. */
 :root { --chip: #eef2ff; --chip-line: #c7d2fe; --thumb: 20px; }
-html.js .nojs-only, html:not(.js) .js-only { display: none; }
+[data-enhance]:not(.is-live) .live-only, [data-enhance].is-live .plain-only { display: none; }
 .field-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
 .hint { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
 fieldset.field { border: 0; padding: 0; margin: 0 0 14px; min-width: 0; }
@@ -269,7 +270,7 @@ fieldset.field > legend { padding: 0; }
 .section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-bottom: 14px; }
 .panel .section-head h2 { margin: 0; }
 .section-save { display: flex; align-items: center; min-height: 30px; }
-html.js form[data-autosave] .section-save .btn { display: none; }
+form.is-autosaving .section-save .btn { display: none; }
 .section-errors:empty { display: none; }
 .section-errors .inline-error { margin: -6px 0 12px; }
 
@@ -282,12 +283,12 @@ html.js form[data-autosave] .section-save .btn { display: none; }
 .chip-text b { font-weight: 700; }
 .chip-x { display: inline-grid; place-items: center; flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); font: 16px/1 var(--sans); cursor: pointer; transition: background-color var(--ease), color var(--ease); }
 .chip-x:hover { background: var(--chip-line); color: var(--ink); }
-html:not(.js) .chip-x { display: none; }
-html:not(.js) .chip-list { margin-bottom: 8px; }
-html.js .chip-box { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 42px; padding: 5px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; cursor: text; transition: border-color var(--ease), box-shadow var(--ease); }
-html.js .chip-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
-html.js .chip-input { flex: 1 1 9em; min-width: 7em; width: auto; padding: 4px 6px; border: 0; background: transparent; }
-html.js .chip-input:focus { outline: none; }
+.chips:not(.is-live) .chip-x { display: none; }
+.chips:not(.is-live) .chip-list { margin-bottom: 8px; }
+.chips.is-live .chip-box { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 42px; padding: 5px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; cursor: text; transition: border-color var(--ease), box-shadow var(--ease); }
+.chips.is-live .chip-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
+.chips.is-live .chip-input { flex: 1 1 9em; min-width: 7em; width: auto; padding: 4px 6px; border: 0; background: transparent; }
+.chips.is-live .chip-input:focus { outline: none; }
 .chip-menu { position: absolute; z-index: 20; left: 0; right: 0; margin: 6px 0 0; padding: 4px 0; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--shadow-lift); }
 .chip-option { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
 .chip-option b { font-weight: 600; }
@@ -320,7 +321,9 @@ html.js .chip-input:focus { outline: none; }
 .stepper input::-webkit-inner-spin-button, .stepper input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .step-btn { width: 38px; border: 0; background: var(--bg); color: var(--ink); font: 600 18px/1 var(--sans); cursor: pointer; transition: background-color var(--ease); }
 .step-btn:hover { background: var(--line); }
-html:not(.js) .step-btn { display: none; }
+.stepper:not(.is-live) .step-btn { display: none; }
+.stepper:not(.is-live) { border: 0; overflow: visible; }
+.stepper:not(.is-live) input { border: 1px solid var(--border); border-radius: var(--radius-sm); }
 
 /* Switch: a checkbox with role="switch"; the knob's side, not only its colour, says on or off */
 .switches { display: grid; gap: 10px; margin-top: 4px; }
@@ -338,7 +341,7 @@ html:not(.js) .step-btn { display: none; }
 .after-work:has(input[name="friday_evening_departure"]:not(:checked)) .after-work-time { display: none; }
 
 /* Trip length: two handles and the ★ on one scale. range.js sets --from, --to and --star (0 to 1). */
-html:not(.js) .range-ui, html.js .range-numbers { display: none; }
+.trip-range:not(.is-live) .range-ui, .trip-range.is-live .range-numbers { display: none; }
 .range-ui { --pos: calc(100% - var(--thumb)); max-width: 560px; }
 .range-star { position: relative; height: 40px; }
 .star-label { position: absolute; top: 0; left: calc(var(--star, .5) * var(--pos) + var(--thumb) / 2); transform: translateX(-50%); color: var(--rare); font-size: 12px; font-weight: 600; white-space: nowrap; }
@@ -362,6 +365,19 @@ html:not(.js) .range-ui, html.js .range-numbers { display: none; }
 .chip-toggle { padding: 4px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink); font: 500 13px/1.4 var(--sans); cursor: pointer; transition: background-color var(--ease), border-color var(--ease); }
 .chip-toggle[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); }
 .chip-toggle[aria-pressed="true"]::before { content: "\2713\00a0"; color: var(--accent); }
+
+/* Field errors sit in a slot beside their field */
+.field-error:empty { display: none; }
+.field-error .inline-error { margin-top: 4px; }
+
+/* The profile's company days off: the planner's tap-calendar, picked days marked .off */
+.day-picker .plain-only[type="text"] { margin-bottom: 4px; }
+.day-picker:not(.is-live) .months-compact { display: none; } /* tapping needs daygrid.js */
+.day-picker .day-picked { margin-bottom: 8px; }
+.months-compact { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); max-height: 330px; overflow-y: auto; margin-top: 8px; padding: 2px 4px 2px 2px; border: 1px solid var(--line); border-radius: var(--radius-sm); touch-action: pan-y; user-select: none; }
+.day-picker .day.off { background: var(--accent-tint); box-shadow: inset 0 0 0 2px var(--accent); outline: 0; font-weight: 700; }
+.day-picker .day.drag-open { background: var(--accent-tint); filter: brightness(.95); }
+.day-picker .day.off.drag-close { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-weight: 400; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }

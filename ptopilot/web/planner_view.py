@@ -41,19 +41,19 @@ def too_short(geo: Geo, homes: Sequence[str], dest: Destination, target_days: in
     return needed if target_days < needed else None
 
 
-def _months(
+def _month_weeks(
     year: int,
+    month: int,
     cal: WorkCalendar,
-    open_ranges: Sequence[tuple[date, date]],
+    open_ranges: Sequence[tuple[date, date]] = (),
     booked: Sequence[BookedTrip] = (),
-):
-    def booked_trip(d: date) -> BookedTrip | None:
-        return next((b for b in booked if b.depart <= d <= b.ret), None)
+) -> list[list[dict | None]]:
+    """One month of the tap-calendar: weeks of day cells (None pads the first and last week)."""
 
     def cell(d: date | None):
         if d is None:
             return None
-        trip = booked_trip(d)
+        trip = next((b for b in booked if b.depart <= d <= b.ret), None)
         return {
             "booked": trip.destination if trip else None,
             "date": d,
@@ -63,10 +63,28 @@ def _months(
             "open": any(a <= d <= b for a, b in open_ranges),
         }
 
-    return [
-        (calendar.month_name[m], [[cell(d) for d in week] for week in month_grid(year, m)])
-        for m in range(1, 13)
-    ]
+    return [[cell(d) for d in week] for week in month_grid(year, month)]
+
+
+def _months(
+    year: int,
+    cal: WorkCalendar,
+    open_ranges: Sequence[tuple[date, date]],
+    booked: Sequence[BookedTrip] = (),
+):
+    return [(calendar.month_name[m], _month_weeks(year, m, cal, open_ranges, booked)) for m in range(1, 13)]
+
+
+def months_ahead(start: date, cal: WorkCalendar, count: int = 12):
+    """`count` months of the tap-calendar from `start`'s month, each named with its year ("March 2027").
+
+    The profile's company days off use it: the planner's calendar, for the coming year."""
+    out = []
+    year, month = start.year, start.month
+    for _ in range(count):
+        out.append((f"{calendar.month_name[month]} {year}", _month_weeks(year, month, cal)))
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return out
 
 
 def blank_range_rows(saved: Sequence[tuple[str, str]]) -> list[dict[str, str]]:
