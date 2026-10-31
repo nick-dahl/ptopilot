@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from statistics import median
 
 from markupsafe import Markup
 
@@ -113,3 +114,44 @@ def trend_chart(
     parts.append(f'<circle cx="{cx}" cy="{cy}" r="6" fill="{palette.color}" stroke="#fff" stroke-width="2"/>')
     parts.append("</svg>")
     return TrendChart(Markup("".join(parts)), low_fare, high_fare, first, last)
+
+
+SPARK_W, SPARK_H, SPARK_PAD = 230, 60, 4
+TREND_FLAT = 0.02  # within 2% of the usual price reads as steady
+
+
+def sparkline(points: list[TrendPoint], width: int = SPARK_W, height: int = SPARK_H) -> str | None:
+    """The hero's tiny trend: an SVG polyline `points` string, x from 0 to width, cheaper days lower.
+
+    None below MIN_TREND_POINTS. Missing days are joined: at this size a break reads as a glitch.
+    """
+    if len(points) < config.MIN_TREND_POINTS:
+        return None
+    points = sorted(points, key=lambda p: p.run_date)
+    first, last = points[0].run_date, points[-1].run_date
+    days = max((last - first).days, 1)
+    low, high = min(p.price for p in points), max(p.price for p in points)
+    spread = float(high - low)
+
+    def xy(p: TrendPoint) -> str:
+        x = (p.run_date - first).days / days * width
+        # SVG's y runs down: dearer days near the top, cheaper ones lower, so a falling fare falls.
+        span = height - 2 * SPARK_PAD
+        y = height / 2 if not spread else SPARK_PAD + float(high - p.price) / spread * span
+        return f"{round(x, 1):g},{round(y, 1):g}"
+
+    return " ".join(map(xy, points))
+
+
+def trend_direction(points: list[TrendPoint]) -> str | None:
+    """'down', 'up' or 'flat': the latest fare against the median of the days before it; None under 2 days."""
+    if len(points) < 2:
+        return None
+    points = sorted(points, key=lambda p: p.run_date)
+    usual = median(float(p.price) for p in points[:-1])
+    change = float(points[-1].price) / usual - 1 if usual else 0.0
+    if change <= -TREND_FLAT:
+        return "down"
+    if change >= TREND_FLAT:
+        return "up"
+    return "flat"

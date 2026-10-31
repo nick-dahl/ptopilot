@@ -71,10 +71,19 @@ from ptopilot.sources.climate import fetch_climate
 from ptopilot.trackers import apply_action, snooze, unsnooze
 from ptopilot.web import api, onboarding
 from ptopilot.web.forms import SECTIONS, explain_errors, form_to_profile, merge_section, profile_to_form
-from ptopilot.web.history import destination_summaries, related_deals, trend, trip_options, typical_band
+from ptopilot.web.history import (
+    destination_summaries,
+    hero_deal,
+    last_scan,
+    related_deals,
+    trend,
+    trends,
+    trip_options,
+    typical_band,
+)
 from ptopilot.web.planner_view import months_ahead, plan_context, too_short
 from ptopilot.web.samples import sample_cards
-from ptopilot.web.viz import trend_chart
+from ptopilot.web.viz import sparkline, trend_chart, trend_direction
 
 log = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).parent
@@ -319,16 +328,25 @@ def create_app(
             )
             geo = current_geo()
             totals = year_totals(s, user, py.year, geo, current_seasons()) if py else None
+            scanned_at, checked = last_scan(s, user, today())
         # Every current trip counts, including deals already emailed.
         summaries = destination_summaries(engine, geo, current_seasons(), user_id, today())
         with session_scope(engine) as s:
             photos = photos_for({c.code for c in summaries}, s)
+        hero = hero_deal(summaries)
+        card_trends = trends(engine, [x.tracker_id for x in summaries], today())
         return page(
             request,
             "dashboard.html",
             active="dashboard",
             summaries=summaries,
             photos=photos,
+            hero=hero,
+            hero_arrival=airport_city(hero.headline.dest_airport) if hero else None,
+            hero_spark=sparkline(card_trends.get(hero.tracker_id, [])) if hero else None,
+            directions={k: trend_direction(v) for k, v in card_trends.items()},
+            scanned_at=scanned_at,
+            checked=checked,
             run_date=latest_run_date(engine, today()),
             pto_total=pto_total,
             pto_committed=pto_committed,

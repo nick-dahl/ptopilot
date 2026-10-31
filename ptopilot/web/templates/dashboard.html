@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_components.html" import dest_card, pto_bar %}
+{% from "_components.html" import dest_card, deal_hero, pto_bar %}
 {% block title %}Your trips · ptopilot{% endblock %}
 {% block content %}
 {% if saved %}<div class="panel notice">Profile saved. The next morning scan will use it.</div>{% endif %}
@@ -11,14 +11,19 @@
   <a class="btn btn-secondary btn-sm" href="/destinations">Manage destinations</a>
 </div>
 <div class="stack">
-  {{ pto_bar(totals, banner, pto_total, pto_committed) }}
+  {% if hero %}
+  {{ deal_hero(hero, photos.get(hero.code), hero_arrival, hero_spark) }}
+  {% elif checked %}
+  <p class="quiet-day" id="hero"{% if scanned_at %} title="Scan times are UTC"{% endif %}>No standout fares today · checked {{ checked }} trip{{ "s" if checked != 1 }}{% if scanned_at %} at {{ scanned_at.strftime("%H:%M") }}{% endif %}</p>
+  {% endif %}
+  <div id="pto-bar">{{ pto_bar(totals, banner, pto_total, pto_committed) }}</div>
   {% if summaries %}
-  <div class="grid">
+  <div class="grid" id="cards">
     {% for s in summaries %}
     <div id="card-{{ s.tracker_id }}">
-      {{ dest_card(s, href="/trackers/%d" % s.tracker_id, photo=photos.get(s.code)) }}
+      {{ dest_card(s, href="/trackers/%d" % s.tracker_id, photo=photos.get(s.code), trend=directions.get(s.tracker_id)) }}
       {% if s.snoozed_until %}
-      <form class="inline" method="post" action="/trackers/{{ s.tracker_id }}/unsnooze" data-inplace data-after="reload-section" data-section="card-{{ s.tracker_id }}" data-toast="Watching {{ s.name }} again">
+      <form class="inline" method="post" action="/trackers/{{ s.tracker_id }}/unsnooze" data-inplace data-after="reload-section" data-section="hero card-{{ s.tracker_id }}" data-toast="Watching {{ s.name }} again">
         <button class="link-btn small card-action" type="submit">Unsnooze {{ s.name }}</button>
       </form>
       {% endif %}
@@ -30,3 +35,4 @@
   {% endif %}
 </div>
 {% endblock %}
+{% block scripts %}{% if hero and hero.headline.standout %}<script type="module" src="/static/hero.js"></script>{% endif %}{% endblock %}

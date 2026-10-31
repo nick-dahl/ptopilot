@@ -66,17 +66,31 @@
 </div>
 {%- endmacro %}
 
-{% macro dest_card(s, href=None, sample=False, photo=None) -%}
+{% macro level_tag(o) -%}
+{% if o.deal_level == "great" %}<span class="tag tag-level">Great deal</span>{% elif o.deal_level == "good" %}<span class="tag tag-level">Good deal</span>{% endif %}
+{%- endmacro %}
+
+{# The 30-day direction as an arrow with words (colour is never the only signal). d: viz.trend_direction. #}
+{% macro trend_arrow(d) -%}
+{% if d %}{% set words = {"down": "Price falling", "up": "Price rising", "flat": "Price steady"}[d] %}
+<span class="trend-arrow trend-{{ d }}" title="{{ words }}"><span aria-hidden="true">{{ {"down": "↓", "up": "↑", "flat": "→"}[d] }}</span><span class="sr-only">{{ words }}</span></span>
+{%- endif %}
+{%- endmacro %}
+
+{# A destination's photo card: the whole card links to its page (href). trend: viz.trend_direction or None. #}
+{% macro dest_card(s, href=None, sample=False, photo=None, trend=None) -%}
 <{{ "a" if href else "div" }} class="dest-card{{ ' dimmed' if s.snoozed_until }}{{ ' standout' if s.best and s.best.standout }}" style="{{ dest_style(s.palette) }}"{% if href %} href="{{ href }}"{% endif %}>
   {% call cover(s, photo, "dest-head", link=href is not none) %}
     {% if sample %}<span class="tag sample-label">Example</span>{% endif %}
+    {% if s.snoozed_until or s.booked %}<span class="badges">{% if s.booked %}<span class="badge">Booked</span>{% endif %}{% if s.snoozed_until %}<span class="badge">Snoozed</span>{% endif %}</span>{% endif %}
     <div class="eyebrow">{% if s.target_days %}~{{ s.target_days }} days away{% else %}{{ s.stay[0] }}–{{ s.stay[1] }} days on the ground{% endif %}</div>
     <h2>{{ s.name }}</h2>
   {% endcall %}
   <div class="dest-body">
     {% if s.best %}
     {% set o = s.best %}
-    <div class="price-line"><span class="price">{{ o.price | money(o.currency) }}</span>{{ vs_typical(o) }}</div>
+    <div class="price-line"><span class="price">{{ o.price | money(o.currency) }}</span>{{ level_tag(o) }}{{ trend_arrow(trend) }}</div>
+    <div>{{ vs_typical(o) }}</div>
     {{ duration_line(o) }}
     {{ price_bar(o.bar) }}
     <div class="meta">{{ o.depart_date | dates(o.return_date) }} · {{ o.pto_cost }} PTO for {{ o.days_away }} days{% if o.open_jaw %} · open-jaw{% endif %}</div>
@@ -91,6 +105,49 @@
     {% if s.snoozed_until %}<div class="meta">Snoozed until {{ s.snoozed_until | day }}</div>{% endif %}
   </div>
 </{{ "a" if href else "div" }}>
+{%- endmacro %}
+
+{# The dashboard's hero: today's best deal (web/history.hero_deal), over its cover photo. s.headline is
+   the trip; arrival: the arrival airport's city; spark: a viz.sparkline points string or None. A standout
+   carries data-candidate-id, which static/hero.js reads to open the arrival dialog once. #}
+{% macro deal_hero(s, photo, arrival, spark) -%}
+{% set o = s.headline %}
+{% set pct = o.pct_below %}
+{% set soon = o.expected_days is not none and o.expected_days <= 7 %}
+<section id="hero" class="deal-hero-wrap" aria-label="Today's best deal"{% if o.standout %} data-candidate-id="{{ o.candidate_id }}"{% endif %}>
+  {% call cover(s, photo, "deal-hero", link=True) %}
+    <div class="deal-hero-body">
+      <span class="pill{{ ' pill-rare' if o.standout }}">{% if o.standout %}Rare · {{ o.duration_note }}{% elif o.expected_days is not none %}{{ o.duration_note }}{% else %}Great deal{% endif %}</span>
+      <h2 class="deal-hero-title">{{ s.name }}, {{ o.depart_date.strftime("%B %Y") }}</h2>
+      <div class="deal-hero-price"><span class="price">{{ o.price | money(o.currency) }}</span>{% if pct is not none and pct >= 1 %} <span class="deal-hero-vs">{{ pct }}% below typical ({{ o.median | money(o.currency) }})</span>{% endif %}</div>
+      <div class="deal-hero-meta">{{ o.origin }} → {{ arrival }} · {{ o.depart_date | dates(o.return_date) }} · {{ o.days_away }} days for {{ o.pto_cost }} PTO{% if o.stops is not none %} · {{ o.stops | stops }}{% endif %}</div>
+      <div class="hero-actions">
+        {% if o.deep_link %}<a class="btn btn-light" href="{{ o.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
+        <form class="inline" method="post" action="/trackers/{{ s.tracker_id }}/book" data-inplace data-after="reload-section" data-section="hero pto-bar cards" data-toast="Booked. It's on your plan."><input type="hidden" name="candidate_id" value="{{ o.candidate_id }}"><button class="btn btn-secondary" type="submit">I booked this</button></form>
+        <form class="inline" method="post" action="/trackers/{{ s.tracker_id }}/snooze" data-inplace data-after="reload-section" data-section="hero pto-bar cards" data-toast="Snoozed {{ s.name }} for 30 days"><input type="hidden" name="days" value="30"><button class="btn btn-secondary" type="submit">Snooze</button></form>
+      </div>
+    </div>
+    <div class="deal-hero-side">
+      {% if soon %}<div class="countdown"><b>~{{ o.expected_days }} day{{ "s" if o.expected_days != 1 }}</b> before it's likely gone</div>{% endif %}
+      {% if spark %}{% set end = spark.split(" ")[-1].split(",") %}
+      <svg class="spark" viewBox="0 0 230 60" role="img" aria-label="Cheapest fare over the last 30 days"><polyline points="{{ spark }}" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/><circle cx="{{ end[0] }}" cy="{{ end[1] }}" r="4" class="spark-end"/></svg>
+      {% endif %}
+    </div>
+  {% endcall %}
+  {% if o.standout %}
+  <dialog class="arrival" role="dialog" aria-modal="true" aria-labelledby="arrival-title">
+    <button class="arrival-x" type="button" aria-label="Close" data-close>×</button>
+    <span class="pill pill-rare">Rare · {{ o.duration_note }}</span>
+    <h2 id="arrival-title">{{ s.name }}, {{ o.depart_date.strftime("%B %Y") }}</h2>
+    <p class="arrival-price"><span class="price">{{ o.price | money(o.currency) }}</span>{% if pct is not none and pct >= 1 %} <span class="vs vs-below">{{ pct }}% below typical</span>{% endif %}</p>
+    <p class="meta">{{ o.origin }} → {{ arrival }} · {{ o.depart_date | dates(o.return_date) }} · {{ o.pto_cost }} PTO</p>
+    <div class="hero-actions">
+      {% if o.deep_link %}<a class="btn" href="{{ o.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
+      <button class="btn btn-secondary" type="button" data-close>Not now</button>
+    </div>
+  </dialog>
+  {% endif %}
+</section>
 {%- endmacro %}
 
 {% macro field(name, label, value="", type="text", hint=None, attrs="") -%}

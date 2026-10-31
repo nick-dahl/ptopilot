@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import Engine, func, select
@@ -21,6 +21,7 @@ from ptopilot.core.seasons import SeasonTable, trip_month
 from ptopilot.core.standout import is_standout, standout_tag
 from ptopilot.db.models import (
     Candidate,
+    PipelineRun,
     PriceObservation,
     RouteBaseline,
     RouteQuery,
@@ -115,6 +116,58 @@ class DestinationSummary:
     building_history: bool = False  # no normal-confidence price baseline yet for any home route
     target_days: int | None = None
     booked: tuple[BookedTrip, ...] = ()  # this destination's booked trips, this year on
+    headline: TripOption | None = None  # the trip a hero would show: its best standout, else best great deal
+
+
+def _hero_rank(o: TripOption) -> tuple:
+    """Higher is better: a standout beats a great deal, then a higher go-now, then a lower price."""
+    return (o.standout, o.go_now, -o.price)
+
+
+def headline(options: list[TripOption]) -> TripOption | None:
+    """A destination's hero candidate: its best standout trip, else its best great one; never dimmed."""
+    eligible = [o for o in options if not o.dimmed and (o.standout or o.deal_level == "great")]
+    return max(eligible, key=_hero_rank, default=None)
+
+
+def hero_deal(summaries: list[DestinationSummary]) -> DestinationSummary | None:
+    """The dashboard's hero: the best standout by go-now, else the best great deal, else None.
+
+    Snoozed, booked and ruled-out destinations are never the hero.
+    """
+    eligible = [
+        x
+        for x in summaries
+        if x.headline
+        and (x.headline.standout or x.headline.deal_level == "great")
+        and not (x.snoozed_until or x.booked or x.ruled_out)
+    ]
+    return max(eligible, key=lambda x: (*_hero_rank(x.headline), -x.tracker_id), default=None)
+
+
+def last_scan(s: Session, user: User, today: date | None = None) -> tuple[datetime | None, int]:
+    """When the latest scan (on or before today) finished, and how many of the user's trips it checked.
+
+    The time is the scan's last finished pipeline stage; without one, the latest price it read.
+    """
+    latest = select(func.max(Candidate.run_date)).where(Candidate.user_id == user.id)
+    if today is not None:
+        latest = latest.where(Candidate.run_date <= today)
+    run_date = s.scalar(latest)
+    if run_date is None:
+        return None, 0
+    mine = (Candidate.user_id == user.id) & (Candidate.run_date == run_date)
+    checked = s.scalar(select(func.count()).select_from(Candidate).where(mine)) or 0
+    at = s.scalar(select(func.max(PipelineRun.finished_at)).where(PipelineRun.run_date == run_date))
+    if at is None:
+        at = s.scalar(
+            select(func.max(PriceObservation.observed_at))
+            .join(Candidate, Candidate.price_observation_id == PriceObservation.id)
+            .where(mine)
+        )
+    if at is not None and at.tzinfo is not None:
+        at = at.astimezone(UTC)  # the scan runs on UTC, and the page says so
+    return at, checked
 
 
 def _options(
@@ -221,19 +274,29 @@ def related_deals(s: Session, tracker_id: int, run_date: date, geo: Geo, today: 
 
 def trend(engine: Engine, tracker_id: int, today: date) -> list[TrendPoint]:
     """The cheapest price per scan day over the last TREND_DAYS days, oldest first."""
+    return trends(engine, [tracker_id], today).get(tracker_id, [])
+
+
+def trends(engine: Engine, tracker_ids: Sequence[int], today: date) -> dict[int, list[TrendPoint]]:
+    """`trend` for several trackers in one read (the dashboard's cards); unpriced ones are left out."""
+    if not tracker_ids:
+        return {}
     with session_scope(engine) as s:
         rows = s.execute(
-            select(Candidate.run_date, func.min(Candidate.price))
+            select(Candidate.tracker_id, Candidate.run_date, func.min(Candidate.price))
             .where(
-                Candidate.tracker_id == tracker_id,
+                Candidate.tracker_id.in_(list(tracker_ids)),
                 Candidate.verdict != "ruled_out",
                 Candidate.run_date > today - timedelta(days=TREND_DAYS),
                 Candidate.run_date <= today,
             )
-            .group_by(Candidate.run_date)
-            .order_by(Candidate.run_date)
+            .group_by(Candidate.tracker_id, Candidate.run_date)
+            .order_by(Candidate.tracker_id, Candidate.run_date)
         ).all()
-    return [TrendPoint(run_date, price) for run_date, price in rows]
+    out: defaultdict[int, list[TrendPoint]] = defaultdict(list)
+    for tracker_id, run_date, price in rows:
+        out[tracker_id].append(TrendPoint(run_date, price))
+    return dict(out)
 
 
 def typical_band(options: list[TripOption]) -> tuple[Decimal, Decimal] | None:
@@ -301,6 +364,7 @@ def destination_summaries(
                     building_history=building_history(s, homes, dest),
                     target_days=t.target_days,
                     booked=tuple(bookings[t.id]),
+                    headline=headline(mine),
                 )
             )
     priced = sorted((x for x in summaries if x.best), key=lambda x: (x.best.price, x.tracker_id))
