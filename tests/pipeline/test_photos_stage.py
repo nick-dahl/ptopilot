@@ -102,7 +102,7 @@ def test_the_stage_fills_missing_places_and_retries_none_after_30_days(make_ctx,
 
     counts = photos.run(ctx)
 
-    assert counts == {"looked_up": 3, "found": 2, "none": 1, "failed": 0}
+    assert counts == {"looked_up": 3, "found": 2, "none": 1, "failed": 0, "skipped": 0}
     assert "Oslo" not in seen and "Nice" not in seen and "Lisbon" not in seen and "Athens" not in seen
     assert "Bergen, Norway" in seen  # the name alone first, then with the country
     found = rows(clean_engine)
@@ -119,7 +119,13 @@ def test_the_stage_fills_missing_places_and_retries_none_after_30_days(make_ctx,
     assert found["OSL_NO"].fetched_at == NOON - timedelta(days=5)
     assert found["NCE_FR"].status == "ok" and "LIS" not in found
 
-    assert photos.run(make_ctx(http=wikimedia(set()))) == {"looked_up": 0, "found": 0, "none": 0, "failed": 0}
+    assert photos.run(make_ctx(http=wikimedia(set()))) == {
+        "looked_up": 0,
+        "found": 0,
+        "none": 0,
+        "failed": 0,
+        "skipped": 0,
+    }
 
 
 def test_at_most_a_set_number_of_places_are_looked_up_per_run(make_ctx, clean_engine, places, monkeypatch):
@@ -133,7 +139,7 @@ def test_a_photo_failure_never_fails_the_scan(make_ctx, clean_engine, places):
     ctx = make_ctx(http=wikimedia(set(), fail=httpx.ConnectError("offline")))
     results = {r.stage: r for r in runner.run_pipeline(ctx, ["photos", "alerts"])}
     assert results["photos"].status == "ok"
-    assert results["photos"].counts == {"looked_up": 5, "found": 0, "none": 0, "failed": 5}
+    assert results["photos"].counts == {"looked_up": 1, "found": 0, "none": 0, "failed": 1, "skipped": 4}
     assert results["alerts"].status != "not_run"
     assert rows(clean_engine) == {}  # an outage stores nothing, so every place is tried again tomorrow
     assert "photos" in runner.CONTINUE_ON_FAILURE
@@ -151,7 +157,7 @@ def test_a_crash_in_one_lookup_is_counted_and_the_rest_go_on(make_ctx, clean_eng
 
     monkeypatch.setattr(photos, "fetch_photo", flaky)
     counts = photos.run(make_ctx(http=wikimedia({"Rome"})))
-    assert counts == {"looked_up": 5, "found": 1, "none": 3, "failed": 1}
+    assert counts == {"looked_up": 5, "found": 1, "none": 3, "failed": 1, "skipped": 0}
     assert "BCN_ES" not in rows(clean_engine)
 
 
@@ -160,3 +166,18 @@ def test_without_a_client_or_on_a_dry_run_the_stage_is_skipped(make_ctx, places)
         photos.run(make_ctx())
     with pytest.raises(StageSkipped):
         photos.run(make_ctx(http=wikimedia({"Barcelona"}), dry_run=True))
+
+
+def test_an_outage_stops_the_lookups_for_this_run(make_ctx, clean_engine, places):
+    """The first network failure means Wikimedia is down: the rest are skipped, not each waited out
+    (20 x a 10 s timeout), and nothing is stored, so all of them are tried again next run."""
+    calls = []
+
+    def down(request):
+        calls.append(request.url.host)
+        raise httpx.ConnectTimeout("timed out")
+
+    counts = photos.run(make_ctx(http=http_client(transport=httpx.MockTransport(down))))
+    assert counts == {"looked_up": 1, "found": 0, "none": 0, "failed": 1, "skipped": 4}
+    assert len(calls) == 1 and rows(clean_engine) == {}
+    assert photos.run(make_ctx(http=wikimedia({"Barcelona"})))["looked_up"] == 5  # all due again

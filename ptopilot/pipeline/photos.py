@@ -3,7 +3,8 @@
 A place an active tracker or an accepted related link uses, with no photo row yet (or a `none` row older
 than PHOTO_RETRY_DAYS), gets its Wikipedia lead image looked up: at most PHOTO_LOOKUPS_PER_RUN a run.
 Built-in places have hand-picked photos in geo.yaml and are never looked up. A lookup that can't reach
-Wikimedia stores nothing, so the place is tried again next run; the stage itself never fails the scan.
+Wikimedia stores nothing, so the place is tried again next run, and stops this run's lookups: the rest are
+counted as skipped rather than each waiting out the timeout. The stage itself never fails the scan.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from ptopilot.pipeline.context import RunContext, StageSkipped
 
 log = logging.getLogger(__name__)
 
-COUNTS = ("looked_up", "found", "none", "failed")
+COUNTS = ("looked_up", "found", "none", "failed", "skipped")
 
 
 def _due(s: Session, ctx: RunContext) -> list[str]:
@@ -50,7 +51,8 @@ def run(ctx: RunContext) -> dict[str, int]:
     geo, catalog = load_geo(ctx.engine), AirportCatalog.load()
     with session_scope(ctx.engine) as s:
         due = _due(s, ctx)
-    for code in due[: config.PHOTO_LOOKUPS_PER_RUN]:
+    batch = due[: config.PHOTO_LOOKUPS_PER_RUN]
+    for i, code in enumerate(batch):
         try:
             place = geo.destination(code)
         except UnknownCodeError:
@@ -61,8 +63,9 @@ def run(ctx: RunContext) -> dict[str, int]:
             photo = fetch_photo(place.name, catalog.country_name(place.country), ctx.http)
         except PhotoUnavailable as exc:
             counts["failed"] += 1
-            log.warning("photo lookup for %s failed: %s", code, exc)
-            continue
+            log.warning("photo lookup for %s failed: %s; skipping the rest this run", code, exc)
+            counts["skipped"] += len(batch) - i - 1  # Wikimedia is down: the others would fail the same way
+            break
         except Exception:  # a surprise in one answer never costs the other places (or the scan)
             counts["failed"] += 1
             log.exception("photo lookup for %s crashed", code)
