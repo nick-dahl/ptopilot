@@ -78,6 +78,8 @@ $env:SECRET_KEY = "local-dev-key"
 .venv/Scripts/python -m ptopilot.profiles invite you@example.com            # only invited emails can sign in
 ```
 
+The site's scripts are small vanilla JavaScript modules in `ptopilot/web/static/` with no build step; every form also works without JavaScript. The stylesheet URL carries a hash of its contents, so browsers pick up a new `app.css` after each deploy.
+
 Sign-in is by emailed link (valid 15 minutes). Without `RESEND_API_KEY` the server logs the link instead, which is handy locally. Signed-in travelers get a dashboard (trackers, best current prices, snooze), a profile page for traveler settings, `/plan` for open date ranges, PTO and trips by year, and `/destinations` for places. `profiles load` still works for bulk setup: it updates only the years and trackers the file lists and leaves everything else alone. With `APP_BASE_URL` and `SECRET_KEY` set, digests get snooze buttons that open a confirmation page in the app. They only act when you press Confirm, because mail scanners pre-open links.
 
 ### Deploying (Render, free tier)

@@ -1,17 +1,11 @@
 # ptopilot Roadmap
 
-V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](docs/superpowers/specs/2026-10-16-ptopilot-design.md). V1 and Plans 7–14 are live. This page is the agenda: what's queued, what to settle before inviting friends, feature ideas, and the polish backlog from code reviews.
+V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](docs/superpowers/specs/2026-10-16-ptopilot-design.md). V1 and Plans 7–15 are live. This page is the agenda: what's queued, what to settle before inviting friends, feature ideas, and the polish backlog from code reviews.
 
 ## 1. Queued work, in order
 
 The owner wants the site to feel like a polished travel product before friends see it: the calm, data-first polish of Google Flights and Capital One Travel, and "the first website I want to go to when I'm daydreaming about how to spend my time off". The checklist in §2 follows these.
 
-- [ ] **Plan 15: site polish (designing now).** It covers:
-  - guided onboarding for new users, one step at a time;
-  - Google-Flights-style inputs everywhere: type-ahead airport chips, plain-language choices, a trip-length slider;
-  - a "reason you came" hero card for the day's best deal, with a countdown when time matters;
-  - destination cards with cover photos;
-  - livelier destination pages.
 - [ ] **Plan 16: hidden gems (planned, runs after Plan 15).** Plan: `docs/superpowers/plans/2026-10-31-ptopilot-plan-16-hidden-gems.md`; design approved 2026-10-31. It covers:
   - a weekly magazine of off-the-beaten-path, affordable places, matched to your trip styles;
   - a live-checked fare with a "fits your dates" pill;
@@ -205,6 +199,7 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
 
 ## Done
 
+- [x] **Site polish:** guided four-step onboarding; Google-Flights-style inputs everywhere (type-ahead airport chips, plain-language choices, a trip-length slider, the tap-calendar for days off) that save in place; a "reason you came" dashboard hero with a countdown and a once-per-deal Rare pop-up; Wikimedia cover photos with credits; a destination page with a hoverable price chart and a date grid; and a landing page that sells it (Plan 15; spec `docs/superpowers/specs/2026-10-30-ptopilot-site-polish-design.md`).
 - [x] **Related destinations:** each destination suggests up to 5 related places (curated look-alikes and airports within 65 km) to accept or dismiss on the destinations page; a light daily watch (free cached fares, at most 5 free live checks a day) surfaces a stunning, fitting fare under "Also worth a look" in the digest and in a "Related" panel on the destination page (Plan 14; spec `docs/superpowers/specs/2026-10-25-ptopilot-related-destinations-design.md`).
 - [x] **Buy now or wait:** a stricter go-now score that judges each trip against its own price history and discounts thin evidence; "likely gone within ~N days" on every deal; "Rare" standout offers on the site and in the digest; and instant alert emails (at most one a day, the same destination at most once a week) after checking the flight home (Plan 13; spec `docs/superpowers/specs/2026-10-25-ptopilot-buy-now-or-wait-design.md`).
 - [x] **Skip miserable flights:** itineraries with very long layovers, needlessly long journeys or a landing far from the destination are ruled out (greyed on the destination page), unless a fare about 40% below typical forgives one moderate problem. Includes a one-way return-flight check for instant alerts (Plan 12; spec `docs/superpowers/specs/2026-10-26-ptopilot-skip-miserable-flights-design.md`).
