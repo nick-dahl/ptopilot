@@ -21,6 +21,7 @@
 <div class="field">
   <label class="field-label" for="ignored_holidays">Holidays your office works</label>
   {{ chips("ignored_holidays", ignored, "Add a holiday", "holidays", label="Holidays your office works",
+           hint="Tap the ones your office works.",
            plain_hint=("Comma-separated. This calendar has: " ~ holiday_names | join(", ")) if holiday_names else "") }}
   {{ field_error("ignored_holidays", field_errors) }}
 </div>

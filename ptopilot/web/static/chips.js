@@ -3,7 +3,9 @@
 //
 //   data-source="airports"  /api/airports?q=&near=   (data-near: the home airport, nearest first)
 //   data-source="places"    /api/places?q=
-//   data-source="holidays"  /api/holidays?calendar=  (the form's holiday_calendar), filtered here
+//   data-source="holidays"  /api/holidays?calendar=  (the form's holiday_calendar), filtered here; the
+//                           calendar's holidays are also listed as toggle chips, which replace the
+//                           typing box once they load and follow the calendar picker
 //   data-source="dates"     a date picker; each picked date is a chip
 //   data-max="1"            one chip at most: picking another replaces it
 //   data-near-first         airports measured from the list's own first chip (the home airport)
@@ -301,6 +303,60 @@ function setup(root) {
       },
       true,
     );
+  }
+
+  // The holidays as toggle chips: pressed = your office works it. Switching the calendar relists them
+  // and drops the ones the new calendar doesn't have (the server would refuse them).
+  const picker = source === "holidays" && form ? form.querySelector("[name=holiday_calendar]") : null;
+  let shelf = null;
+  async function toggles() {
+    let names;
+    try {
+      names = (await holidays("")).map((row) => row.value);
+    } catch (err) {
+      root.classList.remove("has-toggles"); // the typing box stays as the way in
+      if (shelf) shelf.remove();
+      shelf = null;
+      return;
+    }
+    const known = new Set(names);
+    const dropped = values().filter((v) => !known.has(v));
+    if (dropped.length) {
+      [...list.children].filter((li) => dropped.includes(li.dataset.value)).forEach((li) => li.remove());
+      say(`Removed ${dropped.join(", ")}: not in this calendar.`);
+      sync();
+    }
+    if (!shelf) {
+      shelf = el("ul", "holiday-toggles");
+      shelf.setAttribute("aria-label", "Holidays in this calendar");
+      root.querySelector(".chip-box").after(shelf);
+    }
+    const on = new Set(values());
+    shelf.replaceChildren(
+      ...names.map((name) => {
+        const li = el("li");
+        const b = el("button", "holiday-toggle", name);
+        b.type = "button";
+        b.setAttribute("aria-pressed", String(on.has(name)));
+        b.addEventListener("click", () => {
+          const pressed = b.getAttribute("aria-pressed") === "true";
+          if (pressed) {
+            [...list.children].filter((c) => c.dataset.value === name).forEach((c) => c.remove());
+            sync();
+          } else {
+            add({ value: name, label: name, title: name });
+          }
+          b.setAttribute("aria-pressed", String(!pressed));
+        });
+        li.append(b);
+        return li;
+      }),
+    );
+    root.classList.add("has-toggles");
+  }
+  if (picker) {
+    picker.addEventListener("change", toggles);
+    toggles();
   }
 
   list.addEventListener("click", (e) => {

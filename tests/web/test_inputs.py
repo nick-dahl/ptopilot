@@ -373,3 +373,17 @@ def test_a_failed_lookup_leaves_no_stale_suggestions():
     failed = js[js.index(".catch((err) => {") : js.index("function choose")]
     assert "close();" in failed  # Enter can't add a row from an earlier query
     assert "=== null) return false" in js  # and Enter after a failure says so instead of "no match"
+
+
+def test_the_calendar_holidays_are_listed_as_toggles_with_js(client, emailer, clean_engine):
+    """Spec §3.2: the calendar's holidays are listed. With JS they're toggle chips (tap the ones your
+    office works), refreshed when the calendar changes; without JS the plain hint lists them."""
+    signed_in_with_profile(client, emailer, clean_engine)
+    page = client.get("/profile").text
+    assert "Tap the ones your office works." in page
+    assert "This calendar has: " in page  # the no-JS fallback stays
+    js = (STATIC / "chips.js").read_text(encoding="utf-8")
+    assert "function toggles(" in js and '"aria-pressed"' in js
+    assert "[name=holiday_calendar]" in js and 'addEventListener("change", toggles)' in js
+    css = (STATIC / "app.css").read_text(encoding="utf-8")
+    assert ".holiday-toggles" in css
