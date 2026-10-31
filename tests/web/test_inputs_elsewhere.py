@@ -100,3 +100,13 @@ def test_plan_new_cards_are_still_checkboxes(client, emailer, clean_engine):
 def select_ids(engine):
     with session_scope(engine) as s:
         return list(s.scalars(select(Tracker.id)))
+
+
+def test_a_json_add_never_redirects(signed_in, clean_engine):
+    for data in (
+        {"code": "LIS", "airports": ["LIS"], "target_days": "10"},
+        {"code": "LIS", "airports": ["LIS", "CAT"], "target_days": "10"},
+    ):
+        r = signed_in.post("/destinations", data=data, headers=JSON)
+        assert r.status_code == 200, (data, r.status_code, r.headers.get("location"), r.text[:200])
+        assert r.json()["ok"] is True and "tracker_id" in r.json()
