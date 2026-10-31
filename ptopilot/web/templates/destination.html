@@ -2,6 +2,8 @@
 {% from "_components.html" import dest_style, price_bar, vs_typical, season, duration_line, cover %}
 {% block title %}{{ dest.name }} · ptopilot{% endblock %}
 {% block content %}
+{# Why there are no trips: the date grid and the trip list say the same thing. #}
+{% set no_trips %}{% if snoozed_until %}Not watching while snoozed.{% elif bookings %}Booked: no more searches for {{ bookings | map(attribute="year") | unique | sort | join(", ") }}.{% else %}First prices after the next daily scan.{% endif %}{% endset %}
 <section id="dest-hero" class="dest-hero-wrap" aria-label="{{ dest.name }}">
   {% call cover(palette, photo, "hero dest-head dest-hero") %}
   <div class="eyebrow">{% if target %}~{{ target }} days away · {% endif %}{{ stay[0] }}–{{ stay[1] }} days on the ground</div>
@@ -53,7 +55,7 @@
     </div>
     <p class="grid-legend meta"><span class="key lvl-great"></span>Great deal <span class="key lvl-good"></span>Good deal <span class="key is-dimmed"></span>Snoozed, excluded or ruled out</p>
     {% else %}
-    <p class="muted m-0">The date grid fills in after the next daily scan.</p>
+    <p class="muted m-0">{% if options %}No trips at this length in today's scan; they're all in the list below.{% else %}{{ no_trips }}{% endif %}</p>
     {% endif %}
   </section>
 
@@ -85,7 +87,7 @@
       </tbody>
     </table>
     {% else %}
-    <p class="muted m-0">{% if snoozed_until %}Not watching while snoozed.{% elif bookings %}Booked: no more searches for {{ bookings | map(attribute="year") | unique | sort | join(", ") }}.{% else %}First prices after the next daily scan.{% endif %}</p>
+    <p class="muted m-0">{{ no_trips }}</p>
     {% endif %}
     {% for b in bookings %}<p class="small m-0"><b>Booked {{ b.depart | dates(b.ret) }}{% if b.price is not none %} · {{ b.price | money(b.currency or "USD") }}{% endif %}</b></p>{% endfor %}
   </section>

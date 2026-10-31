@@ -19,7 +19,7 @@ def section(page: str, id_: str) -> str:
 def test_date_grid_with_no_trips_shows_an_empty_state(client, emailer, clean_engine):
     t = setup(client, emailer, clean_engine)
     grid = section(client.get(f"/trackers/{t}").text, "date-grid")
-    assert "The date grid fills in after the next daily scan." in grid and "<table" not in grid
+    assert "First prices after the next daily scan." in grid and "<table" not in grid
 
 
 def test_cells_link_to_their_trip_rows(client, emailer, clean_engine):
@@ -83,3 +83,20 @@ def test_related_deals_are_small_photo_cards(client, emailer, clean_engine):
     page = client.get(f"/trackers/{t}").text
     related = page[page.index("<h2>Related</h2>") :]
     assert "related-cover" in related and "has-photo" in related and "Madeira instead of Azores" in related
+
+
+def test_a_snoozed_destinations_empty_grid_says_it_is_not_being_watched(client, emailer, clean_engine):
+    t = setup(client, emailer, clean_engine)
+    client.post(f"/trackers/{t}/snooze", data={"days": "30"})
+    grid = section(client.get(f"/trackers/{t}").text, "date-grid")
+    assert "Not watching while snoozed." in grid and "next daily scan" not in grid
+
+
+def test_the_grid_box_contains_its_hidden_text_so_phones_never_scroll_sideways():
+    """The cells' .sr-only text is position: absolute; the scrolling box must be its containing block, or
+    that text escapes the overflow clip and widens the page (found in the 390 px browser check)."""
+    from pathlib import Path
+
+    css = (Path(__file__).resolve().parents[2] / "ptopilot" / "web" / "static" / "app.css").read_text("utf-8")
+    rule = re.search(r"\.grid-scroll \{([^}]*)\}", css).group(1)
+    assert "position: relative" in rule and "overflow-x: auto" in rule
