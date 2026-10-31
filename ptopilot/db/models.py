@@ -67,6 +67,7 @@ class User(Base):
     holiday_calendar: Mapped[str] = mapped_column(String(16))
     extra_days_off: Mapped[list[date]] = mapped_column(ARRAY(Date), server_default="{}")
     ignored_holidays: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    trip_styles: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     pto_days_total: Mapped[int] = mapped_column(SmallInteger)
     pto_committed: Mapped[int] = mapped_column(SmallInteger, server_default="0")
     min_trip_days: Mapped[int] = mapped_column(SmallInteger, server_default="3")

@@ -1,6 +1,7 @@
 {# The travel-style fields: the profile page's Travel style section and /welcome step 3 (inside their own <form>).
    Needs form and field_errors. #}
-{% from "_inputs.html" import segmented, trip_range, switch, field_error %}
+{% from "_inputs.html" import segmented, trip_range, switch, toggle_chips, field_error %}
+{% set loved = (form.trip_styles or "").replace(" ", "").split(",") %}
 <div class="field">
   <span class="field-label">Trip length</span>
   {{ trip_range(form.min_trip_days, form.max_trip_days, form.ideal_trip_days) }}
@@ -33,6 +34,12 @@
     {{ field_error("max_stops_long", field_errors) }}
   </fieldset>
 </div>
+<fieldset class="field">
+  <legend class="field-label">Trip styles you love</legend>
+  <p class="hint">Pick any; we'll match hidden gems to them.</p>
+  {{ toggle_chips("trip_styles", trip_styles, loved) }}
+  {{ field_error("trip_styles", field_errors) }}
+</fieldset>
 <div class="switches">
   {{ switch("allow_overnight_layover", form.allow_overnight_layover, "Overnight layovers are OK") }}
   <div class="after-work">

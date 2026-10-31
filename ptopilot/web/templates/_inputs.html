@@ -90,6 +90,18 @@
 </div>
 {%- endmacro %}
 
+{# Toggle chips: real checkboxes (so they work without JS), one name repeated. options: [(value, label)]. #}
+{% macro toggle_chips(name, options, selected) -%}
+<div class="toggle-chips">
+  {%- for v, text in options %}
+  <label class="toggle-chip">
+    <input type="checkbox" name="{{ name }}" value="{{ v }}"{% if v in selected %} checked{% endif %}>
+    <span>{{ text }}</span>
+  </label>
+  {%- endfor %}
+</div>
+{%- endmacro %}
+
 {# An on/off switch: a checkbox with role="switch", so it posts "on" like any checkbox. #}
 {% macro switch(name, checked, label) -%}
 <label class="switch">

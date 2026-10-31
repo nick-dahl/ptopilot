@@ -39,6 +39,7 @@ from ptopilot.core.airports import AirportCatalog, PlaceMatch
 from ptopilot.core.calendar import WorkCalendar, calendar_codes, upcoming_holiday_names
 from ptopilot.core.geo import Geo, UnknownCodeError, palette
 from ptopilot.core.seasons import SeasonTable, trip_month
+from ptopilot.core.trip_styles import STYLES
 from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import Candidate, Invite, PlannedTrip, PlanningYear, RelatedLink, Tracker, User
 from ptopilot.db.session import make_engine, session_scope
@@ -71,7 +72,14 @@ from ptopilot.settings import Settings
 from ptopilot.sources.climate import fetch_climate
 from ptopilot.trackers import apply_action, snooze, unsnooze
 from ptopilot.web import api, onboarding
-from ptopilot.web.forms import SECTIONS, explain_errors, form_to_profile, merge_section, profile_to_form
+from ptopilot.web.forms import (
+    SECTIONS,
+    explain_errors,
+    flatten_form,
+    form_to_profile,
+    merge_section,
+    profile_to_form,
+)
 from ptopilot.web.grid import date_grid, grid_band
 from ptopilot.web.history import (
     destination_summaries,
@@ -101,6 +109,7 @@ TEMPLATES.env.filters.update(money=money, day=day, dates=date_range, stops=stops
 # The stylesheet's URL changes with its content, so a browser never keeps an old copy after a deploy.
 CSS_VERSION = hashlib.sha1((WEB_DIR / "static" / "app.css").read_bytes()).hexdigest()[:10]
 TEMPLATES.env.globals["css_version"] = CSS_VERSION
+TEMPLATES.env.globals["trip_styles"] = list(STYLES.items())
 # Postgres int4 range: anything inside it is looked up (0 or negative are simply not found, a 404); ids
 # beyond it would make the database raise, so they're a styled 400 instead.
 TRACKER_ID = Annotated[int, PathParam(ge=-(2**31), le=2**31 - 1)]
@@ -1062,7 +1071,7 @@ def create_app(
         email = current_email(request)
         if not email:
             return signed_out(request)
-        submitted = {k: str(v) for k, v in (await request.form()).items()}
+        submitted = flatten_form((await request.form()).multi_items())
         for key in ("home_airport", "nearby_airports"):  # a city typed without JS counts when it's clear
             if key in submitted:
                 submitted[key] = api.resolve_airports(catalog, submitted[key])
@@ -1180,7 +1189,7 @@ def create_app(
             return welcome_places_step(request, email, raw)
         # Steps 2 and 3 are the profile's Time off and Travel style sections, saved the same way.
         section = "time_off" if n == 2 else "travel"
-        fields = {k: str(v) for k, v in raw.items() if k in SECTIONS[section]}
+        fields = {k: v for k, v in flatten_form(raw.multi_items()).items() if k in SECTIONS[section]}
         return welcome_saved(request, email, n, section_form(email, {**fields, "section": section}))
 
     def welcome_saved(request: Request, email: str, n: int, form: dict[str, str]) -> Response:

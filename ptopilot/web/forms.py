@@ -27,9 +27,19 @@ SECTIONS = {
     "travel": (
         "min_trip_days", "max_trip_days", "ideal_trip_days", "weather_tolerance", "max_stops_short",
         "max_stops_long", "allow_overnight_layover", "friday_evening_departure", "friday_evening_min_time",
+        "trip_styles",
     ),
 }  # fmt: skip
 SECTIONS["all"] = (*SECTIONS["airports"], *SECTIONS["time_off"], *SECTIONS["travel"], "country")
+
+
+def flatten_form(items) -> dict[str, str]:
+    """A submitted form (its multi_items()) as one string per field; repeated trip_styles join with commas."""
+    flat: dict[str, str] = {}
+    for key, value in items:
+        value = str(value)
+        flat[key] = f"{flat[key]}, {value}" if key == "trip_styles" and key in flat else value
+    return flat
 
 
 def _int(value: str):
@@ -69,6 +79,7 @@ def form_to_profile(form: Mapping[str, str], email: str) -> dict:
     data["nearby_airports"] = [code.upper() for code in _list(form.get("nearby_airports", ""))]
     data["ignored_holidays"] = _list(form.get("ignored_holidays", ""))
     data["extra_days_off"] = _list(form.get("extra_days_off", ""))
+    data["trip_styles"] = _list(form.get("trip_styles", ""))
     if (form.get("friday_evening_min_time") or "").strip():
         data["friday_evening_min_time"] = form["friday_evening_min_time"].strip()
     data["windows"] = [
@@ -113,6 +124,7 @@ def profile_to_form(s: Session, user: User | None) -> dict[str, str]:
             "nearby_airports": ", ".join(user.nearby_airports or []),
             "ignored_holidays": ", ".join(user.ignored_holidays or []),
             "extra_days_off": ", ".join(d.isoformat() for d in user.extra_days_off or []),
+            "trip_styles": ", ".join(user.trip_styles or []),
             "friday_evening_min_time": user.friday_evening_min_time.strftime("%H:%M"),
         }
         for key in BOOL_FIELDS:
@@ -128,6 +140,8 @@ def merge_section(current: dict[str, str], submitted: Mapping[str, str]) -> dict
     (submitted["section"]) means off. Without a section name only the fields sent change."""
     fields = SECTIONS.get(submitted.get("section", ""), ())
     merged = {**current, **{k: v for k, v in submitted.items() if k != "section"}}
+    if "trip_styles" in fields and "trip_styles" not in submitted:
+        merged.pop("trip_styles", None)  # every chip unticked
     for key in BOOL_FIELDS:
         if key in fields and key not in submitted:
             merged.pop(key, None)
@@ -184,6 +198,8 @@ def _explain(problem: str, form: Mapping[str, str]) -> tuple[str | None, str]:
         return "ideal_trip_days", f"Your ideal trip ({m[1]} days) has to fall between {m[2]} and {m[3]} days."
     if m := re.fullmatch(r"(\w+): expected int, got (.*)", problem):
         return m[1], f"Enter a whole number for {_LABELS.get(m[1], 'this')}, not {m[2]}."
+    if m := re.fullmatch(r"trip_styles: unknown style\(s\) (\[.*\])", problem):
+        return "trip_styles", f"We don't know the trip style {_names(m[1])}. Pick from the choices."
     if m := re.fullmatch(r"(\w+): must be 0 or more", problem):
         label = _LABELS.get(m[1], "this")
         return m[1], f"{label[0].upper()}{label[1:]} can't be below 0."

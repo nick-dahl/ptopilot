@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from ptopilot.core.calendar import WorkCalendar
 from ptopilot.core.geo import Geo, UnknownCodeError
+from ptopilot.core.trip_styles import STYLES
 from ptopilot.data import load_geo
 from ptopilot.db.models import Invite, PlanningYear, Tracker, TravelWindow, User
 from ptopilot.db.session import make_engine
@@ -70,6 +71,7 @@ class Profile:
     nearby_airports: list[str] = field(default_factory=list)
     extra_days_off: list[date] = field(default_factory=list)
     ignored_holidays: list[str] = field(default_factory=list)
+    trip_styles: list[str] | None = None  # None: not given, so a load leaves the saved styles alone
     friday_evening_min_time: time | None = None
     windows: list[tuple[date, date]] = field(default_factory=list)
     trackers: list[TrackerSpecRow] = field(default_factory=list)
@@ -99,7 +101,7 @@ def parse_profile(data: dict, geo: Geo, require_plan: bool = True) -> Profile:
             problems.append(f"missing required field {key!r}")
     unknown = set(data) - set(USER_FIELDS) - {
         "email", "nearby_airports", "extra_days_off", "ignored_holidays",
-        "friday_evening_min_time", "windows", "trackers",
+        "friday_evening_min_time", "windows", "trackers", "trip_styles",
     }  # fmt: skip
     if unknown:
         problems.append(f"unknown field(s) {sorted(unknown)}")
@@ -154,6 +156,14 @@ def parse_profile(data: dict, geo: Geo, require_plan: bool = True) -> Profile:
     for key in ("max_stops_short", "max_stops_long"):
         if ok_int(key) and user[key] < 0:
             problems.append(f"{key}: must be 0 or more")
+
+    styles = data.get("trip_styles")
+    if styles is not None:
+        styles = list(styles)
+        bad = [x for x in styles if x not in STYLES]
+        if bad:
+            problems.append(f"trip_styles: unknown style(s) {bad}")
+        styles = list(dict.fromkeys(x for x in styles if x in STYLES))
 
     nearby = list(data.get("nearby_airports") or [])
     dupes = sorted({c for c in nearby if c == data.get("home_airport") or nearby.count(c) > 1})
@@ -241,6 +251,7 @@ def parse_profile(data: dict, geo: Geo, require_plan: bool = True) -> Profile:
         nearby_airports=list(data.get("nearby_airports") or []),
         extra_days_off=[d for d in extra if d],
         ignored_holidays=ignored,
+        trip_styles=styles,
         friday_evening_min_time=min_time,
         windows=windows,
         trackers=trackers,
@@ -264,6 +275,8 @@ def apply_profile(
     user.nearby_airports = p.nearby_airports
     user.extra_days_off = p.extra_days_off
     user.ignored_holidays = p.ignored_holidays
+    if p.trip_styles is not None:
+        user.trip_styles = p.trip_styles
     if p.friday_evening_min_time is not None:
         user.friday_evening_min_time = p.friday_evening_min_time
     s.flush()

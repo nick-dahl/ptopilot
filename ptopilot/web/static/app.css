@@ -389,6 +389,15 @@ form.is-autosaving .section-save .btn { display: none; }
 .seg:has(input:checked) .seg-label { font-weight: 600; }
 .seg:has(input:checked) .seg-label::before { content: "\2713\00a0"; color: var(--accent); }
 .seg:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Trip-style toggle chips: checkboxes styled as chips */
+.toggle-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.toggle-chip { position: relative; display: inline-block; cursor: pointer; }
+.toggle-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.toggle-chip span { display: inline-block; padding: 4px 12px; border: 1px solid var(--chip-line); border-radius: 999px; background: var(--surface); font-size: 13px; transition: background-color var(--ease), border-color var(--ease); }
+.toggle-chip:hover span { border-color: var(--accent); }
+.toggle-chip input:checked + span { background: var(--chip); border-color: var(--accent); font-weight: 600; }
+.toggle-chip input:checked + span::before { content: "\2713\00a0"; color: var(--accent); }
+.toggle-chip input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 .stops { display: grid; gap: 0 14px; grid-template-columns: 1fr; }
 .stops .segmented { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
 @media (max-width: 480px) { .segmented { grid-template-columns: 1fr; } .stops .segmented { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); } }
