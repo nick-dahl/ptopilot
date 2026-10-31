@@ -4,8 +4,9 @@ Every gem is a place friends haven't been to, but might go after you tell them a
 not widely known, and doable on a sensible budget. This guide is how a gem gets written. Drafts follow
 it; the owner's notes at the bottom refine it, session by session.
 
-Reference examples: Lofoten and Ljubljana, the owner's touchstones, are to be added in the first
-session, written with the owner.
+Reference examples: `ptopilot/data/gems/lofoten.yaml` (approved 2026-10-31, from the owner's own
+nine-day walk) is the reference for the voice and for a hiking-and-camping gem. Ljubljana is to be
+added as the city reference.
 
 ## The voice: a friend telling you how they did it
 
@@ -89,3 +90,8 @@ How `body` renders, so a draft doesn't come out as one run-on paragraph:
 ## Notes from the owner
 
 Each session appends the lesson from every rejected draft here, as a short rule or example.
+
+- 2026-10-31 (Lofoten): be concrete about how the daily budget is actually hit. The owner did
+  Lofoten on about $40 a day by living on cheap, calorie-dense supermarket staples; say what to
+  buy, not just "groceries". Write the route as the owner walked it (trailhead to end point, the
+  spur worth the detour, the villages that break it up), and name how you get home.

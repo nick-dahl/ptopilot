@@ -1,0 +1,52 @@
+slug: lofoten
+name: Lofoten Islands
+country: "NO"
+airports: [EVE]
+return_airports: [BOO]
+styles: [hiking_camping, islands, adventure]
+best_months: [6, 7, 8]
+headline: Nine days walking the islands from Sildpollnes to Å, with a mountain over the sea every single day and a free place to pitch your tent most nights.
+body: |
+  The views are the whole reason. Granite peaks come straight up out of the sea, the light hangs around half the night in summer, and every ridge you top shows you the next one waiting across a fjord. It looks like a postcard you'd assume was edited, and it's just what's out the tent door.
+
+  ## The route
+
+  Fly into **Evenes** and make your way to Sildpollnes, the little church on the water at the start of the walk. From there it's about nine days heading west down the islands to **Å**, the fishing village at the very end of the road.
+
+  Take the spur up **Reinebringen** above Reine. The climb is close to 2,000 hand-laid stone steps, steep and short, and the view from the top over Reinefjord is the one on every Lofoten poster, except you earned it.
+
+  Plan your days around the fishing villages, places like **Nusfjord**, where you can resupply, dry out, and eat something that isn't from a pouch.
+
+  ## Where you sleep
+
+  - Wild camp most nights: Norway's right to roam lets you pitch on uncultivated land at least 150 metres from a house, for up to two nights in one place
+  - Treat yourself to an old fisherman's cabin (a rorbu) every few nights for a shower and a dry bed
+  - Some popular spots in Lofoten restrict camping in summer, so follow the local signs
+
+  ## The catch
+
+  Carry a stove: open fires are banned in and near woodland from 15 April to 15 September. The weather turns fast on the ridges, so pack for rain even when the morning is clear. And you won't be alone on the famous peaks in July, which is half the fun: it's easy to fall in with other solo hikers walking the same way.
+
+  ## Getting home
+
+  From Å it's a short hop to **Moskenes**, where the ferry crosses to **Bodø** in about three to four hours. Fly home from Bodø.
+budget: Free wild camping takes lodging off the bill for most of the walk, which turns one of Europe's priciest countries into a very doable trip. Live on cheap, calorie-dense staples from the village supermarkets (oats, pasta, peanut butter, flatbread) and save the money for a rorbu night here and there and the ferry home.
+daily_cost_usd: 40
+claims:
+  - text: Norway's right to roam lets you camp on uncultivated land at least 150 metres from the nearest inhabited house, for up to two nights in one place (longer in remote mountain areas).
+    source_url: https://www.visitnorway.com/plan-your-trip/travel-tips-a-z/right-of-access/
+    checked_on: 2026-10-31
+  - text: Some popular areas in Lofoten restrict free camping in summer.
+    source_url: https://visitlofoten.com/en/the-right-to-roam-freedom-with-responsibility-in-the-great-outdoors/
+    checked_on: 2026-10-31
+  - text: Open fires are banned in and near forests and outlying land from 15 April to 15 September unless the municipality allows them.
+    source_url: https://www.dsb.no/en/Safe-everyday-life/fire/what-you-need-to-know-before-you-light-a-bonfire/
+    checked_on: 2026-10-31
+  - text: The Reinebringen path is close to 2,000 stone steps (1,974 counted in January 2024).
+    source_url: https://visitlofoten.com/en/guide/reinebringen-hike/
+    checked_on: 2026-10-31
+  - text: The Moskenes–Bodø ferry crossing takes about three to four hours.
+    source_url: https://guidetolofoten.com/ferry-bodo-moskenes/
+    checked_on: 2026-10-31
+status: approved
+approved_on: 2026-10-31
