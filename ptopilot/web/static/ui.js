@@ -95,6 +95,37 @@ function findControl(action, name, value) {
   return null;
 }
 
+// Laid out and not clipped to a pixel (app.css's .sr-only and the planner's hidden "Set" button).
+function visible(node) {
+  if (!node || !node.isConnected || node.closest("[hidden], .sr-only")) return false;
+  const box = node.getBoundingClientRect();
+  return box.width > 1 && box.height > 1;
+}
+
+// Focus somewhere sensible once the focused control is gone: the first visible candidate, else the
+// section itself (tabindex -1 makes it focusable; .focus-landing keeps the outline from flashing).
+function landFocus(candidates, section) {
+  const target = candidates.find(visible);
+  if (target) return target.focus();
+  if (!section || !section.isConnected) return;
+  section.setAttribute("tabindex", "-1");
+  section.classList.add("focus-landing");
+  section.focus({ preventScroll: true });
+}
+
+// The focused element's twin in fresh markup: by id, else name + value, else aria-label.
+function twin(scope, node) {
+  if (!scope || !node || node === document.body) return null;
+  if (node.id) return scope.querySelector(`#${CSS.escape(node.id)}`);
+  const attr = (a) => `[${a}="${CSS.escape(node.getAttribute(a))}"]`;
+  if (node.name) {
+    const value = node.getAttribute("value") != null ? attr("value") : "";
+    return scope.querySelector(`${node.tagName}[name="${CSS.escape(node.name)}"]${value}`);
+  }
+  if (node.getAttribute("aria-label")) return scope.querySelector(`${node.tagName}${attr("aria-label")}`);
+  return null;
+}
+
 async function reloadSections(ids) {
   const response = await fetch(location.href, { headers: { Accept: "text/html" }, credentials: "same-origin" });
   if (!response.ok) throw new Error("reload failed");
@@ -126,6 +157,7 @@ async function submitInPlace(form, submitter) {
   const name = (submitter && submitter.name) || "";
   const value = (submitter && submitter.value) || "";
   const hadFocus = form.contains(document.activeElement);
+  const focused = hadFocus ? document.activeElement : null;
   if (submitter) submitter.disabled = true;
   form.setAttribute("aria-busy", "true");
   let data = null;
@@ -152,6 +184,9 @@ async function submitInPlace(form, submitter) {
   clearErrors(form);
   const after = form.dataset.after || "none";
   if (after === "remove") {
+    const ids = sectionIds(form);
+    const gone = (ids.length && document.getElementById(ids[0])) || form;
+    if (hadFocus) landFocus([], gone.parentElement && gone.parentElement.closest("section, .panel, main"));
     removeTarget(form);
     toast(form.dataset.toast || "Done");
   } else if (after === "reload-section") {
@@ -162,9 +197,12 @@ async function submitInPlace(form, submitter) {
       return;
     }
     const again = findControl(action, name, value);
+    if (hadFocus) {
+      const section = document.getElementById(sectionIds(form)[0]);
+      landFocus([twin(section, focused), again].filter(Boolean), section);
+    }
     if (again) {
       showSaved(again);
-      if (hadFocus) again.focus();
     } else {
       toast(form.dataset.toast || "Saved");
     }

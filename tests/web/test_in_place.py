@@ -151,3 +151,15 @@ def test_planner_swaps_the_calendar_and_rebinds_it(signed_in, clean_engine):
     assert 'addEventListener("ui:swapped"' in planner and "data-planner-bound" in planner
     assert "teardown" in planner  # the old calendar's window handlers go (the shared tap-calendar's)
     assert 'removeEventListener("pointerup"' in (STATIC / "daygrid.js").read_text(encoding="utf-8")
+
+
+def test_focus_lands_somewhere_visible_after_an_in_place_action():
+    """When the clicked control is swapped out or removed, focus goes to the same control in the new
+    markup if it's visible, else to the swapped section itself (tabindex -1, no outline flash), and never
+    to a visually hidden control such as the planner's clipped "Set" button."""
+    js = (STATIC / "ui.js").read_text(encoding="utf-8")
+    assert "function visible(" in js and "function landFocus(" in js
+    assert 'setAttribute("tabindex", "-1")' in js and '"focus-landing"' in js
+    assert "if (hadFocus) again.focus();" not in js  # the old blind focus on the submitter
+    css = (STATIC / "app.css").read_text(encoding="utf-8")
+    assert ".focus-landing:focus" in css
