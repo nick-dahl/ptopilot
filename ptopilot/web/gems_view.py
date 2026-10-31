@@ -71,6 +71,11 @@ class GemCard:
         return fit_pill(self.fare)
 
     @property
+    def unpriced_guide(self) -> bool:
+        """A guide opened from a shared link: never issued to the viewer, so its fares are never checked."""
+        return self.issue is None and self.fare is None
+
+    @property
     def priced(self) -> bool:
         """A fare is known: it always shows, fitting or not."""
         return self.fare is not None and self.fare.status == "found" and self.fare.price is not None

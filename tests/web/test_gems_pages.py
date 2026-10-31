@@ -190,7 +190,9 @@ def test_any_signed_in_user_can_open_an_approved_guide(client, emailer, clean_en
     assert "<li>Camp on open land away from houses</li>" in page
     assert "How to do it on a budget" in page and "Free wild camping" in page and "~$45/day" in page
     assert OWN_PHOTO in page and "Example Photographer" in page  # its own photo and credit
-    assert "Checking fares…" in page
+    # Never issued to them, so never priced for them: no pill promising a check that won't come.
+    assert "Checking fares…" not in page and 'class="fit ' not in page
+    assert "Track this place to get live fares for it." in page
     with session_scope(clean_engine) as s:  # viewing doesn't add it to their issues
         assert s.scalar(select(GemIssue.id).where(GemIssue.user_id == uid)) is None
 

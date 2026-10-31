@@ -191,7 +191,8 @@
   {% if c.priced %}{% set f = c.fare %}
   <div class="gem-fare-line"><span class="price">{{ f.price | money(f.currency) }}</span><span class="muted small">{{ "open-jaw" if c.home_from else "round trip" }} {{ f.origin }} → {{ c.arrival }}{% if c.home_from %}, home from {{ c.home_from }}{% endif %} · {{ f.depart_date | dates(f.return_date) }} · checked {{ f.checked_at | day }}</span></div>
   {% endif %}
-  {{ fit_pill(c) }}{% if c.priced and c.fare.deep_link %} <a class="small" href="{{ c.fare.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
+  {% if c.unpriced_guide %}{% if not c.tracked %}<p class="muted small m-0">Track this place to get live fares for it.</p>{% endif %}
+  {% else %}{{ fit_pill(c) }}{% endif %}{% if c.priced and c.fare.deep_link %} <a class="small" href="{{ c.fare.deep_link }}" rel="noopener" target="_blank">View flights</a>{% endif %}
 </div>
 {%- endmacro %}
 
