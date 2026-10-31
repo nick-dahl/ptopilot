@@ -18,6 +18,7 @@ from ptopilot.db.models import GemFare, GemIssue
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline import gems as stage
 from ptopilot.pipeline import photos, runner
+from ptopilot.sources.base import SourceUnavailable
 from tests.pipeline.conftest import (
     RUN,
     FakeLiveSource,
@@ -414,3 +415,61 @@ def test_a_broken_catalogue_is_logged_not_fatal(make_ctx, tmp_path, monkeypatch,
     assert set(stage.run(ctx).values()) == {0}
     assert photos.run(ctx)["failed"] == 0
     assert "garbled.yaml" in caplog.text
+
+
+def test_month_scans_stop_after_repeated_failures(make_ctx, monkeypatch):
+    monkeypatch.setattr(config, "GEM_SCAN_FAILURES_MAX", 2)
+    down = SourceUnavailable("down")
+    source = FakeMonthSource({("ORD", "LJU", m): down for m in (date(2027, 5, 1), JUNE, date(2027, 9, 1))})
+    gf = live(option(500))
+    ctx = make_ctx(month_source=source, live_sources=[gf])
+    add_user(ctx.engine, windows=())  # Lipnica's best months: three scans to make
+
+    counts = stage.run(ctx)
+
+    assert (counts["scans"], counts["scans_failed"], counts["scans_skipped"]) == (2, 2, 1)
+    assert len(source.calls) == 2
+    assert fares(ctx.engine) == [] and gf.calls == []  # nothing stored: it is tried again next run
+
+
+def test_live_checks_stop_after_the_first_failure(make_ctx):
+    source = FakeMonthSource(
+        {
+            ("ORD", "LJU", JUNE): [quote("ORD", "LJU", *TRIP, 400)],
+            ("ORD", "BOO", JUNE): [quote("ORD", "BOO", *TRIP, 500)],
+        }
+    )
+    gf = FakeLiveSource("google_flights", failing())
+    ctx = make_ctx(month_source=source, live_sources=[gf])
+    uid = add_user(ctx.engine)
+    with session_scope(ctx.engine) as s:
+        for slug in (LIPNICA, "hoegvik-islands"):
+            s.add(GemIssue(user_id=uid, gem_slug=slug, published_on=RUN))
+
+    counts = stage.run(ctx)
+
+    assert len(gf.calls) == 1
+    assert (counts["checked"], counts["failed"], counts["skipped"]) == (1, 1, 1)
+    assert [r.status for r in fares(ctx.engine)] == ["failed"]  # the skipped one stores nothing
+
+
+def test_the_stage_stops_its_network_work_when_out_of_time(make_ctx):
+    now = [0.0]
+
+    class SlowMonthSource(FakeMonthSource):
+        def month_scan(self, *args, **kwargs):
+            now[0] += config.GEM_STAGE_BUDGET_S + 1  # one scan uses up the whole budget
+            return super().month_scan(*args, **kwargs)
+
+    source = SlowMonthSource(
+        {(o, "LJU", m): [quote(o, "LJU", *TRIP, 400)] for o in ("ORD",) for m in (date(2027, 5, 1), JUNE)}
+    )
+    gf = live(option(500))
+    ctx = make_ctx(month_source=source, live_sources=[gf], clock=lambda: now[0])
+    add_user(ctx.engine, windows=())
+
+    counts = stage.run(ctx)
+
+    assert (counts["scans"], counts["scans_skipped"]) == (1, 2)
+    assert counts["out_of_time"] == 1 and gf.calls == []
+    assert fares(ctx.engine) == []  # tried again next run

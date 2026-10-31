@@ -44,8 +44,8 @@ log = logging.getLogger(__name__)
 
 TRIP_SLACK_DAYS = 2  # candidate trips within this many days of the person's trip length
 COUNTS = (
-    "users", "published", "priced_due", "scans", "scans_failed",
-    "checked", "would_check", "found", "none", "failed", "held_live_cap",
+    "users", "published", "priced_due", "scans", "scans_failed", "scans_skipped",
+    "checked", "would_check", "found", "none", "failed", "held_live_cap", "skipped", "out_of_time",
 )  # fmt: skip
 ScanKey = tuple[str, str, date]  # origin, gem airport, month
 
@@ -157,11 +157,19 @@ def _due(s: Session, person: _Person, catalogue: dict[str, Gem], run_date: date)
 
 
 def _scan(
-    ctx: RunContext, keys: list[ScanKey], geo: Geo, counts: Counter[str]
+    ctx: RunContext, keys: list[ScanKey], geo: Geo, counts: Counter[str], started: float
 ) -> dict[ScanKey, list[FareQuote]]:
-    """One month scan per (origin, gem airport, month), shared by everyone who needs it."""
+    """One month scan per (origin, gem airport, month), shared by everyone who needs it.
+
+    After GEM_SCAN_FAILURES_MAX failures in a row, or once the stage is GEM_STAGE_BUDGET_S old, the rest
+    are skipped: their gems store nothing and are tried again next run."""
     found: dict[ScanKey, list[FareQuote]] = {}
-    for origin, airport, month in keys:
+    failures = 0
+    for i, (origin, airport, month) in enumerate(keys):
+        if failures >= config.GEM_SCAN_FAILURES_MAX or ctx.clock() - started > config.GEM_STAGE_BUDGET_S:
+            counts["scans_skipped"] += len(keys) - i
+            log.warning("gem month scans stopped early: %d skipped", len(keys) - i)
+            break
         counts["scans"] += 1
         try:
             found[(origin, airport, month)] = ctx.month_source.month_scan(
@@ -169,7 +177,10 @@ def _scan(
             )
         except SourceUnavailable as exc:
             counts["scans_failed"] += 1
+            failures += 1
             log.warning("gem month scan %s-%s %s failed: %s", origin, airport, month, exc)
+        else:
+            failures = 0
     return found
 
 
@@ -286,10 +297,12 @@ def run(ctx: RunContext) -> dict[str, int]:
         s.expunge_all()
     counts["priced_due"] = len(due)
     keys = sorted({k for d in due for k in _scan_keys(d)})
-    found = _scan(ctx, keys, geo, counts)
+    started = ctx.clock()
+    found = _scan(ctx, keys, geo, counts, started)
 
     source = next((src for src in ctx.live_sources if src.name == LIVE_SOURCE), None)
     catalog = AirportCatalog.load()
+    live_down = False  # the live source failed once this run: the rest wait for the next run
     for d in due:
         answered, candidate = _cheapest(ctx, d, found)
         if not answered and _scan_keys(
@@ -307,6 +320,12 @@ def run(ctx: RunContext) -> dict[str, int]:
                 "no %s source: gem %s left unpriced for user %s", LIVE_SOURCE, d.gem.slug, d.person.user.id
             )
             continue
+        if live_down:  # no row: tried again next run
+            counts["skipped"] += 1
+            continue
+        if ctx.clock() - started > config.GEM_STAGE_BUDGET_S:  # no row: tried again next run
+            counts["out_of_time"] += 1
+            continue
         if used >= config.GEM_LIVE_CHECKS_PER_DAY:
             counts["held_live_cap"] += 1
             continue
@@ -321,4 +340,7 @@ def run(ctx: RunContext) -> dict[str, int]:
             s.add(row)
         counts["checked"] += 1
         counts[row.status] += 1
+        if row.status == "failed":
+            live_down = True
+            log.warning("gem live checks stopped for this run after a %s failure", LIVE_SOURCE)
     return dict(counts)

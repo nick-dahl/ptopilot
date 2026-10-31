@@ -134,3 +134,5 @@ GEM_PRICED_ISSUES = 4
 GEM_LIVE_CHECKS_PER_DAY = 8
 GEM_RECHECK_DAYS = 3
 GEM_CLAIM_STALE_DAYS = 365
+GEM_STAGE_BUDGET_S = 600  # the gems stage starts no month scan or live check after this long
+GEM_SCAN_FAILURES_MAX = 3  # consecutive failed month scans before the rest wait for the next run
