@@ -155,7 +155,8 @@ class AirportCatalog:
             return 3
         return None
 
-    def search(self, query: str, limit: int = config.SEARCH_LIMIT) -> list[PlaceMatch]:
+    def matches(self, query: str) -> list[tuple[int, bool, CatalogAirport]]:
+        """Every airport matching `query`, best first, as (match kind, exact city or place, airport)."""
         q = _fold(query.strip())
         if not q:
             return []
@@ -174,6 +175,10 @@ class AirportCatalog:
                 exact = _fold(a.city) == q or q in self._place_names.get(a.code, ())
                 ranked.append(((kind > 0, not exact, _SIZE_ORDER[a.size], kind, intl, a.name, a.code), a))
         ranked.sort(key=lambda t: t[0])
+        return [(key[3], not key[1], a) for key, a in ranked]
+
+    def search(self, query: str, limit: int = config.SEARCH_LIMIT) -> list[PlaceMatch]:
         return [
-            PlaceMatch(a, tuple(self.nearby(a.code)), self.country_name(a.country)) for _, a in ranked[:limit]
+            PlaceMatch(a, tuple(self.nearby(a.code)), self.country_name(a.country))
+            for _, _, a in self.matches(query)[:limit]
         ]

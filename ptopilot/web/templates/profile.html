@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% from "_components.html" import field %}
+{% from "_inputs.html" import chips, segmented, stepper, trip_range, switch %}
 {% block title %}Profile · ptopilot{% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
     <h1>Your travel profile</h1>
-    <p class="muted small">Changes apply from the next morning scan.</p>
+    <p class="muted small">Changes save as you make them and apply from the next morning scan.</p>
   </div>
 </div>
 {% if errors %}
@@ -13,47 +13,108 @@
   <p class="error error-title"><b>Please fix {{ errors | length }} thing{{ "s" if errors | length != 1 }}:</b></p>
   <ul class="error error-list">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
 </div>
+{% elif saved %}
+<div class="panel notice"><p class="m-0">Saved.</p></div>
 {% endif %}
-<form method="post" action="/profile" class="stack">
-  <section class="panel">
-    <h2>Home and calendar</h2>
-    <div class="fields">
-      {{ field("home_airport", "Home airport", form.home_airport, attrs='placeholder="JFK" required') }}
-      {{ field("nearby_airports", "Also fly from", form.nearby_airports, attrs='placeholder="EWR, PHL"') }}
-      {{ field("country", "Country", form.country, attrs='maxlength="2"') }}
-      {{ field("holiday_calendar", "Holiday calendar", form.holiday_calendar, attrs='placeholder="US or GB-ENG"') }}
+{# Each section is its own form: with JS it saves on change (static/ui.js); without, by its Save button. #}
+<div class="stack">
+  <form id="profile-airports" class="panel" method="post" action="/profile" data-inplace data-autosave>
+    <input type="hidden" name="section" value="airports">
+    <div class="section-head">
+      <h2>Airports</h2>
+      <div class="section-save"><button class="btn btn-secondary btn-sm" type="submit">Save airports</button></div>
     </div>
-    {{ field("ignored_holidays", "Holidays your office works", form.ignored_holidays, hint="Comma-separated, e.g. Columbus Day, Veterans Day") }}
-    {{ field("extra_days_off", "Company days off", form.extra_days_off, hint="YYYY-MM-DD, comma-separated") }}
-  </section>
-
-  <section class="panel">
-    <h2>PTO and trip length</h2>
-    <div class="fields">
-      {{ field("pto_days_total", "PTO days per year", form.pto_days_total, hint="Used to start each new planning year.", attrs='inputmode="numeric" required') }}
-      {{ field("min_trip_days", "Shortest trip", form.min_trip_days, hint="Days away from home", attrs='inputmode="numeric"') }}
-      {{ field("max_trip_days", "Longest trip", form.max_trip_days, hint="Days away from home", attrs='inputmode="numeric" required') }}
-      {{ field("ideal_trip_days", "Ideal trip", form.ideal_trip_days, hint="Optional. Trips near it are priced first.", attrs='inputmode="numeric" placeholder="no preference"') }}
+    <div class="section-errors" data-error-slot></div>
+    <div class="field">
+      <label class="field-label" for="home_airport">Home airport</label>
+      {{ chips("home_airport", home, "City or code, like JFK", "airports", label="Home airport", max=1, near=form.home_airport) }}
     </div>
-  </section>
-
-  <section class="panel">
-    <h2>Preferences</h2>
-    <div class="fields">
-      <label class="field"><span>Weather</span>
-        <select id="weather_tolerance" name="weather_tolerance">
-          {% for value, text in [("strict", "Only the best months"), ("normal", "Skip bad-weather months"), ("relaxed", "Any month")] %}
-          <option value="{{ value }}" {{ "selected" if form.weather_tolerance == value }}>{{ text }}</option>
-          {% endfor %}
-        </select></label>
-      {{ field("max_stops_short", "Max stops (short haul)", form.max_stops_short, attrs='inputmode="numeric"') }}
-      {{ field("max_stops_long", "Max stops (long haul)", form.max_stops_long, attrs='inputmode="numeric"') }}
-      {{ field("friday_evening_min_time", "Leave-after-work time", form.friday_evening_min_time, type="time") }}
+    <div class="field">
+      <label class="field-label" for="nearby_airports">Also fly from</label>
+      {{ chips("nearby_airports", nearby, "Add an airport", "airports", label="Also fly from", near=form.home_airport) }}
+      <small class="hint js-only">Type a city or code, then Enter · nearby airports come first</small>
     </div>
-    <label class="check"><input type="checkbox" name="allow_overnight_layover" {{ "checked" if form.allow_overnight_layover }}> Overnight layovers are OK</label>
-    <label class="check"><input type="checkbox" name="friday_evening_departure" {{ "checked" if form.friday_evening_departure }}> I can leave after work on my last workday</label>
-  </section>
+  </form>
 
-  <div class="form-actions"><button class="btn" type="submit">Save profile</button><a class="muted small" href="/">Cancel</a></div>
-</form>
+  <form id="profile-time-off" class="panel" method="post" action="/profile" data-inplace data-autosave>
+    <input type="hidden" name="section" value="time_off">
+    <div class="section-head">
+      <h2>Time off</h2>
+      <div class="section-save"><button class="btn btn-secondary btn-sm" type="submit">Save time off</button></div>
+    </div>
+    <div class="section-errors" data-error-slot></div>
+    <div class="fields">
+      <div class="field">
+        <label class="field-label" for="pto_days_total">PTO days per year</label>
+        {{ stepper("pto_days_total", form.pto_days_total, 0, 99, label="PTO days per year") }}
+        <small>Used to start each new planning year.</small>
+      </div>
+      <label class="field"><span>Holiday calendar</span>
+        <select id="holiday_calendar" name="holiday_calendar">
+          {% for code, name in calendars %}<option value="{{ code }}"{% if code == form.holiday_calendar %} selected{% endif %}>{{ name }}</option>{% endfor %}
+        </select>
+        <small>Its public holidays don't cost PTO.</small>
+      </label>
+    </div>
+    <div class="field">
+      <label class="field-label" for="ignored_holidays">Holidays your office works</label>
+      {{ chips("ignored_holidays", ignored, "Add a holiday", "holidays", label="Holidays your office works") }}
+      {% if holiday_names %}<small class="hint nojs-only">Comma-separated. This calendar has: {{ holiday_names | join(", ") }}</small>{% endif %}
+    </div>
+    <div class="field">
+      <label class="field-label" for="extra_days_off">Company days off</label>
+      {{ chips("extra_days_off", days_off, "YYYY-MM-DD, comma-separated", "dates", label="Company days off") }}
+      <small class="hint">Days your company closes that aren't public holidays.</small>
+    </div>
+  </form>
+
+  <form id="profile-travel" class="panel" method="post" action="/profile" data-inplace data-autosave>
+    <input type="hidden" name="section" value="travel">
+    <div class="section-head">
+      <h2>Travel style</h2>
+      <div class="section-save"><button class="btn btn-secondary btn-sm" type="submit">Save travel style</button></div>
+    </div>
+    <div class="section-errors" data-error-slot></div>
+    <div class="field">
+      <span class="field-label">Trip length</span>
+      {{ trip_range(form.min_trip_days, form.max_trip_days, form.ideal_trip_days) }}
+    </div>
+    <fieldset class="field">
+      <legend class="field-label">Weather you'll put up with</legend>
+      {{ segmented("weather_tolerance", [
+        ("strict", "Only the best months", "Trips in each place's best season"),
+        ("normal", "Shoulder season is fine", "Good months and the edges of them"),
+        ("relaxed", "Any time if it's cheap", "Any month, if the price is right"),
+      ], form.weather_tolerance) }}
+    </fieldset>
+    {% set short = [("0", "Nonstop only", none), ("1", "Up to 1 stop", none), ("2", "Up to 2 stops", none)] %}
+    {% set long = [("1", "Up to 1 stop", none), ("2", "Up to 2 stops", none)] %}
+    {# A stored value outside the choices (an older profile's 3 stops) stays visible and selected. #}
+    {% for key, choices in [("max_stops_short", short), ("max_stops_long", long)] %}{% set n = form[key] | string %}
+    {% if n.isdigit() and n not in choices | map(attribute=0) %}{% set _ = choices.append((n, "Nonstop only" if n == "0" else "Up to " ~ n ~ " stops", none)) %}{% endif %}
+    {% endfor %}
+    <div class="stops">
+      <fieldset class="field">
+        <legend class="field-label">Shorter flights</legend>
+        {{ segmented("max_stops_short", short, form.max_stops_short) }}
+      </fieldset>
+      <fieldset class="field">
+        <legend class="field-label">Long-haul</legend>
+        {{ segmented("max_stops_long", long, form.max_stops_long) }}
+      </fieldset>
+    </div>
+    <div class="switches">
+      {{ switch("allow_overnight_layover", form.allow_overnight_layover, "Overnight layovers are OK") }}
+      <div class="after-work">
+        {{ switch("friday_evening_departure", form.friday_evening_departure, "I can leave after work on my last workday") }}
+        <label class="field after-work-time"><span>Leaving from</span>
+          <input id="friday_evening_min_time" name="friday_evening_min_time" type="time" value="{{ form.friday_evening_min_time }}"></label>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="/static/chips.js"></script>
+<script type="module" src="/static/range.js"></script>
 {% endblock %}

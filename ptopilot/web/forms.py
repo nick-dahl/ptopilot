@@ -18,6 +18,17 @@ INT_FIELDS = (
 OPTIONAL_INT_FIELDS = ("ideal_trip_days",)  # blank means "no preference"
 TEXT_FIELDS = ("home_airport", "country", "holiday_calendar", "weather_tolerance")
 BOOL_FIELDS = ("allow_overnight_layover", "friday_evening_departure")
+# The profile page's sections (each its own form) and the fields each one carries. "all" is the old
+# single form: every field at once.
+SECTIONS = {
+    "airports": ("home_airport", "nearby_airports"),
+    "time_off": ("pto_days_total", "holiday_calendar", "ignored_holidays", "extra_days_off"),
+    "travel": (
+        "min_trip_days", "max_trip_days", "ideal_trip_days", "weather_tolerance", "max_stops_short",
+        "max_stops_long", "allow_overnight_layover", "friday_evening_departure", "friday_evening_min_time",
+    ),
+}  # fmt: skip
+SECTIONS["all"] = (*SECTIONS["airports"], *SECTIONS["time_off"], *SECTIONS["travel"], "country")
 
 
 def _int(value: str):
@@ -107,3 +118,16 @@ def profile_to_form(s: Session, user: User | None) -> dict[str, str]:
             if getattr(user, key):
                 form[key] = "on"
     return form
+
+
+def merge_section(current: dict[str, str], submitted: Mapping[str, str]) -> dict[str, str]:
+    """The submitted fields laid over the current ones, so one section can be saved on its own.
+
+    A form leaves an unticked checkbox out entirely, so a switch missing from a named section
+    (submitted["section"]) means off. Without a section name only the fields sent change."""
+    fields = SECTIONS.get(submitted.get("section", ""), ())
+    merged = {**current, **{k: v for k, v in submitted.items() if k != "section"}}
+    for key in BOOL_FIELDS:
+        if key in fields and key not in submitted:
+            merged.pop(key, None)
+    return merged

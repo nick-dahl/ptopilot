@@ -34,6 +34,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from ptopilot import config
 from ptopilot.core.airports import AirportCatalog, PlaceMatch
+from ptopilot.core.calendar import calendar_codes, upcoming_holiday_names
 from ptopilot.core.geo import Geo, UnknownCodeError, palette
 from ptopilot.core.seasons import SeasonTable
 from ptopilot.data import load_geo, load_seasons
@@ -66,7 +67,8 @@ from ptopilot.related_links import place_for, refresh_missing_seasons, suggestio
 from ptopilot.settings import Settings
 from ptopilot.sources.climate import fetch_climate
 from ptopilot.trackers import apply_action, snooze, unsnooze
-from ptopilot.web.forms import form_to_profile, profile_to_form
+from ptopilot.web import api
+from ptopilot.web.forms import SECTIONS, form_to_profile, merge_section, profile_to_form
 from ptopilot.web.history import destination_summaries, related_deals, trend, trip_options, typical_band
 from ptopilot.web.planner_view import plan_context, too_short
 from ptopilot.web.samples import sample_cards
@@ -218,6 +220,8 @@ def create_app(
             )
         response.headers.update(exc.headers or {})
         return response
+
+    app.include_router(api.router(catalog, today, lambda r: bool(current_email(r)), signed_out))
 
     @app.get("/healthz")
     def healthz():
@@ -872,7 +876,36 @@ def create_app(
 
     # --- profile / onboarding --------------------------------------------------------------------
 
+    def chip_items(raw: str, kind: str) -> list[dict]:
+        """A comma list from the form as chips: {value, label} plus the bold code for airports."""
+        items = []
+        for value in (part.strip() for part in (raw or "").split(",")):
+            if not value:
+                continue
+            if kind == "airports":
+                items.append({"value": value.upper(), "code": value.upper(), "label": airport_city(value)})
+            elif kind == "dates":
+                try:
+                    d = date.fromisoformat(value)
+                    items.append({"value": value, "label": f"{day(d)}, {d.year}"})
+                except ValueError:
+                    items.append({"value": value, "label": value})
+            else:
+                items.append({"value": value, "label": value})
+        return items
+
+    def calendar_choices(current: str) -> list[tuple[str, str]]:
+        def label(code: str) -> str:
+            country, _, sub = code.partition("-")
+            return f"{catalog.country_name(country)} · {sub}" if sub else catalog.country_name(country)
+
+        codes = calendar_codes(current)
+        if current and current not in codes:
+            codes.append(current)  # keep what was typed, so the page shows it and validation explains it
+        return sorted(((code, label(code)) for code in codes), key=lambda c: (c[1].casefold(), c[0]))
+
     def profile_page(request: Request, form: dict, errors: list[str], status: int = 200):
+        calendar = form.get("holiday_calendar", "")
         return page(
             request,
             "profile.html",
@@ -880,6 +913,13 @@ def create_app(
             active="profile",
             form=form,
             errors=errors,
+            saved=request.query_params.get("saved") == "1" and not errors,
+            home=chip_items(form.get("home_airport", ""), "airports"),
+            nearby=chip_items(form.get("nearby_airports", ""), "airports"),
+            ignored=chip_items(form.get("ignored_holidays", ""), "holidays"),
+            days_off=chip_items(form.get("extra_days_off", ""), "dates"),
+            calendars=calendar_choices(calendar),
+            holiday_names=upcoming_holiday_names(calendar, today()) if calendar else [],
         )
 
     @app.get("/profile")
@@ -892,20 +932,33 @@ def create_app(
 
     @app.post("/profile")
     async def save_profile(request: Request):
+        """The whole profile (the page without JS, or an old full form), or one section of it.
+
+        Whatever is sent is laid over the saved profile (forms.merge_section), so a section, or a script
+        sending only the field that changed, leaves the rest alone; then the usual validation runs."""
         email = current_email(request)
         if not email:
-            return redirect("/")
-        form = {k: str(v) for k, v in (await request.form()).items()}
+            return signed_out(request)
+        submitted = {k: str(v) for k, v in (await request.form()).items()}
+        section = submitted.get("section", "")
+        if section not in SECTIONS:
+            section = submitted["section"] = "" if wants_json(request) else "all"
+        with session_scope(engine) as s:
+            form = merge_section(profile_to_form(s, signed_in_user(s, request)), submitted)
         form.pop("pto_committed", None)  # lives on the planner now; saving the profile never changes it
         try:
             profile = parse_profile(form_to_profile(form, email), current_geo(), require_plan=False)
         except ValueError as exc:
             errors = [line.removeprefix("  - ") for line in str(exc).splitlines()[1:]]
+            if wants_json(request):
+                return json_error(400, *errors)
             return profile_page(request, form, errors, 400)
         with session_scope(engine) as s:
             is_new = s.scalar(select(User.id).where(User.email == profile.email)) is None
             apply_profile(s, profile, replace_plan=False)
-        return redirect("/plan/new" if is_new else "/?saved=1")
+        if is_new:
+            return json_or_redirect(request, "/plan/new", next="/plan/new")
+        return json_or_redirect(request, "/?saved=1" if section == "all" else "/profile?saved=1")
 
     # --- snooze links from the digest ------------------------------------------------------------
 

@@ -35,6 +35,37 @@ def _known_names(country: str, subdiv: str | None) -> frozenset[str]:
     )
 
 
+def calendar_codes(current: str = "") -> list[str]:
+    """Every country with a holiday calendar, plus the regional calendars (GB-ENG) of `current`'s country."""
+    supported = holidays.list_supported_countries()
+    country = current.strip().upper().partition("-")[0]
+    countries = [code for code in supported if len(code) == 2]  # not the 3-letter aliases
+    return sorted([*countries, *(f"{country}-{sub}" for sub in supported.get(country, ()))])
+
+
+def upcoming_holiday_names(code: str, start: date, days: int = 366) -> list[str]:
+    """Names of the holidays calendar `code` has in the `days` from `start`, soonest first, each once.
+
+    "(observed)" days are folded into their holiday. An unknown calendar has none."""
+    country, _, subdiv = code.strip().upper().partition("-")
+    end = start + timedelta(days=days)
+    try:
+        found = {
+            d: raw
+            for year in range(start.year, end.year + 1)
+            for d, raw in _holiday_names(country, subdiv or None, year).items()
+            if start <= d < end
+        }
+    except NotImplementedError:
+        return []
+    names: dict[str, str] = {}
+    for _, raw in sorted(found.items()):
+        for name in raw.split("; "):
+            name = name.removesuffix(OBSERVED_SUFFIX)
+            names.setdefault(_base_name(name), name)
+    return list(names.values())
+
+
 @dataclass(frozen=True)
 class WorkCalendar:
     country: str

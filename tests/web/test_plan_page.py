@@ -268,9 +268,11 @@ def test_plan_page_shows_building_history_and_too_short_notes(signed_in, clean_e
 
 
 def test_pages_other_than_plan_load_only_the_shared_ui_script(signed_in):
-    for url in ("/", "/destinations", "/profile"):
+    for url in ("/", "/destinations"):
         html = signed_in.get(url).text
         assert html.count("<script") == 1 and '<script type="module" src="/static/ui.js">' in html
+    profile = signed_in.get("/profile").text  # plus its own input scripts, never the planner's
+    assert "planner.js" not in profile and '<script type="module" src="/static/ui.js">' in profile
 
 
 def test_a_holiday_inside_a_range_is_both_open_and_holiday(signed_in, clean_engine):

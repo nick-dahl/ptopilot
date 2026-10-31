@@ -10,7 +10,7 @@ from tests.web.conftest import PROFILE_FORM, seed_profile, sign_in
 def test_profile_is_grouped_into_sections(client, emailer, clean_engine):
     sign_in(client, emailer, clean_engine)
     page = client.get("/profile").text
-    sections = ("Home and calendar", "PTO and trip length", "Preferences")
+    sections = ("Airports", "Time off", "Travel style")
     assert all(f"<h2>{heading}</h2>" in page for heading in sections)
     assert 'name="ideal_trip_days"' in page and 'aria-current="page"' in page
 
@@ -20,7 +20,10 @@ def test_saving_an_ideal_length_stores_it_and_shows_it_again(client, emailer, cl
     assert client.post("/profile", data={**PROFILE_FORM, "ideal_trip_days": "10"}).status_code == 303
     with session_scope(clean_engine) as s:
         assert s.scalar(select(User.ideal_trip_days)) == 10
-    assert 'name="ideal_trip_days" type="text" value="10"' in client.get("/profile").text
+    assert (
+        'name="ideal_trip_days" type="number" inputmode="numeric" min="1" value="10"'
+        in client.get("/profile").text
+    )
 
 
 def test_clearing_the_ideal_length_removes_the_preference(client, emailer, clean_engine):

@@ -7,12 +7,19 @@
 //   data-after="remove"          remove the element named by data-section (or the form itself)
 //   data-after="none"            leave the page as it is (the default)
 //   data-toast="..."             optional message for the toast shown when the control is gone
+//   data-autosave                save whenever a named field changes (the profile's sections); the
+//                                "Saved" tick goes after the form's submit button, and errors into its
+//                                [data-error-slot] when it has one
 //
 // After swapping a section it dispatches "ui:swapped" on document ({ detail: { element } }) so scripts
 // bound to the old markup can re-bind.
 
+// Scripts run: app.css swaps the no-JS fallbacks (plain fields, Save buttons) for the enhanced controls.
+document.documentElement.classList.add("js");
+
 const SAVED_MS = 2200;
 const TOAST_MS = 3200;
+const AUTOSAVE_MS = 350; // a burst of changes (stepper clicks, a dragged slider) is one save
 
 let region = null;
 
@@ -45,11 +52,14 @@ function showErrors(form, control, errors) {
   box.className = "inline-error";
   box.setAttribute("role", "alert");
   box.textContent = (errors && errors.length ? errors : ["That didn't work. Try again."]).join(" ");
-  (control || form.lastElementChild || form).after(box);
+  const slot = form.querySelector("[data-error-slot]");
+  if (slot) slot.append(box);
+  else (control || form.lastElementChild || form).after(box);
 }
 
 function showSaved(control) {
   if (!control) return;
+  control.parentElement.querySelectorAll(".saved-tick").forEach((old) => old.remove());
   const tick = document.createElement("span");
   tick.className = "saved-tick";
   tick.setAttribute("role", "status");
@@ -159,4 +169,27 @@ document.addEventListener("submit", (event) => {
   event.preventDefault();
   if (form.getAttribute("aria-busy") === "true") return; // one request at a time
   submitInPlace(form, event.submitter || form.querySelector("button[type=submit], button:not([type])"));
+});
+
+// Save-on-change. Only fields with a name count: the chip and slider scripts write named fields and fire
+// "change" on them, while their own typing boxes and range handles have no name. A change made while a
+// save is running waits for it, so nothing is lost.
+const autosaveTimers = new WeakMap();
+
+function autosave(form) {
+  clearTimeout(autosaveTimers.get(form));
+  autosaveTimers.set(
+    form,
+    setTimeout(() => {
+      if (form.getAttribute("aria-busy") === "true") return autosave(form);
+      form.requestSubmit(form.querySelector("button[type=submit], button:not([type])") || undefined);
+    }, AUTOSAVE_MS),
+  );
+}
+
+document.addEventListener("change", (event) => {
+  const field = event.target;
+  const form = field && field.form;
+  if (!form || !form.hasAttribute("data-autosave") || !field.name || !window.fetch) return;
+  autosave(form);
 });

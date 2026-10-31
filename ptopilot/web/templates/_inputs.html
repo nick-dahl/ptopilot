@@ -1,0 +1,86 @@
+{# Input components (spec §3.3). Each works as plain HTML; static/chips.js and static/range.js enhance them. #}
+
+{# Chips: one per saved item, in a list with "Remove …" buttons. Without JS the visible text field (a comma
+   list) is what's submitted; chips.js turns it into the type-ahead box and submits the hidden field instead.
+   items: [{value, label, code?}]. source: airports | places | holidays | dates. #}
+{% macro chips(name, items, placeholder, source, label="", max=0, near="") -%}
+<div class="chips" data-chips data-source="{{ source }}"{% if max %} data-max="{{ max }}"{% endif %}{% if near %} data-near="{{ near }}"{% endif %}>
+  <div class="chip-box">
+    <ul class="chip-list" aria-label="{{ label or name }}">
+      {%- for item in items %}
+      <li class="chip" data-value="{{ item.value }}" data-label="{{ item.label }}"{% if item.code %} data-code="{{ item.code }}"{% endif %}>
+        <span class="chip-text">{% if item.code %}<b>{{ item.code }}</b> {% endif %}{% if item.label != item.code %}{{ item.label }}{% endif %}</span>
+        <button class="chip-x" type="button" aria-label="Remove {{ item.code or item.label }}">&times;</button>
+      </li>
+      {%- endfor %}
+    </ul>
+    <input type="hidden" name="{{ name }}" value="{{ items | map(attribute='value') | join(', ') }}" disabled data-chips-value>
+    <input class="chip-input" id="{{ name }}" name="{{ name }}" type="text" value="{{ items | map(attribute='value') | join(', ') }}" placeholder="{{ placeholder }}" autocomplete="off" spellcheck="false" data-chips-input>
+  </div>
+  <ul class="chip-menu" id="{{ name }}-menu" role="listbox" aria-label="Suggestions" hidden></ul>
+  <small class="chip-note" aria-live="polite"></small>
+</div>
+{%- endmacro %}
+
+{# Segmented cards: radio inputs, so they work without JS. options: [(value, label, description or none)]. #}
+{% macro segmented(name, options, value, label="") -%}
+<div class="segmented" role="radiogroup"{% if label %} aria-label="{{ label }}"{% endif %}>
+  {%- for v, text, desc in options %}
+  <label class="seg">
+    <input type="radio" name="{{ name }}" value="{{ v }}"{% if v | string == value | string %} checked{% endif %}>
+    <span class="seg-label">{{ text }}</span>
+    {%- if desc %}<small>{{ desc }}</small>{% endif %}
+  </label>
+  {%- endfor %}
+</div>
+{%- endmacro %}
+
+{# − value +. The buttons appear only with JS (range.js); the number field works alone. #}
+{% macro stepper(name, value, min, max, label="") -%}
+<div class="stepper" data-stepper>
+  <button class="step-btn" type="button" data-step="-1" aria-label="Fewer{% if label %} {{ label }}{% endif %}">&minus;</button>
+  <input id="{{ name }}" name="{{ name }}" type="number" inputmode="numeric" min="{{ min }}" max="{{ max }}" value="{{ value }}"{% if label %} aria-label="{{ label }}"{% endif %} required>
+  <button class="step-btn" type="button" data-step="1" aria-label="More{% if label %} {{ label }}{% endif %}">+</button>
+</div>
+{%- endmacro %}
+
+{# Trip length: two handles (shortest, longest) and an optional ★ (ideal) between them, plus "No preference".
+   Without JS: the three number fields, which carry the names either way (range.js keeps them in step). #}
+{% macro trip_range(min_value, max_value, ideal, lo=1, hi=30) -%}
+{% set a, b = min_value | default('', true) | int, max_value | default('', true) | int %}
+{% set hi = [hi, a, b] | max %}
+<div class="trip-range" data-trip-range data-lo="{{ lo }}" data-hi="{{ hi }}">
+  <div class="range-ui">
+    <div class="range-star">
+      <span class="star-label" aria-hidden="true"></span>
+      <input class="range-ideal" type="range" min="{{ lo }}" max="{{ hi }}" value="{{ ideal or (a + b) // 2 }}" aria-label="Ideal trip length, in days">
+    </div>
+    <div class="range-track">
+      <span class="range-fill" aria-hidden="true"></span>
+      <input class="range-min" type="range" min="{{ lo }}" max="{{ hi }}" value="{{ min_value | default('', true) }}" aria-label="Shortest trip, in days">
+      <input class="range-max" type="range" min="{{ lo }}" max="{{ hi }}" value="{{ max_value | default('', true) }}" aria-label="Longest trip, in days">
+    </div>
+    <div class="range-foot">
+      <span class="range-line muted small" aria-live="polite"></span>
+      <button class="chip-toggle" type="button" aria-pressed="{{ 'false' if ideal else 'true' }}" data-no-preference>No preference</button>
+    </div>
+  </div>
+  <div class="range-numbers fields">
+    <label class="field"><span>Shortest trip</span>
+      <input name="min_trip_days" type="number" inputmode="numeric" min="1" value="{{ min_value | default('', true) }}"><small>Days away from home</small></label>
+    <label class="field"><span>Longest trip</span>
+      <input name="max_trip_days" type="number" inputmode="numeric" min="1" value="{{ max_value | default('', true) }}" required><small>Days away from home</small></label>
+    <label class="field"><span>Ideal trip</span>
+      <input name="ideal_trip_days" type="number" inputmode="numeric" min="1" value="{{ ideal | default('', true) }}" placeholder="no preference"><small>Optional. Trips near it are priced first.</small></label>
+  </div>
+</div>
+{%- endmacro %}
+
+{# An on/off switch: a checkbox with role="switch", so it posts "on" like any checkbox. #}
+{% macro switch(name, checked, label) -%}
+<label class="switch">
+  <input type="checkbox" role="switch" name="{{ name }}"{% if checked %} checked{% endif %}>
+  <span class="switch-track" aria-hidden="true"></span>
+  <span>{{ label }}</span>
+</label>
+{%- endmacro %}
