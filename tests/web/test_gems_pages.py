@@ -427,3 +427,19 @@ def test_a_broken_catalogue_costs_only_the_gems(client, emailer, clean_engine, m
     assert r.status_code == 200 and "hidden gem" not in r.text
     r = client.get("/gems")
     assert r.status_code == 200 and "The first issue is on its way." in r.text
+
+
+def test_an_older_issue_is_the_latest_gem_not_this_weeks(client, emailer, clean_engine):
+    uid = signed_in(client, emailer, clean_engine)
+    issue(clean_engine, uid, "hoegvik-islands", TODAY - timedelta(days=30))
+    page = client.get("/").text
+    assert "This week's hidden gem" not in page
+    assert "Your latest hidden gem" in page and "Høgvik Islands" in page
+
+
+def test_trip_style_chips_are_a_comfortable_tap_on_touch_screens():
+    css = (Path(__file__).resolve().parents[2] / "ptopilot" / "web" / "static" / "app.css").read_text(
+        encoding="utf-8"
+    )
+    coarse = re.search(r"@media \(pointer: coarse\) \{([^@]*)\}", css)
+    assert coarse and re.search(r"\.toggle-chip span \{[^}]*min-height: 40px", coarse.group(1))

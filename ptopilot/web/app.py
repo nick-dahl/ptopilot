@@ -380,6 +380,7 @@ def create_app(
             banner=banner_text(totals) if totals else None,
             saved=bool(saved),
             gem=gem,
+            gem_new=gem is not None and gems_view.is_new(gem.issue, today()),
         )
 
     @app.get("/credits")

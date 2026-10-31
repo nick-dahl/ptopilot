@@ -35,7 +35,7 @@
   {% endif %}
   {% if gem %}
   <section class="gem-teaser" aria-labelledby="gem-teaser-title">
-    <h2 class="eyebrow muted" id="gem-teaser-title">This week's hidden gem</h2>
+    <h2 class="eyebrow muted" id="gem-teaser-title">{% if gem_new %}This week's hidden gem{% else %}Your latest hidden gem{% endif %}</h2>
     {{ gem_card(gem, "/gems", headline=True) }}
   </section>
   {% endif %}
