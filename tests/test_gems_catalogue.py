@@ -166,3 +166,17 @@ def test_the_package_ships_the_catalogue():
     pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text(encoding="utf-8"))
     assert "gems/*.yaml" in pyproject["tool"]["setuptools"]["package-data"]["ptopilot.data"]
     assert gems.GEMS_DIR.is_dir()
+
+
+def test_any_broken_file_is_a_named_error(tmp_path, capsys):
+    _write(tmp_path, "hoegvik-islands", {**_valid(), "styles": [["islands"]]})  # unhashable: a TypeError
+    (tmp_path / "garbled.yaml").write_bytes(b"slug: garbled\nname: \xff\xfe\x00bad\n")  # not UTF-8
+    found, errors = gems.validate_folder(tmp_path)
+    assert found == ()
+    assert any(e.startswith("hoegvik-islands.yaml: ") for e in errors)
+    assert any(e.startswith("garbled.yaml: ") for e in errors)
+    with pytest.raises(ValueError, match=r"garbled\.yaml.*hoegvik-islands\.yaml"):
+        load_catalogue(tmp_path)
+    assert gems.main(["check", "--folder", str(tmp_path)]) == 1  # a clean report, not a traceback
+    out = capsys.readouterr().out
+    assert "2 invalid file(s)" in out

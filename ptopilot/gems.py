@@ -240,6 +240,8 @@ def validate_folder(folder: Path) -> tuple[tuple[Gem, ...], list[str]]:
             found.append(_parse(path, catalog))
         except (_Invalid, yaml.YAMLError, KeyError) as exc:
             errors.append(f"{path.name}: {exc}")
+        except Exception as exc:  # noqa: BLE001 - any broken file (a TypeError, bad bytes) is a named error
+            errors.append(f"{path.name}: {type(exc).__name__}: {exc}")
     slugs = [g.slug for g in found]
     twice = sorted({s for s in slugs if slugs.count(s) > 1})
     errors += [f"{s}.yaml: slug {s!r} is used twice" for s in twice]

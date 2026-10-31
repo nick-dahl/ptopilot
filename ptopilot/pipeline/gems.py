@@ -259,7 +259,11 @@ def _check(ctx: RunContext, source: ExactSearchSource, c: _Candidate, catalog: A
 
 def run(ctx: RunContext) -> dict[str, int]:
     counts: Counter[str] = Counter(dict.fromkeys(COUNTS, 0))
-    catalogue = load_catalogue()
+    try:
+        catalogue = load_catalogue()
+    except ValueError:  # an invalid catalogue costs the run its gems, never the stage
+        log.exception("gems: the gem catalogue is invalid; no gems published or priced")
+        return dict(counts)
     live = {g.slug: g for g in approved(catalogue)}
     if not live:
         return dict(counts)

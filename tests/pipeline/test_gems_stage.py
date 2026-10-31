@@ -397,3 +397,20 @@ def test_with_no_fitting_candidate_the_cheapest_overall_is_checked(make_ctx):
     assert [(q.depart_date, q.return_date) for q in gf.calls] == [OUTSIDE]
     [row] = fares(ctx.engine)
     assert (row.status, row.fits) == ("found", False)
+
+
+def test_a_broken_catalogue_is_logged_not_fatal(make_ctx, tmp_path, monkeypatch, caplog):
+    (tmp_path / "garbled.yaml").write_bytes(b"slug: garbled\nname: \xff\n")
+    monkeypatch.setenv(gems.GEMS_DIR_ENV, str(tmp_path))
+    ctx = make_ctx(
+        month_source=month(quote("ORD", "LJU", *TRIP, 400)),
+        live_sources=[live(option(500))],
+        http=wikimedia(set()),
+    )
+    uid = add_user(ctx.engine)
+    with session_scope(ctx.engine) as s:
+        s.add(GemIssue(user_id=uid, gem_slug=LIPNICA, published_on=RUN))
+
+    assert set(stage.run(ctx).values()) == {0}
+    assert photos.run(ctx)["failed"] == 0
+    assert "garbled.yaml" in caplog.text

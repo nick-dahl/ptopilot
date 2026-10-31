@@ -410,3 +410,20 @@ def test_a_past_dated_fare_is_not_shown_as_current(client, emailer, clean_engine
     for page in (client.get("/gems/hoegvik-islands").text, client.get("/gems").text):
         assert "$642" not in page and "Fits your" not in page
         assert "No fares found lately" in page
+
+
+def test_a_broken_catalogue_costs_only_the_gems(client, emailer, clean_engine, monkeypatch, tmp_path):
+    for path in FIXTURES.glob("*.yaml"):
+        shutil.copy(path, tmp_path / path.name)
+    broken = tmp_path / "lipnica-valley.yaml"
+    broken.write_text(
+        broken.read_text(encoding="utf-8").replace("styles: [", "styles: [[").replace("]\nbest", "]]\nbest"),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(gems.GEMS_DIR_ENV, str(tmp_path))
+    uid = signed_in(client, emailer, clean_engine)
+    issue(clean_engine, uid, "hoegvik-islands")
+    r = client.get("/")
+    assert r.status_code == 200 and "hidden gem" not in r.text
+    r = client.get("/gems")
+    assert r.status_code == 200 and "The first issue is on its way." in r.text
