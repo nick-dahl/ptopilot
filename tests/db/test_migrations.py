@@ -180,3 +180,25 @@ def test_migration_0009_adds_columns(engine):
     finally:
         with engine.begin() as conn:
             conn.execute(text("TRUNCATE users RESTART IDENTITY CASCADE"))
+
+
+def test_migration_0013_counts_every_existing_user_as_onboarded(engine):
+    with engine.begin() as conn:
+        conn.execute(text("TRUNCATE users RESTART IDENTITY CASCADE"))
+    cfg = alembic_config(TEST_URL)
+    command.downgrade(cfg, "0012")
+    try:
+        assert "onboarded_at" not in {c["name"] for c in inspect(engine).get_columns("users")}
+        with engine.begin() as conn:
+            _insert_user_with_trackers(conn, [], [])
+        command.upgrade(cfg, "0013")
+        with engine.connect() as conn:
+            onboarded, step = conn.execute(text("SELECT onboarded_at, welcome_step FROM users")).one()
+        assert onboarded is not None and step == 0
+        with pytest.raises(IntegrityError, match="welcome_step"):
+            with engine.begin() as conn:
+                conn.execute(text("UPDATE users SET welcome_step = 5"))
+    finally:
+        with engine.begin() as conn:
+            conn.execute(text("TRUNCATE users RESTART IDENTITY CASCADE"))
+        command.upgrade(cfg, "head")

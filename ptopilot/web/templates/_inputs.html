@@ -13,9 +13,10 @@
 
 {# Chips: one per saved item, in a list with "Remove …" buttons. Without JS the visible text field (a comma
    list) is what's submitted; chips.js turns it into the type-ahead box and submits the hidden field instead.
-   items: [{value, label, code?}]. source: airports | places | holidays | dates. #}
-{% macro chips(name, items, placeholder, source, label="", max=0, near="", hint="", plain_hint="") -%}
-<div class="chips" data-chips data-enhance data-source="{{ source }}"{% if max %} data-max="{{ max }}"{% endif %}{% if near %} data-near="{{ near }}"{% endif %}>
+   items: [{value, label, code?}]. source: airports | places | holidays | dates.
+   near_first: one airport list whose first chip is the home airport, so suggestions are nearest to it. #}
+{% macro chips(name, items, placeholder, source, label="", max=0, near="", hint="", plain_hint="", near_first=False) -%}
+<div class="chips" data-chips data-enhance data-source="{{ source }}"{% if max %} data-max="{{ max }}"{% endif %}{% if near %} data-near="{{ near }}"{% endif %}{% if near_first %} data-near-first{% endif %}>
   <div class="chip-box">
     <ul class="chip-list" aria-label="{{ label or name }}">
       {%- for item in items %}

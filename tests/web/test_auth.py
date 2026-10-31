@@ -27,7 +27,7 @@ def test_invited_email_gets_a_link_that_signs_in(client, emailer, clean_engine):
     assert emailer.last_link().startswith("http://testserver/auth?token=")
     signed_in = client.get(emailer.last_link().replace("http://testserver", ""))
     assert (signed_in.status_code, signed_in.headers["location"]) == (303, "/")
-    assert client.get("/").headers["location"] == "/profile"  # signed in, but no profile yet
+    assert client.get("/").headers["location"] == "/welcome"  # signed in, but no profile yet
 
 
 def test_bad_and_expired_links_are_refused(client):

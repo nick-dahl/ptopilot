@@ -1,0 +1,41 @@
+{# The time-off fields: the profile page's Time off section and /welcome step 2 (inside their own <form>).
+   Needs form, field_errors, calendars, ignored, holiday_names, days_off, days_off_months. #}
+{% from "_inputs.html" import chips, stepper, field_error %}
+{% from "_components.html" import month_tables %}
+<div class="fields">
+  <div class="field">
+    <label class="field-label" for="pto_days_total">PTO days per year</label>
+    {{ stepper("pto_days_total", form.pto_days_total, 0, 99, label="PTO days per year") }}
+    <small class="hint">Used to start each new planning year.</small>
+    {{ field_error("pto_days_total", field_errors) }}
+  </div>
+  <div class="field">
+    <label class="field-label" for="holiday_calendar">Holiday calendar</label>
+    <select id="holiday_calendar" name="holiday_calendar">
+      {% for code, name in calendars %}<option value="{{ code }}"{% if code == form.holiday_calendar %} selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select>
+    <small class="hint">Its public holidays don't cost PTO.</small>
+    {{ field_error("holiday_calendar", field_errors) }}
+  </div>
+</div>
+<div class="field">
+  <label class="field-label" for="ignored_holidays">Holidays your office works</label>
+  {{ chips("ignored_holidays", ignored, "Add a holiday", "holidays", label="Holidays your office works",
+           plain_hint=("Comma-separated. This calendar has: " ~ holiday_names | join(", ")) if holiday_names else "") }}
+  {{ field_error("ignored_holidays", field_errors) }}
+</div>
+<div class="field">
+  <span class="field-label" id="days-off-label">Company days off</span>
+  {# The planner's tap-calendar (static/daygrid.js); without it, the text field below. #}
+  <div class="day-picker" data-day-picker data-enhance>
+    <input type="hidden" name="extra_days_off" value="{{ days_off | map(attribute='value') | join(', ') }}" disabled data-days-value>
+    <ul class="chip-list day-picked live-only" aria-label="Company days off"></ul>
+    <input class="plain-only" type="text" name="extra_days_off" value="{{ days_off | map(attribute='value') | join(', ') }}" placeholder="2027-12-24, 2027-12-31" aria-labelledby="days-off-label" data-days-plain>
+    <small class="hint live-only">Tap the days your company closes (drag across several with a mouse). Tap again to undo.</small>
+    <small class="hint plain-only">Dates like 2027-12-24, comma-separated.</small>
+    <div class="months months-compact live-only" data-day-grid aria-labelledby="days-off-label">
+      {{ month_tables(days_off_months) }}
+    </div>
+  </div>
+  {{ field_error("extra_days_off", field_errors) }}
+</div>

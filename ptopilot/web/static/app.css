@@ -393,6 +393,22 @@ form.is-autosaving .section-save .btn { display: none; }
 .trip-cards { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); margin-bottom: 12px; }
 @media (max-width: 480px) { .trip-cards { grid-template-columns: 1fr; } }
 
+/* The guided first run (/welcome): a narrow column, a 4-part progress bar, one step at a time. */
+.welcome { max-width: 680px; margin: 0 auto; }
+.welcome-progress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; list-style: none; margin: 0 0 14px; padding: 0; }
+.welcome-progress li { display: grid; gap: 6px; min-width: 0; }
+.welcome-bar { display: block; height: 6px; border-radius: 999px; background: var(--track); transition: background-color var(--ease); }
+.welcome-progress .is-done .welcome-bar { background: var(--ink); }
+.welcome-progress .is-current .welcome-bar { background: var(--accent); }
+.welcome-label { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.welcome-progress .is-current .welcome-label { color: var(--ink); font-weight: 600; }
+.welcome-count { margin: 0 0 4px; }
+.welcome h1 { margin-bottom: 6px; }
+.welcome-why { color: var(--muted); margin: 0 0 18px; }
+.welcome-step > .field, .welcome-step > .fields { margin-bottom: 14px; }
+.welcome-nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.welcome-skip { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-top: 16px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
   a.dest-card:hover { transform: none; }

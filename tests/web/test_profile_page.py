@@ -9,6 +9,7 @@ from tests.web.conftest import PROFILE_FORM, seed_profile, sign_in
 
 def test_profile_is_grouped_into_sections(client, emailer, clean_engine):
     sign_in(client, emailer, clean_engine)
+    seed_profile(clean_engine)
     page = client.get("/profile").text
     sections = ("Airports", "Time off", "Travel style")
     assert all(f"<h2>{heading}</h2>" in page for heading in sections)

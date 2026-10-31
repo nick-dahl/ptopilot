@@ -1,6 +1,5 @@
 {% extends "base.html" %}
-{% from "_inputs.html" import chips, segmented, stepper, trip_range, switch, field_error %}
-{% from "_components.html" import month_tables %}
+{% from "_inputs.html" import chips, field_error %}
 {% block title %}Profile · ptopilot{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -48,43 +47,7 @@
       <div class="section-save"><button class="btn btn-secondary btn-sm" type="submit">Save time off</button></div>
     </div>
     <div class="section-errors" data-error-slot></div>
-    <div class="fields">
-      <div class="field">
-        <label class="field-label" for="pto_days_total">PTO days per year</label>
-        {{ stepper("pto_days_total", form.pto_days_total, 0, 99, label="PTO days per year") }}
-        <small class="hint">Used to start each new planning year.</small>
-        {{ field_error("pto_days_total", field_errors) }}
-      </div>
-      <div class="field">
-        <label class="field-label" for="holiday_calendar">Holiday calendar</label>
-        <select id="holiday_calendar" name="holiday_calendar">
-          {% for code, name in calendars %}<option value="{{ code }}"{% if code == form.holiday_calendar %} selected{% endif %}>{{ name }}</option>{% endfor %}
-        </select>
-        <small class="hint">Its public holidays don't cost PTO.</small>
-        {{ field_error("holiday_calendar", field_errors) }}
-      </div>
-    </div>
-    <div class="field">
-      <label class="field-label" for="ignored_holidays">Holidays your office works</label>
-      {{ chips("ignored_holidays", ignored, "Add a holiday", "holidays", label="Holidays your office works",
-               plain_hint=("Comma-separated. This calendar has: " ~ holiday_names | join(", ")) if holiday_names else "") }}
-      {{ field_error("ignored_holidays", field_errors) }}
-    </div>
-    <div class="field">
-      <span class="field-label" id="days-off-label">Company days off</span>
-      {# The planner's tap-calendar (static/daygrid.js); without it, the text field below. #}
-      <div class="day-picker" data-day-picker data-enhance>
-        <input type="hidden" name="extra_days_off" value="{{ days_off | map(attribute='value') | join(', ') }}" disabled data-days-value>
-        <ul class="chip-list day-picked live-only" aria-label="Company days off"></ul>
-        <input class="plain-only" type="text" name="extra_days_off" value="{{ days_off | map(attribute='value') | join(', ') }}" placeholder="2027-12-24, 2027-12-31" aria-labelledby="days-off-label" data-days-plain>
-        <small class="hint live-only">Tap the days your company closes (drag across several with a mouse). Tap again to undo.</small>
-        <small class="hint plain-only">Dates like 2027-12-24, comma-separated.</small>
-        <div class="months months-compact live-only" data-day-grid aria-labelledby="days-off-label">
-          {{ month_tables(days_off_months) }}
-        </div>
-      </div>
-      {{ field_error("extra_days_off", field_errors) }}
-    </div>
+    {% include "_time_off_fields.html" %}
   </form>
 
   <form id="profile-travel" class="panel" method="post" action="/profile" data-inplace data-autosave>
@@ -94,47 +57,7 @@
       <div class="section-save"><button class="btn btn-secondary btn-sm" type="submit">Save travel style</button></div>
     </div>
     <div class="section-errors" data-error-slot></div>
-    <div class="field">
-      <span class="field-label">Trip length</span>
-      {{ trip_range(form.min_trip_days, form.max_trip_days, form.ideal_trip_days) }}
-      {{ field_error("min_trip_days max_trip_days ideal_trip_days", field_errors) }}
-    </div>
-    <fieldset class="field">
-      <legend class="field-label">Weather you'll put up with</legend>
-      {{ segmented("weather_tolerance", [
-        ("strict", "Only the best months", "Trips in each place's best season"),
-        ("normal", "Shoulder season is fine", "Good months and the edges of them"),
-        ("relaxed", "Any time if it's cheap", "Any month, if the price is right"),
-      ], form.weather_tolerance) }}
-      {{ field_error("weather_tolerance", field_errors) }}
-    </fieldset>
-    {% set short = [("0", "Nonstop only", "Direct flights only"), ("1", "Up to 1 stop", "One connection at most"), ("2", "Up to 2 stops", "More routes, often cheaper")] %}
-    {% set long = [("1", "Up to 1 stop", "One connection at most"), ("2", "Up to 2 stops", "More routes, often cheaper")] %}
-    {# A stored value outside the choices (an older profile's 3 stops) stays visible and selected. #}
-    {% for key, choices in [("max_stops_short", short), ("max_stops_long", long)] %}{% set n = form[key] | string %}
-    {% if n.isdigit() and n not in choices | map(attribute=0) %}{% set _ = choices.append((n, "Nonstop only" if n == "0" else "Up to " ~ n ~ " stops", "Your current setting")) %}{% endif %}
-    {% endfor %}
-    <div class="stops">
-      <fieldset class="field">
-        <legend class="field-label">Shorter flights</legend>
-        {{ segmented("max_stops_short", short, form.max_stops_short) }}
-        {{ field_error("max_stops_short", field_errors) }}
-      </fieldset>
-      <fieldset class="field">
-        <legend class="field-label">Long-haul</legend>
-        {{ segmented("max_stops_long", long, form.max_stops_long) }}
-        {{ field_error("max_stops_long", field_errors) }}
-      </fieldset>
-    </div>
-    <div class="switches">
-      {{ switch("allow_overnight_layover", form.allow_overnight_layover, "Overnight layovers are OK") }}
-      <div class="after-work">
-        {{ switch("friday_evening_departure", form.friday_evening_departure, "I can leave after work on my last workday") }}
-        <label class="field after-work-time"><span>Leaving from</span>
-          <input id="friday_evening_min_time" name="friday_evening_min_time" type="time" value="{{ form.friday_evening_min_time }}"></label>
-      </div>
-      {{ field_error("friday_evening_min_time", field_errors) }}
-    </div>
+    {% include "_travel_fields.html" %}
   </form>
 </div>
 {% endblock %}

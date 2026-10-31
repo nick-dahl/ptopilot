@@ -21,10 +21,10 @@ def test_form_to_profile_maps_fields_and_skips_blank_rows():
     )
 
 
-def test_new_traveler_fills_in_the_profile_and_is_sent_to_start_planning(client, emailer, clean_engine):
+def test_a_whole_profile_from_a_new_traveler_is_still_taken(client, emailer, clean_engine):
+    """New people start at /welcome; the old single profile form still works for them (and onboards them)."""
     sign_in(client, emailer, clean_engine)
-    form_page = client.get("/profile")
-    assert form_page.status_code == 200 and "Your travel profile" in form_page.text
+    assert client.get("/profile").headers["location"] == "/welcome"
     saved = client.post("/profile", data=PROFILE_FORM)
     assert (saved.status_code, saved.headers["location"]) == (303, "/plan/new")
     with session_scope(clean_engine) as s:

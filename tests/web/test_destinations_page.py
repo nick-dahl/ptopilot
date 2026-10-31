@@ -138,7 +138,7 @@ def test_users_without_a_profile_are_sent_to_create_one(client, emailer, clean_e
         assert s.scalar(select(User)) is None
     r = client.get("/destinations")
     assert r.status_code == 303
-    assert r.headers["location"] == "/profile"
+    assert r.headers["location"] == "/welcome"
 
 
 def test_the_dashboard_links_to_destinations(signed_in):

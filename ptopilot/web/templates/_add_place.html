@@ -1,0 +1,65 @@
+{# "Add a place": the search box, the add card (static/places.js) and, without JS, the matches for q, each
+   its own form. The destinations page and /welcome step 4 both use it; they set place_action (where an add
+   posts) and search_action (where the plain search reloads), and the page has #your-destinations. #}
+{% from "_inputs.html" import chips, stepper %}
+<div class="panel" id="add-place">
+  <h2>Add a place</h2>
+  {# One search box. With JS, picking a place opens the add card below (static/places.js); without,
+     Search reloads the page with the matches and their own forms. #}
+  <form method="get" action="{{ search_action }}" class="search-row place-search" data-place-search>
+    <div class="field">
+      <label class="field-label" for="q">City, airport or country</label>
+      {{ chips("q", [], "Tokyo, LIS, Portugal", "places", label="Place to add", max=1) }}
+    </div>
+    <button class="btn search-go" type="submit">Search</button>
+  </form>
+  <div class="add-card-slot" id="add-card-slot" aria-live="polite"></div>
+  <template id="add-card">
+    <form class="add-card" method="post" action="{{ place_action }}" data-inplace data-after="reload-section" data-section="your-destinations add-place" data-toast="Added to your destinations">
+      <input type="hidden" name="code" value="">
+      <div class="add-card-head">
+        <h3 class="m-0" data-place-name></h3>
+        <button class="link-btn small" type="button" data-close-card>Cancel</button>
+      </div>
+      <p class="muted small m-0" data-place-country></p>
+      <div class="field">
+        <span class="field-label">Airports to watch</span>
+        <ul class="chip-list" data-airport-chips aria-label="Airports to watch"></ul>
+        <div class="offers" data-airport-offers hidden>
+          <span class="muted small">Also nearby:</span>
+          <ul class="chip-list" data-airport-offer-list aria-label="Nearby airports you can add"></ul>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="add_target_days">Days away</label>
+        {{ stepper("target_days", 10, 2, 60, label="Days away", id="add_target_days") }}
+      </div>
+      <div data-error-slot></div>
+      <button class="btn" type="submit">Add<span class="sr-only"> this place</span></button>
+    </form>
+  </template>
+  {% if q %}
+  <div class="mt-sm">
+    {% for m in matches %}
+    <form class="match" method="post" action="{{ place_action }}">
+      <input type="hidden" name="code" value="{{ m.airport.code }}">
+      <b>{{ m.airport.city }}</b> <span class="muted small">{{ m.country_name }}</span>
+      <div class="airports">
+        <label class="check"><input type="checkbox" name="airports" value="{{ m.airport.code }}" checked>{{ m.airport.code }} · {{ m.airport.name }}</label>
+        {% for n in m.nearby %}
+        <label class="check"><input type="checkbox" name="airports" value="{{ n.code }}"{% if n.city == m.airport.city %} checked{% endif %}>{{ n.code }} · {{ n.name }}</label>
+        {% endfor %}
+      </div>
+      <div class="search-row">
+        <label class="field"><span>Days away</span>
+          <input name="target_days" type="number" min="2" max="60" value="10">
+        </label>
+        <button class="btn" type="submit">Add<span class="sr-only"> {{ m.airport.city }}</span></button>
+      </div>
+    </form>
+    {% else %}
+    <p class="m-0 muted">No places found for "{{ q }}". Try a city name or an airport code.</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>

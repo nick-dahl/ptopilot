@@ -29,6 +29,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine, select
+from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -67,7 +68,7 @@ from ptopilot.related_links import place_for, refresh_missing_seasons, suggestio
 from ptopilot.settings import Settings
 from ptopilot.sources.climate import fetch_climate
 from ptopilot.trackers import apply_action, snooze, unsnooze
-from ptopilot.web import api
+from ptopilot.web import api, onboarding
 from ptopilot.web.forms import SECTIONS, explain_errors, form_to_profile, merge_section, profile_to_form
 from ptopilot.web.history import destination_summaries, related_deals, trend, trip_options, typical_band
 from ptopilot.web.planner_view import months_ahead, plan_context, too_short
@@ -83,6 +84,7 @@ TEMPLATES.env.filters.update(money=money, day=day, dates=date_range, stops=stops
 TRACKER_ID = Annotated[int, PathParam(ge=-(2**31), le=2**31 - 1)]
 MAX_RANGE_ROWS = 50
 PLAN_YEAR = Annotated[int, PathParam(ge=1900, le=2200)]
+WELCOME_STEP = Annotated[int, PathParam(ge=1, le=onboarding.LAST_STEP)]
 TRACKER_URL = re.compile(r"/trackers/\d+")
 SESSION_MAX_AGE_S = 30 * 24 * 3600
 LOGIN_COOLDOWN_S = 120  # at most one sign-in email per address per 2 minutes
@@ -158,10 +160,10 @@ def create_app(
         return json_error(401, SIGN_IN_AGAIN) if wants_json(request) else redirect("/")
 
     def needs_profile(request: Request) -> Response:
-        """Signed in, but no profile saved yet."""
+        """Signed in, but no profile saved yet: the welcome steps make one."""
         if wants_json(request):
             return json_error(403, "Save your profile first.")
-        return redirect("/profile")
+        return redirect("/welcome")
 
     def missing(request: Request, message: str) -> Response:
         if wants_json(request):
@@ -292,8 +294,8 @@ def create_app(
             return page(request, "landing.html", samples=sample_cards(fixed_geo or load_geo()))
         with session_scope(engine) as s:
             user = signed_in_user(s, request)
-            if user is None:
-                return redirect("/profile")
+            if onboarding.needs_welcome(user):
+                return redirect("/welcome")
             user_id = user.id
             py = current_year(s, user, today())
             pto_total, pto_committed = (
@@ -524,6 +526,24 @@ def create_app(
                 dismiss_related(s, user, tracker_id, airport)
         return json_or_redirect(request, "/destinations")
 
+    def add_place_for(user_id: int, code: str, airports: list[str] | None, target_days: int) -> int | str:
+        """Track a place picked in "Add a place": the new tracker's id, or a message saying what to fix."""
+        picked = catalog.get(code)
+        chosen = list(dict.fromkeys(a.strip().upper() for a in airports or [] if a.strip()))
+        allowed = {picked.code, *(a.code for a in catalog.nearby(picked.code))} if picked else set()
+        if picked is None or picked.code not in chosen or not set(chosen) <= allowed:
+            return "Pick a place and at least one airport."
+        if not 2 <= target_days <= 60:
+            return "Days away must be between 2 and 60."
+        match = PlaceMatch(picked, (), catalog.country_name(picked.country))
+        with session_scope(engine) as s:  # a short read first: the slow climate lookup holds no transaction
+            fetched = prefetch_climate(s, match, chosen, climate)
+        with session_scope(engine) as s:
+            tracker = add_destination(
+                s, s.get(User, user_id), match, chosen, target_days, climate=fetched, today=today()
+            )
+            return tracker.id
+
     @app.post("/destinations")
     def add_place(
         request: Request,
@@ -534,24 +554,10 @@ def create_app(
         user_id = destinations_user_id(request)
         if not isinstance(user_id, int):
             return user_id
-        picked = catalog.get(code)
-        chosen = list(dict.fromkeys(a.strip().upper() for a in airports or [] if a.strip()))
-        allowed = {picked.code, *(a.code for a in catalog.nearby(picked.code))} if picked else set()
-        if picked is None or picked.code not in chosen or not set(chosen) <= allowed:
-            message = "Pick a place and at least one airport."
-            return rejected(request, message, lambda: destinations_page(request, user_id, code, message, 400))
-        if not 2 <= target_days <= 60:
-            message = "Days away must be between 2 and 60."
-            return rejected(request, message, lambda: destinations_page(request, user_id, code, message, 400))
-        match = PlaceMatch(picked, (), catalog.country_name(picked.country))
-        with session_scope(engine) as s:  # a short read first: the slow climate lookup holds no transaction
-            fetched = prefetch_climate(s, match, chosen, climate)
-        with session_scope(engine) as s:
-            tracker = add_destination(
-                s, s.get(User, user_id), match, chosen, target_days, climate=fetched, today=today()
-            )
-            tracker_id = tracker.id
-        return json_or_redirect(request, "/destinations", tracker_id=tracker_id)
+        added = add_place_for(user_id, code, airports, target_days)
+        if isinstance(added, str):
+            return rejected(request, added, lambda: destinations_page(request, user_id, code, added, 400))
+        return json_or_redirect(request, "/destinations", tracker_id=added)
 
     @app.post("/destinations/{tracker_id}/remove")
     def remove_place(request: Request, tracker_id: TRACKER_ID):
@@ -599,7 +605,7 @@ def create_app(
         with session_scope(engine) as s:
             user = signed_in_user(s, request)
             if user is None:
-                return redirect("/profile")
+                return redirect("/welcome")
             py = current_year(s, user, today())
             return redirect(f"/plan/{py.year}" if py else "/plan/new")
 
@@ -668,7 +674,7 @@ def create_app(
         with session_scope(engine) as s:
             user = signed_in_user(s, request)
             if user is None:
-                return redirect("/profile")
+                return redirect("/welcome")
             user_id = user.id
         return new_year_page(request, user_id)
 
@@ -685,7 +691,7 @@ def create_app(
         with session_scope(engine) as s:
             user = signed_in_user(s, request)
             if user is None:
-                return redirect("/profile")
+                return redirect("/welcome")
             user_id = user.id
             try:
                 start_year(s, user, year, pto_days, other_time_off, tracker_ids or [], today=today())
@@ -922,37 +928,63 @@ def create_app(
             cal = WorkCalendar.from_code("US", picked)
         return months_ahead(today(), cal)
 
-    def profile_page(request: Request, form: dict, errors: list[dict], status: int = 200):
-        """errors: [{"field", "message"}] (forms.explain_errors); each is also shown beside its field."""
+    def profile_context(form: dict, errors: list[dict]) -> dict:
+        """What the profile's sections render from; the profile page and the welcome steps share them.
+
+        errors: [{"field", "message"}] (forms.explain_errors); each is also shown beside its field."""
         calendar = form.get("holiday_calendar", "")
         by_field: dict[str, list[str]] = {}
         for e in errors:
             by_field.setdefault(e["field"] or "", []).append(e["message"])
-        return page(
-            request,
-            "profile.html",
-            status,
-            active="profile",
-            form=form,
-            errors=[e["message"] for e in errors],
-            field_errors=by_field,
-            saved=request.query_params.get("saved") == "1" and not errors,
-            home=chip_items(form.get("home_airport", ""), "airports"),
-            nearby=chip_items(form.get("nearby_airports", ""), "airports"),
-            ignored=chip_items(form.get("ignored_holidays", ""), "holidays"),
-            days_off=(days_off := chip_items(form.get("extra_days_off", ""), "dates")),
-            days_off_months=days_off_calendar(calendar, days_off),
-            calendars=calendar_choices(calendar),
-            holiday_names=upcoming_holiday_names(calendar, today()) if calendar else [],
-        )
+        days_off = chip_items(form.get("extra_days_off", ""), "dates")
+        return {
+            "form": form,
+            "errors": [e["message"] for e in errors],
+            "field_errors": by_field,
+            "home": chip_items(form.get("home_airport", ""), "airports"),
+            "nearby": chip_items(form.get("nearby_airports", ""), "airports"),
+            "ignored": chip_items(form.get("ignored_holidays", ""), "holidays"),
+            "days_off": days_off,
+            "days_off_months": days_off_calendar(calendar, days_off),
+            "calendars": calendar_choices(calendar),
+            "holiday_names": upcoming_holiday_names(calendar, today()) if calendar else [],
+        }
+
+    def profile_page(request: Request, form: dict, errors: list[dict], status: int = 200):
+        saved = request.query_params.get("saved") == "1" and not errors
+        context = profile_context(form, errors)
+        return page(request, "profile.html", status, active="profile", saved=saved, **context)
 
     @app.get("/profile")
     def profile_form(request: Request):
         if not current_email(request):
             return redirect("/")
         with session_scope(engine) as s:
-            form = profile_to_form(s, signed_in_user(s, request))
+            user = signed_in_user(s, request)
+            if onboarding.needs_welcome(user):
+                return redirect("/welcome")
+            form = profile_to_form(s, user)
         return profile_page(request, form, [])
+
+    def section_form(email: str, submitted: dict[str, str]) -> dict[str, str]:
+        """The submitted fields laid over the saved profile (forms.merge_section)."""
+        with session_scope(engine) as s:
+            user = s.scalar(select(User).where(User.email == email))
+            form = merge_section(profile_to_form(s, user), submitted)
+        form.pop("pto_committed", None)  # lives on the planner now; saving the profile never changes it
+        return form
+
+    def checked_profile(form: dict[str, str], email: str):
+        """(the parsed profile, []), or (None, its problems as forms.explain_errors gives them)."""
+        try:
+            return parse_profile(form_to_profile(form, email), current_geo(), require_plan=False), []
+        except ValueError as exc:
+            problems = [line.removeprefix("  - ") for line in str(exc).splitlines()[1:]]
+            return None, explain_errors(problems, form)
+
+    def field_errors_json(errors: list[dict]) -> JSONResponse:
+        body = {"ok": False, "errors": [e["message"] for e in errors], "field_errors": errors}
+        return JSONResponse(body, status_code=400)
 
     @app.post("/profile")
     async def save_profile(request: Request):
@@ -967,24 +999,208 @@ def create_app(
         section = submitted.get("section", "")
         if section not in SECTIONS:
             section = submitted["section"] = "" if wants_json(request) else "all"
-        with session_scope(engine) as s:
-            form = merge_section(profile_to_form(s, signed_in_user(s, request)), submitted)
-        form.pop("pto_committed", None)  # lives on the planner now; saving the profile never changes it
-        try:
-            profile = parse_profile(form_to_profile(form, email), current_geo(), require_plan=False)
-        except ValueError as exc:
-            problems = [line.removeprefix("  - ") for line in str(exc).splitlines()[1:]]
-            errors = explain_errors(problems, form)
+        form = section_form(email, submitted)
+        profile, errors = checked_profile(form, email)
+        if profile is None:
             if wants_json(request):
-                body = {"ok": False, "errors": [e["message"] for e in errors], "field_errors": errors}
-                return JSONResponse(body, status_code=400)
+                return field_errors_json(errors)
             return profile_page(request, form, errors, 400)
         with session_scope(engine) as s:
+            # A whole profile from someone without one (the old single form) is still taken, and counts
+            # as onboarded (models.User.onboarded_at); new people start at /welcome instead.
             is_new = s.scalar(select(User.id).where(User.email == profile.email)) is None
             apply_profile(s, profile, replace_plan=False)
         if is_new:
             return json_or_redirect(request, "/plan/new", next="/plan/new")
         return json_or_redirect(request, "/?saved=1" if section == "all" else "/profile?saved=1")
+
+    # --- welcome: the guided first run (web/onboarding.py) ------------------------------------------
+
+    def welcome_places(user_id: int) -> list[dict]:
+        geo = current_geo()
+        with session_scope(engine) as s:
+            trackers = s.scalars(
+                select(Tracker)
+                .where(Tracker.user_id == user_id, Tracker.active.is_(True))
+                .order_by(Tracker.id)
+            ).all()
+            places = []
+            for t in trackers:
+                try:
+                    dest = geo.destination(t.destination_code)
+                except UnknownCodeError:
+                    continue
+                places.append(
+                    {"id": t.id, "name": dest.name, "target_days": t.target_days, "palette": palette(dest)}
+                )
+        return places
+
+    def welcome_page(
+        request: Request,
+        n: int,
+        form: dict[str, str],
+        errors: list[dict] = (),
+        status: int = 200,
+        *,
+        q: str = "",
+        error: str | None = None,
+    ):
+        """Step n. Steps 1-3 render the profile's own fields (the same partials); step 4 the add-place box."""
+        context = {"step": onboarding.STEPS[n - 1], "steps": onboarding.STEPS, "error": error}
+        if n < onboarding.LAST_STEP:
+            context |= profile_context(form, list(errors))
+            homes = [form.get("home_airport", ""), form.get("nearby_airports", "")]
+            context["airports"] = chip_items(", ".join(h for h in homes if h), "airports")
+        else:
+            with session_scope(engine) as s:
+                user = signed_in_user(s, request)
+                user_id = user.id
+            places = welcome_places(user_id)
+            q = q.strip()
+            context |= {
+                "places": places,
+                "full": len(places) >= onboarding.MAX_PLACES,
+                "q": q,
+                "matches": catalog.search(q) if q else [],
+                "place_action": "/welcome/4",
+                "search_action": "/welcome/4",
+            }
+        return page(request, "welcome.html", status, **context)
+
+    @app.get("/welcome")
+    def welcome(request: Request):
+        if not current_email(request):
+            return redirect("/")
+        with session_scope(engine) as s:
+            n = onboarding.first_unfinished(signed_in_user(s, request))
+        return redirect(f"/welcome/{n}")
+
+    @app.get("/welcome/{n}")
+    def welcome_step(request: Request, n: WELCOME_STEP, q: str = ""):
+        if not current_email(request):
+            return redirect("/")
+        with session_scope(engine) as s:
+            user = signed_in_user(s, request)
+            if not onboarding.reachable(user, n):
+                return redirect(f"/welcome/{onboarding.first_unfinished(user)}")
+            form = profile_to_form(s, user)
+        return welcome_page(request, n, form, q=q)
+
+    @app.post("/welcome/{n}")
+    async def welcome_save(request: Request, n: WELCOME_STEP):
+        """Next on step n saves that step; "skip" (steps 2-4) finishes onboarding as things stand."""
+        email = current_email(request)
+        if not email:
+            return signed_out(request)
+        raw = await request.form()
+        with session_scope(engine) as s:
+            user = signed_in_user(s, request)
+            if not onboarding.reachable(user, n):
+                if wants_json(request):
+                    return json_error(409, "Finish the earlier steps first.")
+                return redirect(f"/welcome/{onboarding.first_unfinished(user)}")
+            skip = n > 1 and "skip" in raw
+            if skip:
+                onboarding.finish(user)
+        if skip:
+            return json_or_redirect(request, "/", next="/")
+        if n == 1:
+            return welcome_airports(request, email, str(raw.get("airports", "")))
+        if n == onboarding.LAST_STEP:
+            return welcome_places_step(request, email, raw)
+        # Steps 2 and 3 are the profile's Time off and Travel style sections, saved the same way.
+        section = "time_off" if n == 2 else "travel"
+        fields = {k: str(v) for k, v in raw.items() if k in SECTIONS[section]}
+        return welcome_saved(request, email, n, section_form(email, {**fields, "section": section}))
+
+    def welcome_saved(request: Request, email: str, n: int, form: dict[str, str]) -> Response:
+        """Validate the step's merged profile like the profile page does; save it and go to the next step."""
+        profile, errors = checked_profile(form, email)
+        if profile is None:
+            if wants_json(request):
+                return field_errors_json(errors)
+            return welcome_page(request, n, form, errors, 400)
+        try:
+            with session_scope(engine) as s:
+                user = s.scalar(select(User).where(User.email == email))
+                if user is None:  # step 1 makes the user: only these fields, the rest the table's defaults
+                    u = profile.user
+                    home, country, calendar = u["home_airport"], u["country"], u["holiday_calendar"]
+                    s.add(
+                        user := onboarding.new_user(email, home, profile.nearby_airports, country, calendar)
+                    )
+                else:
+                    apply_profile(s, profile, replace_plan=False)
+                onboarding.step_done(user, n)
+        except IntegrityError:  # a double-tapped Next on step 1: the other request made the user
+            pass
+        url = f"/welcome/{n + 1}"
+        return json_or_redirect(request, url, next=url)
+
+    def welcome_airports(request: Request, email: str, raw: str) -> Response:
+        """Step 1: one chip list, the home airport first. A new home country brings its holiday calendar."""
+        codes = onboarding.airport_codes(raw)
+        fields = {
+            "section": "airports",
+            "home_airport": codes[0] if codes else "",
+            "nearby_airports": ", ".join(codes[1:]),
+        }
+        found = catalog.get(codes[0]) if codes else None
+        with session_scope(engine) as s:
+            user = s.scalar(select(User).where(User.email == email))
+            country = user.country if user else None
+        if found and found.country != country:
+            calendar = found.country if found.country in calendar_codes() else "US"
+            fields |= {"country": found.country, "holiday_calendar": calendar}
+        if country is None:
+            fields |= {
+                "pto_days_total": str(onboarding.START_PTO_DAYS),
+                "max_trip_days": str(onboarding.START_MAX_TRIP_DAYS),
+            }
+        return welcome_saved(request, email, 1, section_form(email, fields))
+
+    def welcome_places_step(request: Request, email: str, raw) -> Response:
+        """Step 4: add a place (code + airports + target_days), remove one, or Start planning."""
+        with session_scope(engine) as s:
+            user = s.scalar(select(User).where(User.email == email))
+            user_id = user.id
+            count = len(onboarding.active_tracker_ids(s, user))
+
+        def again(message: str) -> Response:
+            return rejected(request, message, lambda: welcome_page(request, 4, {}, status=400, error=message))
+
+        if "code" in raw:
+            if count >= onboarding.MAX_PLACES:
+                return again("That's five places, plenty to start. Add more any time from Destinations.")
+            try:
+                target_days = int(str(raw.get("target_days") or 10))
+            except ValueError:
+                target_days = 0  # explained as out of range
+            airports = [str(a) for a in raw.getlist("airports")]
+            added = add_place_for(user_id, str(raw["code"]), airports, target_days)
+            if isinstance(added, str):
+                return again(added)
+            return json_or_redirect(request, "/welcome/4", tracker_id=added)
+        if "remove" in raw:
+            tracker_id = int(raw["remove"]) if str(raw["remove"]).isdigit() else 0
+            try:
+                with session_scope(engine) as s:
+                    ok = 0 < tracker_id < 2**31 and remove_destination(
+                        s, s.get(User, user_id), tracker_id, today=today()
+                    )
+            except ValueError as exc:
+                return again(str(exc))
+            if not ok:
+                return missing(request, "No such destination.")
+            return json_or_redirect(request, "/welcome/4")
+        if count == 0:
+            return again("Add at least one place to start planning.")
+        try:
+            with session_scope(engine) as s:
+                year = onboarding.start_planning(s, s.get(User, user_id), today())
+        except ValueError as exc:
+            return again(str(exc))
+        return json_or_redirect(request, f"/plan/{year}", year=year)
 
     # --- snooze links from the digest ------------------------------------------------------------
 

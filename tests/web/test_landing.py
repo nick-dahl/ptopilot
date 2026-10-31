@@ -24,7 +24,7 @@ def test_old_sign_in_address_redirects_home(client):
 
 def test_signing_in_from_the_landing_form_still_works(client, emailer, clean_engine):
     sign_in(client, emailer, clean_engine)
-    assert client.get("/").headers["location"] == "/profile"  # signed in, no profile yet
+    assert client.get("/").headers["location"] == "/welcome"  # signed in, no profile yet
 
 
 def test_landing_does_not_need_the_database(clean_engine, emailer, monkeypatch):

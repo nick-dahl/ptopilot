@@ -6,6 +6,7 @@
 //   data-source="holidays"  /api/holidays?calendar=  (the form's holiday_calendar), filtered here
 //   data-source="dates"     a date picker; each picked date is a chip
 //   data-max="1"            one chip at most: picking another replaces it
+//   data-near-first         airports measured from the list's own first chip (the home airport)
 //
 // Without this script (or before it runs) the visible text field (a comma list) is submitted. Here the hidden field carries
 // the list instead, and a "change" event on it lets the form save itself (ui.js, data-autosave).
@@ -326,6 +327,12 @@ document.addEventListener("change", (e) => {
   e.target.form.querySelectorAll("[data-chips][data-source=airports]").forEach((root) => {
     root.dataset.near = e.target.value;
   });
+});
+// One airport list with the home airport first (/welcome step 1, data-near-first): its first chip is home.
+document.addEventListener("change", (e) => {
+  const root = e.target.closest && e.target.closest("[data-chips][data-near-first]");
+  if (!root || !e.target.matches("[data-chips-value]")) return;
+  root.dataset.near = e.target.value.split(",")[0].trim();
 });
 // Sections swapped in place (ui.js) bring fresh markup to enhance.
 document.addEventListener("ui:swapped", (e) => setupAll(e.detail.element));

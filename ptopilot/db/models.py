@@ -55,6 +55,7 @@ class User(Base):
             " OR (min_trip_days <= ideal_trip_days AND ideal_trip_days <= max_trip_days)",
             name="ideal_trip_days",
         ),
+        CheckConstraint("welcome_step BETWEEN 0 AND 4", name="welcome_step"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -77,6 +78,10 @@ class User(Base):
     allow_overnight_layover: Mapped[bool] = mapped_column(server_default="false")
     friday_evening_departure: Mapped[bool] = mapped_column(server_default="false")
     friday_evening_min_time: Mapped[time] = mapped_column(Time, server_default="17:00")
+    # The guided /welcome flow (web/onboarding.py). A user made any other way (the YAML loader, a full
+    # profile form) is onboarded on creation; the flow's step 1 creates its user with None explicitly.
+    onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=func.now())
+    welcome_step: Mapped[int] = mapped_column(SmallInteger, server_default="0")  # furthest step finished
     created_at: Mapped[datetime] = created_at()
 
 
