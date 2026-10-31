@@ -8,6 +8,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
 
+import httpx
 from sqlalchemy import Engine
 
 from ptopilot.core.geo import Geo
@@ -15,6 +16,7 @@ from ptopilot.core.seasons import SeasonTable
 from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.session import make_engine
 from ptopilot.notify.email import Emailer, ResendEmailer
+from ptopilot.photos import http_client
 from ptopilot.settings import Settings
 from ptopilot.sources.base import ExactSearchSource, MonthScanSource
 from ptopilot.sources.google_flights import GoogleFlightsSource
@@ -46,6 +48,7 @@ class RunContext:
     sleep: Callable[[float], None] = time_module.sleep
     rng: random.Random = field(default_factory=random.Random)
     clock: Callable[[], float] = time_module.monotonic  # seconds; live_verify's time budget
+    http: httpx.Client | None = None  # Wikimedia, for the photos stage; None skips it (tests)
 
     def stamp(self) -> datetime:
         """observed_at for rows this run writes: now, or noon UTC on run_date when re-running a past day."""
@@ -74,4 +77,5 @@ def build_context(settings: Settings, run_date: date, dry_run: bool = False) -> 
         app_base_url=settings.app_base_url,
         secret_key=settings.secret_key,
         dry_run=dry_run,
+        http=http_client(),
     )

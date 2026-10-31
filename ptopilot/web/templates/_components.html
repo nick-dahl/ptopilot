@@ -54,13 +54,25 @@
 {% elif o.duration_note %}<div class="duration-note">{{ o.duration_note }}</div>{% endif %}
 {%- endmacro %}
 
-{% macro dest_card(s, href=None, sample=False) -%}
+{# A destination's cover: its photo over the destination-colour gradient, darkened so white text reads.
+   Without a photo, or if the photo fails to load, the gradient shows. dest: anything with a `palette`, or
+   a palette itself; photo: a ptopilot.photos.PlacePhoto or None. The credit shows on hover or focus; inside
+   a link (link=True) the link takes the focus, otherwise the cover itself is focusable. #}
+{% macro cover(dest, photo, cls="", link=False) -%}
+{% set pal = dest.palette if dest.palette is defined else dest -%}
+<div class="cover{{ ' has-photo' if photo }}{{ ' ' ~ cls if cls }}" style="{{ dest_style(pal) }}{% if photo %};--cover:url({{ photo.image_url | css_url }}){% endif %}"{% if photo and not link %} tabindex="0"{% endif %}>
+  {{ caller() if caller is defined else "" }}
+  {% if photo %}<span class="cover-credit">Photo: {{ photo.author }} · {{ photo.licence }}</span>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro dest_card(s, href=None, sample=False, photo=None) -%}
 <{{ "a" if href else "div" }} class="dest-card{{ ' dimmed' if s.snoozed_until }}{{ ' standout' if s.best and s.best.standout }}" style="{{ dest_style(s.palette) }}"{% if href %} href="{{ href }}"{% endif %}>
-  <div class="dest-head">
+  {% call cover(s, photo, "dest-head", link=href is not none) %}
     {% if sample %}<span class="tag sample-label">Example</span>{% endif %}
     <div class="eyebrow">{% if s.target_days %}~{{ s.target_days }} days away{% else %}{{ s.stay[0] }}–{{ s.stay[1] }} days on the ground{% endif %}</div>
     <h2>{{ s.name }}</h2>
-  </div>
+  {% endcall %}
   <div class="dest-body">
     {% if s.best %}
     {% set o = s.best %}

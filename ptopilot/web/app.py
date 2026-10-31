@@ -46,6 +46,7 @@ from ptopilot.digest.render import banner_text, date_range, day, money, stops
 from ptopilot.digest.select import latest_run_date
 from ptopilot.links import ACTION_LABELS, TokenError, login_token, read_action_token, read_login_token
 from ptopilot.notify.email import Emailer, EmailError, ResendEmailer
+from ptopilot.photos import all_photos, photo_urls, photos_for
 from ptopilot.plan_totals import year_totals
 from ptopilot.planning import (
     book_from_candidate,
@@ -78,7 +79,14 @@ from ptopilot.web.viz import trend_chart
 log = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).parent
 TEMPLATES = Jinja2Templates(directory=str(WEB_DIR / "templates"))
-TEMPLATES.env.filters.update(money=money, day=day, dates=date_range, stops=stops)
+
+
+def css_url(url: str) -> str:
+    """A URL safe inside an unquoted CSS url(): characters that could end it are percent-encoded."""
+    return re.sub(r"""[\s'"()\\;<>]""", lambda m: f"%{ord(m.group()):02X}", url)
+
+
+TEMPLATES.env.filters.update(money=money, day=day, dates=date_range, stops=stops, css_url=css_url)
 # Postgres int4 range: anything inside it is looked up (0 or negative are simply not found, a 404); ids
 # beyond it would make the database raise, so they're a styled 400 instead.
 TRACKER_ID = Annotated[int, PathParam(ge=-(2**31), le=2**31 - 1)]
@@ -223,7 +231,15 @@ def create_app(
         response.headers.update(exc.headers or {})
         return response
 
-    app.include_router(api.router(catalog, today, lambda r: bool(current_email(r)), signed_out))
+    app.include_router(
+        api.router(
+            catalog,
+            today,
+            lambda r: bool(current_email(r)),
+            signed_out,
+            lambda airport_sets: photo_urls(engine, airport_sets),
+        )
+    )
 
     @app.get("/healthz")
     def healthz():
@@ -304,11 +320,15 @@ def create_app(
             geo = current_geo()
             totals = year_totals(s, user, py.year, geo, current_seasons()) if py else None
         # Every current trip counts, including deals already emailed.
+        summaries = destination_summaries(engine, geo, current_seasons(), user_id, today())
+        with session_scope(engine) as s:
+            photos = photos_for({c.code for c in summaries}, s)
         return page(
             request,
             "dashboard.html",
             active="dashboard",
-            summaries=destination_summaries(engine, geo, current_seasons(), user_id, today()),
+            summaries=summaries,
+            photos=photos,
             run_date=latest_run_date(engine, today()),
             pto_total=pto_total,
             pto_committed=pto_committed,
@@ -316,6 +336,18 @@ def create_app(
             banner=banner_text(totals) if totals else None,
             saved=bool(saved),
         )
+
+    @app.get("/credits")
+    def credits(request: Request):
+        """Every cover photo the site shows, with its attribution. Public, like the landing page."""
+        geo = current_geo()
+        with session_scope(engine) as s:
+            photos = all_photos(s)
+        names = {d.code: d.name for d in geo.destinations()}
+        rows = sorted(
+            ((names.get(code, code), photo) for code, photo in photos.items()), key=lambda r: r[0].casefold()
+        )
+        return page(request, "credits.html", rows=rows)
 
     def destination_view(request: Request, tracker_id: int, status: int = 200, error: str | None = None):
         with session_scope(engine) as s:

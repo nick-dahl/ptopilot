@@ -122,3 +122,7 @@ RELATED_MAX_SUGGESTIONS = 5
 RELATED_STUNNING_PCT = 25
 RELATED_LIVE_CHECKS_PER_DAY = 5
 RELATED_MAX_IN_DIGEST = 3
+
+# Cover photos (Plan 15)
+PHOTO_LOOKUPS_PER_RUN = 20  # Wikipedia/Commons lookups per daily scan
+PHOTO_RETRY_DAYS = 30  # a place with no acceptable photo is looked up again after this long

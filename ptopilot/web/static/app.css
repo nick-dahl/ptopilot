@@ -133,6 +133,17 @@ input[type="checkbox"] { width: auto; margin: 0 8px 0 0; }
 a.dest-card:hover { box-shadow: var(--shadow-lift); transform: translateY(-1px); }
 .dest-head { background: var(--dest); background: linear-gradient(135deg, var(--dest), color-mix(in srgb, var(--dest) 70%, #000)); color: #fff; padding: 16px 20px; }
 .dest-head .eyebrow { opacity: .85; }
+/* Covers (_components.html cover): a photo darkened for white text, over the destination gradient, which
+   shows alone without a photo or when the photo fails to load. The credit appears on hover or focus. */
+.cover { position: relative; background-color: var(--dest); background-image: linear-gradient(135deg, var(--dest), color-mix(in srgb, var(--dest) 70%, #000)); background-size: cover; background-position: center; color: #fff; }
+.cover.has-photo { display: flex; flex-direction: column; justify-content: flex-end; min-height: var(--cover-height); background-image: linear-gradient(180deg, rgba(0, 0, 0, .08), rgba(0, 0, 0, .62)), var(--cover, none), linear-gradient(135deg, var(--dest), color-mix(in srgb, var(--dest) 70%, #000)); text-shadow: 0 1px 2px rgba(0, 0, 0, .35); }
+.cover-credit { position: absolute; top: 8px; right: 10px; max-width: calc(100% - 20px); padding: 2px 8px; border-radius: 999px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 11px; line-height: 1.5; text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity var(--ease); pointer-events: none; }
+.cover:hover .cover-credit, .cover:focus-within .cover-credit, .cover:focus-visible .cover-credit, a:focus-visible .cover-credit { opacity: 1; }
+.credits { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.credit { display: flex; align-items: center; gap: 14px; }
+.credit img { width: 96px; height: 64px; flex: none; object-fit: cover; border-radius: var(--radius-sm); background: var(--track); }
+.credit h2 { font-size: 17px; margin: 0 0 2px; }
+.credit a { overflow-wrap: anywhere; }
 .dest-head h2, .dest-head h3 { color: #fff; }
 .dest-body { padding: 16px 20px 18px; }
 .price { font: 700 24px/1.1 var(--sans); font-variant-numeric: tabular-nums; }
@@ -261,7 +272,7 @@ form.inline .inline-error { display: inline; margin: 0 0 0 8px; }
 /* Input components (templates/_inputs.html; static/chips.js, range.js, daygrid.js). Each component's own
    script adds .is-live to its root when it takes over; until then (or if it never loads) the plain fields
    show. ui.js marks the forms it saves on change with .is-autosaving, which hides their Save buttons. */
-:root { --chip: #eef2ff; --chip-line: #c7d2fe; --thumb: 20px; }
+:root { --chip: #eef2ff; --chip-line: #c7d2fe; --thumb: 20px; --cover-height: 148px; }
 [data-enhance]:not(.is-live) .live-only, [data-enhance].is-live .plain-only { display: none; }
 .field-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
 .hint { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
@@ -292,6 +303,9 @@ form.is-autosaving .section-save .btn { display: none; }
 .chip-menu { position: absolute; z-index: 20; left: 0; right: 0; margin: 6px 0 0; padding: 4px 0; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--shadow-lift); }
 .chip-option { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
 .chip-option b { font-weight: 600; }
+.chip-option.has-thumb { flex-wrap: nowrap; justify-content: flex-start; align-items: center; gap: 10px; }
+.chip-thumb { width: 36px; height: 36px; flex: none; object-fit: cover; border-radius: 6px; background: var(--track); }
+.chip-option-text { display: flex; flex: 1; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; min-width: 0; }
 .chip-option span { font-size: 13px; }
 .chip-option[aria-selected="true"] { background: var(--accent-tint); box-shadow: inset 3px 0 0 var(--accent); }
 .chip-note { display: block; color: var(--muted); font-size: 12px; }

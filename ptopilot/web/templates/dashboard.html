@@ -16,7 +16,7 @@
   <div class="grid">
     {% for s in summaries %}
     <div id="card-{{ s.tracker_id }}">
-      {{ dest_card(s, href="/trackers/%d" % s.tracker_id) }}
+      {{ dest_card(s, href="/trackers/%d" % s.tracker_id, photo=photos.get(s.code)) }}
       {% if s.snoozed_until %}
       <form class="inline" method="post" action="/trackers/{{ s.tracker_id }}/unsnooze" data-inplace data-after="reload-section" data-section="card-{{ s.tracker_id }}" data-toast="Watching {{ s.name }} again">
         <button class="link-btn small card-action" type="submit">Unsnooze {{ s.name }}</button>

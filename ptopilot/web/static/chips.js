@@ -39,7 +39,14 @@ function airportRow(r) {
 }
 
 function placeRow(r) {
-  return { value: r.code, code: r.code, label: r.name, title: r.name, meta: `${r.country} · ${r.airports.map((a) => a.code).join(", ")}` };
+  return {
+    value: r.code,
+    code: r.code,
+    label: r.name,
+    title: r.name,
+    meta: `${r.country} · ${r.airports.map((a) => a.code).join(", ")}`,
+    photo: r.photo || null, // the place's cover thumbnail, once it has one
+  };
 }
 
 async function getJSON(url, signal) {
@@ -161,9 +168,21 @@ function setup(root) {
         const li = el("li", "chip-option");
         li.id = `${menu.id}-${i}`;
         li.setAttribute("role", "option");
-        li.append(el("b", null, row.title || row.label));
+        const text = row.photo ? el("span", "chip-option-text") : li;
+        text.append(el("b", null, row.title || row.label));
         const meta = [row.meta, added.has(row.value) ? "added" : ""].filter(Boolean).join(" · ");
-        if (meta) li.append(el("span", "muted", meta));
+        if (meta) text.append(el("span", "muted", meta));
+        if (row.photo) {
+          const img = el("img", "chip-thumb");
+          img.src = row.photo;
+          img.alt = "";
+          img.loading = "lazy";
+          img.width = 36;
+          img.height = 36;
+          img.addEventListener("error", () => img.remove()); // a failed load just leaves the text
+          li.classList.add("has-thumb");
+          li.append(img, text);
+        }
         li.addEventListener("mousedown", (e) => e.preventDefault()); // keep focus in the field
         li.addEventListener("click", () => choose(i));
         return li;

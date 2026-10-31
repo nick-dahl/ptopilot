@@ -24,15 +24,95 @@ airports:
   NRT: {country: JP, zone: E_ASIA}
 
 # color: header and accent color in the web app and digest (#rrggbb); optional, defaults by zone.
+# photo: the hand-picked cover photo, a Wikimedia Commons thumbnail (1280 px wide) with its attribution.
+#   Free licences only (CC0, CC BY, CC BY-SA, public domain); source_url is the Commons file page.
 destinations:
-  TH: {name: Thailand, kind: region, airports: [BKK, HKT, CNX], color: "#047857"}
-  LIS: {name: Lisbon, kind: city, airports: [LIS], color: "#1d4ed8"}
-  TYO: {name: Tokyo, kind: city, airports: [HND, NRT], color: "#be123c"}
-  PATAGONIA: {name: "Patagonia (W Trek)", kind: region, airports: [PUQ], color: "#7c2d12"}
-  AZORES: {name: Azores, kind: region, airports: [PDL], color: "#0e7490"}
-  MADEIRA: {name: Madeira, kind: region, airports: [FNC], color: "#15803d"}
+  TH:
+    name: Thailand
+    kind: region
+    airports: [BKK, HKT, CNX]
+    color: "#047857"
+    photo:
+      image_url: https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/KohPhiPhi.JPG/1280px-KohPhiPhi.JPG
+      width: 1280
+      height: 848
+      author: "Luxure"
+      licence: "CC BY 3.0 au"
+      source_url: "https://commons.wikimedia.org/wiki/File:KohPhiPhi.JPG"
+  LIS:
+    name: Lisbon
+    kind: city
+    airports: [LIS]
+    color: "#1d4ed8"
+    photo:
+      image_url: https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Lisbon_alfalma.jpg/1280px-Lisbon_alfalma.jpg
+      width: 1280
+      height: 719
+      author: "Arne Müseler"
+      licence: "CC BY-SA 3.0 de"
+      source_url: "https://commons.wikimedia.org/wiki/File:Lisbon_alfalma.jpg"
+  TYO:
+    name: Tokyo
+    kind: city
+    airports: [HND, NRT]
+    color: "#be123c"
+    photo:
+      image_url: https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Tokyo_-_Sunset_Skyline.jpg/1280px-Tokyo_-_Sunset_Skyline.jpg
+      width: 1280
+      height: 853
+      author: "Fred Cherrygarden"
+      licence: "CC BY-SA 4.0"
+      source_url: "https://commons.wikimedia.org/wiki/File:Tokyo_-_Sunset_Skyline.jpg"
+  PATAGONIA:
+    name: "Patagonia (W Trek)"
+    kind: region
+    airports: [PUQ]
+    color: "#7c2d12"
+    photo:
+      image_url: https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Cuernos_del_Paine%2C_Parque_Nacional_Torres_del_Paine%2C_Chile6.jpg/1280px-Cuernos_del_Paine%2C_Parque_Nacional_Torres_del_Paine%2C_Chile6.jpg
+      width: 1280
+      height: 853
+      author: "Diego Delso"
+      licence: "CC BY-SA 3.0"
+      source_url: "https://commons.wikimedia.org/wiki/File:Cuernos_del_Paine,_Parque_Nacional_Torres_del_Paine,_Chile6.jpg"
+  AZORES:
+    name: Azores
+    kind: region
+    airports: [PDL]
+    color: "#0e7490"
+    photo:
+      image_url: https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Lagoa_das_Sete_Cidades_seen_from_Miradouro_da_Vista_do_Rei_2011.jpg/1280px-Lagoa_das_Sete_Cidades_seen_from_Miradouro_da_Vista_do_Rei_2011.jpg
+      width: 1280
+      height: 722
+      author: "JopkeB"
+      licence: "CC BY-SA 4.0"
+      source_url: "https://commons.wikimedia.org/wiki/File:Lagoa_das_Sete_Cidades_seen_from_Miradouro_da_Vista_do_Rei_2011.jpg"
+  MADEIRA:
+    name: Madeira
+    kind: region
+    airports: [FNC]
+    color: "#15803d"
+    photo:
+      image_url: https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Pico_do_Areeiro%2C_2025.jpg/1280px-Pico_do_Areeiro%2C_2025.jpg
+      width: 1280
+      height: 720
+      author: "Krib"
+      licence: "CC BY-SA 4.0"
+      source_url: "https://commons.wikimedia.org/wiki/File:Pico_do_Areeiro,_2025.jpg"
   # Open-jaw: fly into the first list, home from the second.
-  CAMINO_PORTUGUES: {name: "Camino Portugués (Porto → Santiago)", kind: route, airports: [OPO], return_airports: [SCQ], color: "#a16207"}
+  CAMINO_PORTUGUES:
+    name: "Camino Portugués (Porto → Santiago)"
+    kind: route
+    airports: [OPO]
+    return_airports: [SCQ]
+    color: "#a16207"
+    photo:
+      image_url: https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Ponte_de_Lima_Bridge.jpg/1280px-Ponte_de_Lima_Bridge.jpg
+      width: 1280
+      height: 820
+      author: "Alejandro Piñero Amerio"
+      licence: "CC BY-SA 4.0"
+      source_url: "https://commons.wikimedia.org/wiki/File:Ponte_de_Lima_Bridge.jpg"
 
 # overhead_days: round-trip travel days subtracted from time on the ground.
 # min_trip_days: shortest trip worth taking between the two zones.

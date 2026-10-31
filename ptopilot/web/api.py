@@ -1,5 +1,7 @@
 """JSON for the type-ahead inputs (static/chips.js): airports, places and a calendar's holiday names.
 
+Place photos are read from the database only: they are looked up by the scan, never inside a request.
+
 Signed-in only, like every in-place endpoint: a signed-out request gets 401 (JSON) or a redirect home.
 """
 
@@ -37,11 +39,14 @@ def airport_rows(catalog: AirportCatalog, q: str, near: str = "") -> list[dict]:
     ]
 
 
-def place_rows(catalog: AirportCatalog, q: str) -> list[dict]:
-    """The /destinations search: a place, its country, and the airports that serve it."""
+def place_rows(
+    catalog: AirportCatalog, q: str, photos: Callable[[list[list[str]]], list[str | None]] | None = None
+) -> list[dict]:
+    """The /destinations search: a place, its country, the airports that serve it, and its cover photo
+    (a thumbnail URL, or None) when the place is already built in or added."""
     if len(q.strip()) < MIN_QUERY:
         return []
-    return [
+    rows = [
         {
             "code": m.airport.code,
             "name": m.airport.city,
@@ -52,6 +57,8 @@ def place_rows(catalog: AirportCatalog, q: str) -> list[dict]:
         }
         for m in catalog.search(q, limit=MAX_ROWS)
     ]
+    urls = photos([r["default"] for r in rows]) if photos else [None] * len(rows)
+    return [{**r, "photo": url} for r, url in zip(rows, urls, strict=True)]
 
 
 def router(
@@ -59,6 +66,7 @@ def router(
     today: Callable[[], date],
     signed_in: Callable[[Request], bool],
     signed_out: Callable[[Request], Response],
+    photos: Callable[[list[list[str]]], list[str | None]] | None = None,
 ) -> APIRouter:
     api = APIRouter(prefix="/api")
 
@@ -68,7 +76,7 @@ def router(
 
     @api.get("/places")
     def places(request: Request, q: str = ""):
-        return place_rows(catalog, q) if signed_in(request) else signed_out(request)
+        return place_rows(catalog, q, photos) if signed_in(request) else signed_out(request)
 
     @api.get("/holidays")
     def holidays(request: Request, calendar: str = ""):

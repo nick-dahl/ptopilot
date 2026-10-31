@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Photo credits · ptopilot{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Photo credits</h1>
+    <p class="muted small">Cover photos come from Wikimedia Commons under free licences. Thank you to their photographers.</p>
+  </div>
+</div>
+{% if rows %}
+<ul class="credits">
+  {% for name, photo in rows %}
+  <li class="panel credit">
+    <img src="{{ photo.image_url }}" alt="{{ name }}" loading="lazy" width="96" height="64">
+    <div>
+      <h2>{{ name }}</h2>
+      <p class="small m-0">Photo: {{ photo.author }} · {{ photo.licence }}</p>
+      <p class="small m-0"><a href="{{ photo.source_url }}" rel="noopener">{{ photo.source_url }}</a></p>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="panel"><p class="m-0">No photos yet.</p></div>
+{% endif %}
+{% endblock %}

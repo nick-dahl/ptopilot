@@ -462,3 +462,23 @@ class RelatedCheck(Base):
     confirmed: Mapped[bool]
     error: Mapped[str | None] = mapped_column(Text)
     checked_at: Mapped[datetime] = created_at()
+
+
+class PlacePhotoRow(Base):
+    """A place's cover photo from Wikimedia Commons, found by the scan's `photos` stage.
+
+    `none`: no acceptable photo was found (tried again after a while). Built-in places' photos live in
+    geo.yaml instead; ptopilot.photos.photo_for reads both."""
+
+    __tablename__ = "place_photos"
+    __table_args__ = (CheckConstraint("status IN ('ok','none')", name="status"),)
+
+    code: Mapped[str] = mapped_column(String(32), primary_key=True)
+    image_url: Mapped[str | None] = mapped_column(Text)  # a Wikimedia thumbnail, about 1280 px wide
+    width: Mapped[int | None]
+    height: Mapped[int | None]
+    author: Mapped[str | None] = mapped_column(Text)
+    licence: Mapped[str | None] = mapped_column(Text)
+    source_url: Mapped[str | None] = mapped_column(Text)  # the Commons file page
+    status: Mapped[str] = mapped_column(String(4))
+    fetched_at: Mapped[datetime] = created_at()
