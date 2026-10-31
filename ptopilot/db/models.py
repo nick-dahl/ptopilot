@@ -483,3 +483,40 @@ class PlacePhotoRow(Base):
     source_url: Mapped[str | None] = mapped_column(Text)  # the Commons file page
     status: Mapped[str] = mapped_column(String(4))
     fetched_at: Mapped[datetime] = created_at()
+
+
+class GemIssue(Base):
+    """A hidden gem published to one person (about one a week); never repeated for them."""
+
+    __tablename__ = "gem_issues"
+    __table_args__ = (UniqueConstraint("user_id", "gem_slug"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    gem_slug: Mapped[str] = mapped_column(String(64))
+    published_on: Mapped[date]
+
+
+class GemFare(Base):
+    """One fare check of a gem for one person (written by the scan's gems stage)."""
+
+    __tablename__ = "gem_fares"
+    __table_args__ = (CheckConstraint("status IN ('found','none','failed')", name="status"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    gem_slug: Mapped[str] = mapped_column(String(64))
+    origin: Mapped[str] = mapped_column(String(3))
+    airport: Mapped[str] = mapped_column(String(3))
+    return_airport: Mapped[str] = mapped_column(String(3))
+    depart_date: Mapped[date | None]
+    return_date: Mapped[date | None]
+    price: Mapped[Decimal | None] = mapped_column(Money)
+    currency: Mapped[str] = mapped_column(String(3))
+    status: Mapped[str] = mapped_column(String(6))
+    fits: Mapped[bool | None]
+    fit_month: Mapped[int | None] = mapped_column(SmallInteger)
+    pto_cost: Mapped[int | None] = mapped_column(SmallInteger)
+    deep_link: Mapped[str | None] = mapped_column(Text)
+    checked_at: Mapped[datetime] = created_at()
+    run_date: Mapped[date] = mapped_column(index=True)
