@@ -12,10 +12,10 @@ from sqlalchemy.orm import Session
 
 from ptopilot import config
 from ptopilot.core.airports import AirportCatalog, PlaceMatch
-from ptopilot.core.geo import Palette, tint
+from ptopilot.core.geo import Palette, UnknownCodeError, tint
 from ptopilot.core.trip_styles import STYLES
+from ptopilot.data import load_geo
 from ptopilot.db.models import GemFare, GemIssue, Tracker, User
-from ptopilot.destinations import destination_code
 from ptopilot.gems import Gem
 from ptopilot.photos import PlacePhoto, photos_for
 
@@ -137,16 +137,22 @@ def gem_photos(s: Session, gems: Iterable[Gem]) -> dict[str, PlacePhoto]:
 
 
 def trackers_for(s: Session, user: User, gems: Iterable[Gem]) -> dict[str, int]:
-    """The person's active tracker of each gem's place, by gem slug."""
-    active = {
-        t.destination_code: t.id
-        for t in s.scalars(select(Tracker).where(Tracker.user_id == user.id, Tracker.active.is_(True)))
-    }
+    """The person's active tracker of each gem's place, by gem slug: the first whose destination's own
+    airports overlap the gem's (the rule that keeps a tracked place out of the feed)."""
+    geo = load_geo(s.get_bind())  # with the places users added
+    active: list[tuple[int, set[str]]] = []
+    for t in s.scalars(
+        select(Tracker).where(Tracker.user_id == user.id, Tracker.active.is_(True)).order_by(Tracker.id)
+    ):
+        try:
+            active.append((t.id, set(geo.destination(t.destination_code).own_airports)))
+        except UnknownCodeError:
+            continue  # a place no longer known matches nothing
     out = {}
     for g in gems:
-        code = destination_code(gem_match(g), track_airports(g), s)
-        if code in active:
-            out[g.slug] = active[code]
+        wanted = set(g.airports + g.return_airports)
+        if (found := next((tid for tid, airports in active if airports & wanted), None)) is not None:
+            out[g.slug] = found
     return out
 
 

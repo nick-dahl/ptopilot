@@ -364,3 +364,27 @@ def test_only_retired_issues_get_a_new_one(client, emailer, clean_engine, monkey
     with session_scope(clean_engine) as s:
         issued = set(s.scalars(select(GemIssue.gem_slug).where(GemIssue.user_id == uid)))
     assert issued == {"lipnica-valley", "hoegvik-islands"}
+
+
+def test_a_tracker_sharing_an_airport_reads_tracking(make_client, emailer, clean_engine):  # noqa: F811
+    from ptopilot.core.airports import AirportCatalog, PlaceMatch
+    from ptopilot.destinations import add_destination
+    from tests.web.test_destinations_page import failing_climate
+
+    c = make_client()
+    uid = signed_in(c, emailer, clean_engine)
+    catalog = AirportCatalog.load()
+    svj = catalog.get("SVJ")
+    with session_scope(clean_engine) as s:  # a place (SVJ_NO) on [BOO, SVJ]; the gem flies into [BOO]
+        match = PlaceMatch(svj, (), catalog.country_name(svj.country))
+        tracker_id = add_destination(
+            s, s.get(User, uid), match, ["BOO", "SVJ"], 10, climate=failing_climate, today=TODAY
+        ).id
+        before = s.scalars(select(Tracker.id).where(Tracker.user_id == uid)).all()
+    page = c.get("/gems/hoegvik-islands").text
+    assert "Track this place" not in page
+    assert "Tracking" in page and f'href="/trackers/{tracker_id}"' in page
+    r = c.post("/gems/hoegvik-islands/track", headers=JSON)
+    assert r.json() == {"ok": True, "tracker_id": tracker_id}
+    with session_scope(clean_engine) as s:
+        assert s.scalars(select(Tracker.id).where(Tracker.user_id == uid)).all() == before  # nothing new
