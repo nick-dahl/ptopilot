@@ -12,7 +12,12 @@ The owner wants the site to feel like a polished travel product before friends s
   - a "reason you came" hero card for the day's best deal, with a countdown when time matters;
   - destination cards with cover photos;
   - livelier destination pages.
-- [ ] **Hidden gems.** A blog-style page of off-the-beaten-path, inexpensive places from your home airport, fitted to your open dates. Write-ups and cover photos are refreshed on a schedule by an AI writer. Design after Plan 15.
+- [ ] **Plan 16: hidden gems (planned, runs after Plan 15).** Plan: `docs/superpowers/plans/2026-10-31-ptopilot-plan-16-hidden-gems.md`; design approved 2026-10-31. It covers:
+  - a weekly magazine of off-the-beaten-path, affordable places, matched to your trip styles;
+  - a live-checked fare with a "fits your dates" pill;
+  - a "Track this place" button.
+
+  Write-ups are drafted and approved with the owner in sessions, with no AI API for now.
 - [ ] **Then the pre-invite checklist (§2).**
 
 ## 2. Before inviting friends

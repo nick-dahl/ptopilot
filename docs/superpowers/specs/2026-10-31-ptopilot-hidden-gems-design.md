@@ -1,7 +1,7 @@
 # ptopilot — Hidden Gems (Design)
 
 **Date:** 2026-10-31
-**Status:** Draft, awaiting review
+**Status:** Approved 2026-10-31
 **Builds on:**
 - [Site polish](2026-10-30-ptopilot-site-polish-design.md) (Plan 15): design system, input chips, cover photos and the `photos` stage, onboarding.
 - [Related destinations](2026-10-25-ptopilot-related-destinations-design.md) (Plan 14): the light live-check pattern and the curated-YAML pattern.
