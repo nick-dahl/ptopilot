@@ -358,7 +358,7 @@ def create_app(
         summaries = destination_summaries(engine, geo, current_seasons(), user_id, today())
         with session_scope(engine) as s:
             photos = photos_for({c.code for c in summaries}, s)
-            gem = next(iter(gems_view.feed(s, s.get(User, user_id), gem_catalogue(), limit=1)), None)
+            gem = next(iter(gems_view.feed(s, s.get(User, user_id), gem_catalogue(), today(), limit=1)), None)
         hero = hero_deal(summaries)
         card_trends = trends(engine, [x.tracker_id for x in summaries], today())
         return page(
@@ -686,11 +686,11 @@ def create_app(
         catalogue = gem_catalogue()
         with session_scope(engine) as s:
             user = s.get(User, user_id)
-            cards = gems_view.feed(s, user, catalogue)
+            cards = gems_view.feed(s, user, catalogue, today())
             if not cards:  # nothing to show (no issues, or only retired ones): publish one now
                 publish_due(s, user, today(), catalogue, current_geo(), now=True)  # the scan does the rest
                 s.flush()
-                cards = gems_view.feed(s, user, catalogue)
+                cards = gems_view.feed(s, user, catalogue, today())
             return page(
                 request,
                 "gems.html",
@@ -712,7 +712,7 @@ def create_app(
             if gem is None:  # a draft, someone else's retired gem, or no such gem: the same answer
                 return missing(request, "No such hidden gem.")
             issued = s.scalar(select(GemIssue).where(GemIssue.user_id == user_id, GemIssue.gem_slug == slug))
-            [card] = gems_view.cards(s, user, [(gem, issued)])
+            [card] = gems_view.cards(s, user, [(gem, issued)], today())
             return page(request, "gem.html", active="gems", c=card, body=render_markdown(gem.body))
 
     @app.post("/gems/{slug}/track")

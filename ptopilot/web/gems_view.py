@@ -6,6 +6,7 @@ from __future__ import annotations
 import calendar
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -111,11 +112,12 @@ def track_airports(gem: Gem) -> list[str]:
     return list(gem.airports)
 
 
-def latest_fares(s: Session, user_id: int, slugs: Iterable[str]) -> dict[str, GemFare]:
+def latest_fares(s: Session, user_id: int, slugs: Iterable[str], today: date) -> dict[str, GemFare]:
     """The person's newest answered fare check of each gem (`found` or `none`).
 
     A `failed` check is a transient miss that is tried again, so it never hides a fare already known; it
-    shows only while a gem has no other row ("Checking fares…")."""
+    shows only while a gem has no other row ("Checking fares…"). A `found` fare whose trip departs today or
+    earlier is no longer current: it reads as a `none` ("No fares found lately"), never as a price."""
     rows = s.scalars(
         select(GemFare)
         .where(GemFare.user_id == user_id, GemFare.gem_slug.in_(set(slugs)))
@@ -123,9 +125,26 @@ def latest_fares(s: Session, user_id: int, slugs: Iterable[str]) -> dict[str, Ge
     )
     out: dict[str, GemFare] = {}
     for row in rows:  # oldest first: later answered rows overwrite earlier ones
+        if row.status == "found" and row.depart_date is not None and row.depart_date <= today:
+            row = _past(row)
         if row.status != "failed" or out.get(row.gem_slug) is None or out[row.gem_slug].status == "failed":
             out[row.gem_slug] = row
     return out
+
+
+def _past(row: GemFare) -> GemFare:
+    """A stand-in `none` row (never saved) for a found fare whose trip has gone."""
+    return GemFare(
+        user_id=row.user_id,
+        gem_slug=row.gem_slug,
+        origin=row.origin,
+        airport=row.airport,
+        return_airport=row.return_airport,
+        currency=row.currency,
+        status="none",
+        run_date=row.run_date,
+        checked_at=row.checked_at,
+    )
 
 
 def gem_photos(s: Session, gems: Iterable[Gem]) -> dict[str, PlacePhoto]:
@@ -156,9 +175,11 @@ def trackers_for(s: Session, user: User, gems: Iterable[Gem]) -> dict[str, int]:
     return out
 
 
-def cards(s: Session, user: User, entries: Sequence[tuple[Gem, GemIssue | None]]) -> list[GemCard]:
+def cards(
+    s: Session, user: User, entries: Sequence[tuple[Gem, GemIssue | None]], today: date
+) -> list[GemCard]:
     gems = [g for g, _ in entries]
-    fares = latest_fares(s, user.id, (g.slug for g in gems))
+    fares = latest_fares(s, user.id, (g.slug for g in gems), today)
     photos = gem_photos(s, gems)
     tracked = trackers_for(s, user, gems)
     return [
@@ -178,11 +199,13 @@ def issues(s: Session, user: User) -> list[GemIssue]:
     )
 
 
-def feed(s: Session, user: User, catalogue: Sequence[Gem], limit: int | None = None) -> list[GemCard]:
+def feed(
+    s: Session, user: User, catalogue: Sequence[Gem], today: date, limit: int | None = None
+) -> list[GemCard]:
     """The person's issues of approved gems, newest first (retired and unknown gems leave the feed)."""
     live = {g.slug: g for g in catalogue if g.status == "approved"}
     entries = [(live[i.gem_slug], i) for i in issues(s, user) if i.gem_slug in live]
-    return cards(s, user, entries[:limit])
+    return cards(s, user, entries[:limit], today)
 
 
 def can_open(s: Session, user: User, gem: Gem) -> bool:
@@ -197,5 +220,5 @@ def can_open(s: Session, user: User, gem: Gem) -> bool:
     return False
 
 
-def is_new(issue: GemIssue | None, today) -> bool:
+def is_new(issue: GemIssue | None, today: date) -> bool:
     return issue is not None and (today - issue.published_on).days < config.GEM_ISSUE_DAYS

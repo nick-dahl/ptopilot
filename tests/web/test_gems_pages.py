@@ -388,3 +388,23 @@ def test_a_tracker_sharing_an_airport_reads_tracking(make_client, emailer, clean
     assert r.json() == {"ok": True, "tracker_id": tracker_id}
     with session_scope(clean_engine) as s:
         assert s.scalars(select(Tracker.id).where(Tracker.user_id == uid)).all() == before  # nothing new
+
+
+def test_a_past_dated_fare_is_not_shown_as_current(client, emailer, clean_engine):
+    uid = signed_in(client, emailer, clean_engine)
+    issue(clean_engine, uid, "hoegvik-islands", TODAY - timedelta(days=60))
+    fare(
+        clean_engine,
+        uid,
+        "hoegvik-islands",
+        price=Decimal("642"),
+        fits=True,
+        fit_month=8,
+        pto_cost=6,
+        depart_date=TODAY,  # the trip has started: no longer a fare anyone can book
+        return_date=TODAY + timedelta(days=9),
+        run_date=TODAY - timedelta(days=40),
+    )
+    for page in (client.get("/gems/hoegvik-islands").text, client.get("/gems").text):
+        assert "$642" not in page and "Fits your" not in page
+        assert "No fares found lately" in page
