@@ -41,3 +41,6 @@ jobs:
           if [ -n "${{ inputs.date }}" ]; then args+=(--date "${{ inputs.date }}"); fi
           if [ -n "${{ inputs.stage }}" ]; then args+=(--stage "${{ inputs.stage }}"); fi
           python -m ptopilot.pipeline "${args[@]}"
+      - name: Report a cancelled run
+        if: cancelled()
+        run: python -m ptopilot.pipeline interrupted

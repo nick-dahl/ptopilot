@@ -1,5 +1,7 @@
 """CLI: python -m ptopilot.pipeline run [--stage NAME ...] [--date YYYY-MM-DD] [--dry-run]
 
+       python -m ptopilot.pipeline interrupted [--dry-run]   (after GitHub kills a run)
+
 Exits 1 if any stage failed, so the GitHub Actions run shows red.
 """
 
@@ -12,8 +14,8 @@ from datetime import UTC, date, datetime
 
 from ptopilot.notify.email import EmailError
 from ptopilot.pipeline.context import build_context
-from ptopilot.pipeline.health import send_report
-from ptopilot.pipeline.runner import STAGES, run_pipeline
+from ptopilot.pipeline.health import send_interrupted, send_report
+from ptopilot.pipeline.runner import STAGES, mark_interrupted, run_pipeline
 from ptopilot.settings import Settings
 
 log = logging.getLogger("ptopilot.pipeline")
@@ -40,13 +42,29 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="send no email: skip the health email; alerts only report what they would send",
     )
+    stopped = sub.add_parser(
+        "interrupted", help="close out stages a killed run left 'running'; email the admin"
+    )
+    stopped.add_argument("--dry-run", action="store_true", help="send no email")
+    stopped.set_defaults(date=None)
     args = parser.parse_args(argv)
 
     configure_logging()
     ctx = build_context(Settings.from_env(), args.date or datetime.now(UTC).date(), dry_run=args.dry_run)
+    if args.command == "interrupted":
+        rows = mark_interrupted(ctx.engine)
+        if not rows:
+            return 0
+        try:
+            print(send_interrupted(ctx, rows))
+        except EmailError as exc:
+            log.error("interrupted-run email not sent: %s", exc)
+        return 1
+    # Before the new run starts its own stages, so they are not mistaken for leftovers.
+    rows = mark_interrupted(ctx.engine)
     results = run_pipeline(ctx, args.stage)
     try:
-        print(send_report(ctx, results))
+        print(send_report(ctx, results, interrupted=rows))
     except EmailError as exc:
         log.error("health email not sent: %s", exc)
     return 1 if any(r.status == "failed" for r in results) else 0

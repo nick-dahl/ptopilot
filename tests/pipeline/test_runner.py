@@ -148,3 +148,61 @@ def test_cli_runs_selected_stages_and_exit_code_reflects_failures(make_ctx, monk
 
     monkeypatch.setitem(runner.STAGES, "expand", lambda c: 1 / 0)
     assert cli.main(["run", "--stage", "expand"]) == 1
+
+
+def test_each_stage_result_has_its_duration(make_ctx, monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr(runner, "monotonic", lambda: now[0])
+
+    def slow(ctx):
+        now[0] += 42
+        return {}
+
+    monkeypatch.setitem(runner.STAGES, "expand", slow)
+    results = runner.run_pipeline(make_ctx(), ["expand"])
+    assert results[0].seconds == 42
+
+
+def test_health_report_shows_durations(make_ctx):
+    results = [
+        runner.StageResult("expand", "ok", seconds=125.4),
+        runner.StageResult("shortlist", "ok", seconds=8.2),
+        runner.StageResult("baselines", "ok"),
+    ]
+    _, text = build_report(make_ctx(), results)
+    line = {name: next(ln for ln in text.splitlines() if name in ln) for name in ("expand", "shortlist")}
+    assert "2m05s" in line["expand"] and "8s" in line["shortlist"]
+    baselines = next(ln for ln in text.splitlines() if "baselines" in ln)
+    assert baselines.strip() == "baselines    ok"
+
+
+def test_a_new_run_marks_leftover_running_stages_interrupted(make_ctx, monkeypatch, capsys):
+    ctx = make_ctx()
+    with session_scope(ctx.engine) as s:
+        s.add(PipelineRun(run_date=date(2027, 2, 28), stage="live_verify", status="running"))
+    monkeypatch.setattr(cli, "build_context", lambda settings, run_date, dry_run: ctx)
+
+    assert cli.main(["run", "--dry-run", "--stage", "expand"]) == 0
+
+    old = runs(ctx.engine)["live_verify"]
+    assert old.status == "interrupted"
+    assert old.error == "the run was stopped before this stage finished"
+    assert old.finished_at is not None
+    assert "Interrupted earlier: 2027-02-28 live_verify" in capsys.readouterr().out
+
+
+def test_interrupted_command_marks_and_emails(make_ctx, monkeypatch):
+    emailer = FakeEmailer()
+    ctx = make_ctx(emailer=emailer, admin_email="me@example.com")
+    monkeypatch.setattr(cli, "build_context", lambda settings, run_date, dry_run: ctx)
+
+    assert cli.main(["interrupted"]) == 0  # nothing running: no email
+    assert emailer.sent == []
+
+    with session_scope(ctx.engine) as s:
+        s.add(PipelineRun(run_date=date(2027, 2, 28), stage="live_verify", status="running"))
+    assert cli.main(["interrupted"]) == 1
+    assert runs(ctx.engine)["live_verify"].status == "interrupted"
+    assert len(emailer.sent) == 1
+    to, subject, _ = emailer.sent[0]
+    assert (to, subject) == ("me@example.com", "ptopilot scan 2027-02-28: INTERRUPTED (live_verify)")

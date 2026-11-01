@@ -12,7 +12,15 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ptopilot import config
-from ptopilot.db.models import AlertSend, Candidate, GemFare, PriceObservation, RelatedCheck, SourceBudget
+from ptopilot.db.models import (
+    AlertSend,
+    Candidate,
+    GemFare,
+    PipelineRun,
+    PriceObservation,
+    RelatedCheck,
+    SourceBudget,
+)
 from ptopilot.db.session import session_scope
 from ptopilot.digest.render import date_range
 from ptopilot.pipeline.context import RunContext
@@ -98,17 +106,31 @@ def gems_line(s: Session, day: date, results: Sequence[StageResult]) -> str:
     return f"Hidden gems: published {published}, priced {len(rows)}, found {rows.count('found')}"
 
 
-def build_report(ctx: RunContext, results: Sequence[StageResult]) -> tuple[str, str]:
-    """(subject, plain-text body)."""
+def duration(seconds: float | None) -> str:
+    """'8s' under a minute, '2m05s' after; blank when the stage was never timed."""
+    if seconds is None:
+        return ""
+    if seconds < 60:
+        return f"{seconds:.0f}s"
+    minutes, rest = divmod(round(seconds), 60)
+    return f"{minutes}m{rest:02d}s"
+
+
+def build_report(
+    ctx: RunContext, results: Sequence[StageResult], interrupted: Sequence[PipelineRun] = ()
+) -> tuple[str, str]:
+    """(subject, plain-text body); `interrupted` are stages an earlier, killed run left behind."""
     failed = [r.stage for r in results if r.status == "failed"]
     subject = f"ptopilot scan {ctx.run_date}: " + (f"FAILED ({', '.join(failed)})" if failed else "OK")
     lines = [subject, "", "Stages:"]
     for r in results:
         detail = ", ".join(f"{k}={v}" for k, v in sorted(r.counts.items()))
-        lines.append(f"  {r.stage:<12} {r.status:<8} {detail}")
+        tail = "  ".join(x for x in (duration(r.seconds), detail) if x)
+        lines.append(f"  {r.stage:<12} {r.status:<8} {tail}".rstrip())
         if r.error:
             label = "reason" if r.status == "skipped" else "error"
             lines.append(f"  {'':<12} {label}: {r.error}")
+    lines += [f"  Interrupted earlier: {row.run_date} {row.stage}" for row in interrupted]
 
     with session_scope(ctx.engine) as s:
         deals = Counter(
@@ -152,9 +174,30 @@ def build_report(ctx: RunContext, results: Sequence[StageResult]) -> tuple[str, 
     return subject, "\n".join(lines)
 
 
-def send_report(ctx: RunContext, results: Sequence[StageResult]) -> str:
-    """Email the report when configured and not a dry run; always return the text."""
-    subject, text = build_report(ctx, results)
+def interrupted_report(rows: Sequence[PipelineRun]) -> tuple[str, str]:
+    """(subject, plain-text body) for a run GitHub killed before it could send its own report."""
+    subject = f"ptopilot scan {rows[0].run_date}: INTERRUPTED ({', '.join(r.stage for r in rows)})"
+    lines = [subject, "", "The run was stopped (cancelled or timed out) before it finished.", "", "Stages:"]
+    lines += [f"  {row.run_date} {row.stage}" for row in rows]
+    return subject, "\n".join(lines)
+
+
+def _deliver(ctx: RunContext, subject: str, text: str) -> None:
     if ctx.emailer and ctx.admin_email and not ctx.dry_run:
         ctx.emailer.send(ctx.admin_email, subject, f"<pre>{html.escape(text)}</pre>", text)
+
+
+def send_report(
+    ctx: RunContext, results: Sequence[StageResult], interrupted: Sequence[PipelineRun] = ()
+) -> str:
+    """Email the report when configured and not a dry run; always return the text."""
+    subject, text = build_report(ctx, results, interrupted)
+    _deliver(ctx, subject, text)
+    return text
+
+
+def send_interrupted(ctx: RunContext, rows: Sequence[PipelineRun]) -> str:
+    """Email the interrupted-run notice (same delivery rules as send_report); return the text."""
+    subject, text = interrupted_report(rows)
+    _deliver(ctx, subject, text)
     return text

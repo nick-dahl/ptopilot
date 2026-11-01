@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+
+from sqlalchemy import Engine, select
 
 from ptopilot.db.models import PipelineRun
 from ptopilot.db.session import session_scope
@@ -27,6 +30,9 @@ from ptopilot.pipeline.context import RunContext, StageFailed, StageSkipped
 from ptopilot.sources.base import snippet
 
 log = logging.getLogger(__name__)
+
+monotonic = time.monotonic  # tests replace this to fake a stage's duration
+INTERRUPTED_ERROR = "the run was stopped before this stage finished"
 
 STAGES: dict[str, Callable[[RunContext], dict[str, int]]] = {
     "expand": expand.run,
@@ -56,6 +62,16 @@ class StageResult:
     status: str  # ok | skipped | failed | not_run
     counts: dict[str, int] = field(default_factory=dict)
     error: str | None = None
+    seconds: float | None = None
+
+
+def mark_interrupted(engine: Engine) -> list[PipelineRun]:
+    """Stages still 'running' belong to a run GitHub killed (timeout or cancel); close them out."""
+    with session_scope(engine) as s:
+        rows = list(s.scalars(select(PipelineRun).where(PipelineRun.status == "running")))
+        for row in rows:
+            row.status, row.error, row.finished_at = "interrupted", INTERRUPTED_ERROR, datetime.now(UTC)
+    return rows
 
 
 def run_stage(ctx: RunContext, name: str) -> StageResult:
@@ -64,6 +80,7 @@ def run_stage(ctx: RunContext, name: str) -> StageResult:
         s.add(row)
         s.flush()
         run_id = row.id
+    started = monotonic()
     try:
         result = StageResult(name, "ok", STAGES[name](ctx))
     except StageSkipped as exc:
@@ -73,6 +90,7 @@ def run_stage(ctx: RunContext, name: str) -> StageResult:
     except Exception as exc:
         log.exception("stage %s crashed", name)
         result = StageResult(name, "failed", error=snippet(f"{type(exc).__name__}: {exc}", 1000))
+    result.seconds = monotonic() - started
     with session_scope(ctx.engine) as s:
         row = s.get(PipelineRun, run_id)
         row.status, row.counts, row.error = result.status, result.counts, result.error
