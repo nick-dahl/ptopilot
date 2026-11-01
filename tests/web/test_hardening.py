@@ -100,3 +100,43 @@ def test_unknown_paths_get_the_styled_not_found_page(client):
     assert page.status_code == 404 and "text/html" in page.headers["content-type"]
     assert 'href="/static/app.css?v=' in page.text and "Not found" in page.text
     assert client.get("/healthz").json() == {"ok": True}
+
+
+def test_the_session_cookie_does_not_reveal_the_email(client, emailer, clean_engine):
+    import base64
+
+    sign_in(client, emailer, clean_engine)
+    payload = client.cookies["ptopilot_session"].split(".")[0]
+    assert b"nick@example.com" not in base64.b64decode(payload + "=" * (-len(payload) % 4))
+    assert not is_landing(client.get("/"))
+
+
+def test_an_old_plain_email_cookie_is_signed_out(client, emailer, clean_engine):
+    import base64
+    import json
+
+    import itsdangerous
+
+    invite(clean_engine, "nick@example.com")
+    data = base64.b64encode(json.dumps({"email": "nick@example.com"}).encode())
+    client.cookies.set("ptopilot_session", itsdangerous.TimestampSigner(KEY).sign(data).decode())
+    assert is_landing(client.get("/"))
+
+
+def test_a_tampered_session_is_signed_out():
+    from ptopilot.web.app import open_email, seal_email
+
+    assert open_email(KEY, "garbage") is None
+    assert open_email("other-key", seal_email(KEY, "nick@example.com")) is None
+    assert open_email(KEY, seal_email(KEY, "nick@example.com")) == "nick@example.com"
+
+
+def test_production_requires_an_https_base_url():
+    from ptopilot.web.main import check_production
+
+    with pytest.raises(SystemExit):
+        check_production(Settings(database_url="x", app_base_url=""), {"RENDER": "true"})
+    check_production(
+        Settings(database_url="x", app_base_url="https://ptopilot.onrender.com"), {"RENDER": "true"}
+    )
+    check_production(Settings(database_url="x", app_base_url=""), {})

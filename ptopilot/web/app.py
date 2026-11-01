@@ -1,7 +1,7 @@
 """The web app (spec §9): sign-in by emailed link, profile, dashboard, and the digest's snooze links.
 
 Server-rendered Jinja pages and plain HTML forms (POST, then redirect). The session cookie is signed
-with SECRET_KEY and SameSite=Lax, which is what keeps other sites from submitting these forms.
+and its email encrypted with SECRET_KEY and SameSite=Lax, which is what keeps other sites from submitting these forms.
 Snooze links open a confirmation page and act only on POST: mail scanners pre-fetch links (GET), and
 a GET that changed state would snooze trackers nobody clicked.
 
@@ -12,6 +12,7 @@ with `{"ok": false, "errors": [...]}`. Without that header they redirect or re-r
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import logging
 import re
@@ -23,6 +24,7 @@ from http import HTTPStatus
 from pathlib import Path
 from typing import Annotated
 
+from cryptography.fernet import Fernet, InvalidToken
 from fastapi import BackgroundTasks, FastAPI, Form, Request
 from fastapi import Path as PathParam
 from fastapi.exceptions import RequestValidationError
@@ -131,6 +133,25 @@ TRACKER_URL = re.compile(r"/trackers/\d+")
 SESSION_MAX_AGE_S = 30 * 24 * 3600
 LOGIN_COOLDOWN_S = 120  # at most one sign-in email per address per 2 minutes
 SIGN_IN_AGAIN = "Your session has ended. Sign in again."
+SESSION_KEY = "who"  # holds the encrypted email; the old plain "email" key is deliberately ignored
+
+
+def _session_cipher(secret_key: str) -> Fernet:
+    digest = hashlib.sha256(b"ptopilot-session:" + secret_key.encode()).digest()
+    return Fernet(base64.urlsafe_b64encode(digest))
+
+
+def seal_email(secret_key: str, email: str) -> str:
+    """Encrypt the email for the session cookie, which is signed but otherwise readable as base64."""
+    return _session_cipher(secret_key).encrypt(email.encode()).decode()
+
+
+def open_email(secret_key: str, token: str) -> str | None:
+    """The email inside a sealed session value, or None if it is not one of ours."""
+    try:
+        return _session_cipher(secret_key).decrypt(token.encode()).decode()
+    except InvalidToken:
+        return None
 
 
 def wants_json(request: Request) -> bool:
@@ -191,7 +212,7 @@ def create_app(
         return fixed_seasons or load_seasons(engine)
 
     def page(request: Request, name: str, status: int = 200, **context):
-        context = {"signed_in": request.session.get("email"), **context}
+        context = {"signed_in": current_email(request), **context}
         return TEMPLATES.TemplateResponse(request, name, context, status_code=status)
 
     def redirect(url: str) -> RedirectResponse:
@@ -222,8 +243,11 @@ def create_app(
 
     def current_email(request: Request) -> str | None:
         """The signed-in email, as long as it is still invited; removing an invite ends the session."""
-        email = request.session.get("email")
-        if email and not is_invited(email):
+        token = request.session.get(SESSION_KEY)
+        if not token:
+            return None
+        email = open_email(settings.secret_key, token) if isinstance(token, str) else None
+        if email is None or not is_invited(email):
             request.session.clear()
             return None
         return email
@@ -328,7 +352,7 @@ def create_app(
             message = "this address is no longer invited."
             return page(request, "message.html", 400, title="Sign-in link problem", message=message)
         request.session.clear()
-        request.session["email"] = email
+        request.session[SESSION_KEY] = seal_email(settings.secret_key, email)
         return redirect("/")
 
     @app.post("/logout")

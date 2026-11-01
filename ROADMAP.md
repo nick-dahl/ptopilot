@@ -10,16 +10,16 @@ The owner wants the site to feel like a polished travel product before friends s
 
 ## 2. Before inviting friends
 
-- [ ] **Verify a Resend sending domain.** Until then, email reaches only the owner.
+- [ ] **Verify a Resend sending domain.** Until then, email reaches only the owner. The owner is buying a domain (2026-11-01).
 - [ ] **Signed-in check of the live planner** (`/plan`). Only signed-out checks have run on production.
-- [ ] **One person's digest failure stops the others.** Only email failures are isolated today. A database hiccup right after sending could also cause one repeat send.
-- [ ] **A rule for deleting old price data.** Price observations grow without limit.
-- [ ] **Harden the scan workflow:**
+- [x] **One person's digest failure stops the others.** Only email failures are isolated today. A database hiccup right after sending could also cause one repeat send.
+- [x] **A rule for deleting old price data.** Price observations grow without limit.
+- [x] **Harden the scan workflow:**
   - its manual-run inputs go into a shell command unescaped;
   - `scan.yml` has no `permissions:` block.
-- [ ] **Health email:** add per-stage durations (the spec asks for them). If GitHub kills a run, its stages stay marked "running" and no health email goes out.
-- [ ] **README note:** snooze links work for anyone holding them for 30 days, so forwarding a digest forwards them.
-- [ ] **Session cookie.** It is signed but not encrypted, so the email inside is readable as base64. And if `APP_BASE_URL` were unset in production, the cookie would lose its https-only flag.
+- [x] **Health email:** add per-stage durations (the spec asks for them). If GitHub kills a run, its stages stay marked "running" and no health email goes out.
+- [x] **README note:** snooze links work for anyone holding them for 30 days, so forwarding a digest forwards them.
+- [x] **Session cookie.** It is signed but not encrypted, so the email inside is readable as base64. And if `APP_BASE_URL` were unset in production, the cookie would lose its https-only flag.
 
 ## 3. Feature ideas (not scheduled)
 
