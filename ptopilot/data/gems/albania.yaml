@@ -1,0 +1,49 @@
+slug: albania
+name: Albania
+country: "AL"
+airports: [TIA]
+styles: [hiking_camping, beach, culture, adventure]
+best_months: [6, 9]
+headline: Ten days from a ferry up a fjord-like lake and a pass through the Accursed Mountains to Ottoman stone towns and the Ionian coast, at prices Europe forgot.
+body: |
+  Albania is what the Mediterranean was before everyone found it. In ten days you can cross the wildest mountains in the Balkans on foot, wander two Ottoman towns that look carved out of the hillside, and finish swimming in water as clear as anything in Greece, for a fraction of the money.
+
+  ## Days 1–2: Tirana and Shkodër
+
+  Land in **Tirana**, spend an evening in its café neighbourhoods, then head north to **Shkodër**, the gateway to the mountains.
+
+  ## Days 3–5: Komani, Valbona and Theth
+
+  Take the **Komani Lake ferry**, two to three hours up a lake squeezed between cliffs, to the minibus for **Valbona**. Stay a night in a guesthouse, then hike the classic trail over the pass to **Theth**: around 14 to 18 km and six to nine hours, the best day walk in the Balkans. Families in both valleys put you up and feed you dinner from their own gardens.
+
+  ## Days 6–7: Berat and Gjirokastër
+
+  Head south to **Berat**, the "town of a thousand windows", and **Gjirokastër**, the "city of stone" on its hillside above the Drino valley: together a UNESCO World Heritage Site. Wander the old quarters and the castles, and eat byrek and slow-cooked lamb.
+
+  ## Days 8–10: the Riviera
+
+  Finish on the **Albanian Riviera**: base yourself around Himarë, swim off the pebble beaches, and take a day for **Butrint**, a Greek, Roman and Venetian city in the woods by a lagoon and Albania's first UNESCO site. Back to Tirana for the flight home.
+
+  ## The catch
+
+  The mountain trail is a summer walk, open from about mid-June to September, and the Komani ferry runs on its own timetable, so book ahead and build in slack. Roads in the south are winding and slow; a car makes the coast much easier. And the Riviera fills up in August: June and September are the sweet spots.
+budget: Mountain guesthouses include dinner and breakfast, the ferry and minibuses cost a few euros each, and a seaside room outside August is cheap. Eat byrek from bakeries and set dinners in family-run places; Albania is one of the cheapest countries in Europe to travel well.
+daily_cost_usd: 50
+claims:
+  - text: The Komani Lake ferry takes about two to three hours from Koman to Fierzë, with a minibus on to Valbona.
+    source_url: https://bookatrekking.com/en/trek/komani-lake-valbona-valley-theth-trek-5-days/
+    checked_on: 2026-11-01
+  - text: The Valbona–Theth hike is about 14 to 18 km and takes six to nine hours.
+    source_url: https://www.travelanddestinations.com/theth-to-valbona-hike-albania/
+    checked_on: 2026-11-01
+  - text: The Valbona–Theth trail is open from about mid-June to September.
+    source_url: https://www.albania-spirit.com/guides/theth-valbona-hike/
+    checked_on: 2026-11-01
+  - text: The historic centres of Berat and Gjirokastër are a joint UNESCO World Heritage Site.
+    source_url: https://en.wikipedia.org/wiki/Historic_Centres_of_Berat_and_Gjirokast%C3%ABr
+    checked_on: 2026-11-01
+  - text: Butrint was Albania's first UNESCO World Heritage Site, inscribed in 1992.
+    source_url: https://en.wikipedia.org/wiki/List_of_World_Heritage_Sites_in_Albania
+    checked_on: 2026-11-01
+status: approved
+approved_on: 2026-11-01

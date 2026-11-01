@@ -1,0 +1,43 @@
+slug: georgia
+name: Georgia
+country: "GE"
+airports: [TBS]
+styles: [hiking_camping, food_wine, culture, adventure]
+best_months: [6, 7, 9]
+headline: Ten days from Tbilisi's balconies and sulphur baths up into the Caucasus under Mount Kazbek and down to wine country where they've made wine for 8,000 years.
+body: |
+  Georgia is the trip people come home raving about. Big mountains, a capital full of character, and a food and wine culture that will ruin restaurants at home for you, all in a country where a guesthouse with dinner costs less than a cocktail in New York.
+
+  ## Days 1–3: Tbilisi
+
+  Wander the old town's carved wooden balconies, soak in the domed **sulphur baths**, and eat your way through khachapuri and khinkali. Tbilisi's wine bars are the best introduction to what comes later.
+
+  ## Days 4–6: Kazbegi
+
+  Take the shared minibus from Didube station, about three to three and a half hours up the Georgian Military Highway, to **Stepantsminda** (Kazbegi). Walk up to **Gergeti Trinity Church**, an old stone church alone on a ridge under Mount Kazbek, then spend the next days hiking the side valleys. Stay in family guesthouses that feed you far too well.
+
+  ## Days 7–9: Kakheti
+
+  Head east to **Kakheti**, Georgia's wine country, and base yourself in hilltop **Sighnaghi**. Georgians have made wine here in clay vessels buried in the ground (qvevri) for about 8,000 years, a method on UNESCO's intangible heritage list since 2013. Visit family wineries, drink amber wine, and eat a supra, the Georgian feast.
+
+  ## Day 10: back to Tbilisi
+
+  An easy drive back to Tbilisi for one more evening in the old town and the flight home.
+
+  ## The catch
+
+  Marshrutkas (shared minibuses) are cheap and run often but leave when they're full, so build in slack. The mountains are a summer trip; Kazbegi's high trails are snowbound much of the year. And Georgian hospitality involves a lot of toasts: pace yourself.
+budget: Guesthouses with home-cooked dinners are the best value in the country, marshrutkas cost a few dollars, and a full supra with wine is cheap by any standard. Spend the savings on a driver for a day in Kakheti so nobody has to skip the tastings.
+daily_cost_usd: 45
+claims:
+  - text: Shared minibuses run from Tbilisi's Didube station to Stepantsminda in about three to three and a half hours.
+    source_url: https://www.theworldwasherefirst.com/tbilisi-to-kazbegi/
+    checked_on: 2026-11-01
+  - text: The walk from Stepantsminda up to Gergeti Trinity Church takes about one and a half to three hours.
+    source_url: https://www.caucasus-trekking.com/treks/hike-to-gergeti-trinity-church
+    checked_on: 2026-11-01
+  - text: The Georgian qvevri winemaking method was added to UNESCO's intangible cultural heritage list in 2013, and Georgia's winemaking goes back about 8,000 years.
+    source_url: https://www.decanter.com/wine-news/georgian-winemaking-method-joins-unesco-heritage-list-30889
+    checked_on: 2026-11-01
+status: approved
+approved_on: 2026-11-01

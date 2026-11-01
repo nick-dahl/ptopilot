@@ -1,0 +1,50 @@
+slug: morocco
+name: Morocco
+country: "MA"
+airports: [RAK]
+return_airports: [FEZ]
+styles: [adventure, food_wine, culture, hiking_camping]
+best_months: [3, 4, 5, 10]
+headline: Ten days from the souks of Marrakesh over the High Atlas to a night in the Sahara dunes and out through the medina of Fes, one country that feels like four.
+body: |
+  Morocco rewards the person who plans it. Fly into Marrakesh, fly home from Fes, and in between you cross snow-capped mountains, sleep in the desert under more stars than you've ever seen, and lose yourself in two of the oldest medinas in the world. It's a trip with real texture, and it costs far less than it feels like it should.
+
+  ## Days 1–2: Marrakesh
+
+  Start in the **Marrakesh medina**, a UNESCO World Heritage Site since 1985. Get lost on purpose in the souks, eat at the food stalls of Jemaa el-Fnaa after dark, and stay in a riad, a townhouse built around a courtyard, which in Marrakesh costs less than a chain hotel at home.
+
+  ## Days 3–4: the High Atlas
+
+  An hour or so south, **Imlil** sits at the foot of **Toubkal** (4,167 m), the highest mountain in North Africa. Walk the valleys between Berber villages, sleep in a mountain guesthouse, and if you're fit and it's the right season, go for the summit over two days with a local guide.
+
+  ## Days 5–7: over the mountains to the Sahara
+
+  The drive to **Merzouga** is nine or ten hours, so split it over two days through the gorges and kasbahs of the south. Then ride out into **Erg Chebbi**, dunes up to around 150 m high, for a night in a desert camp. Watch the sun come up from the top of a dune, the moment that makes the whole trip.
+
+  ## Days 8–10: Fes
+
+  Drive north to **Fes** and finish in its medina, Fes el-Bali, a UNESCO World Heritage Site since 1981 and one of the largest car-free urban areas in the world: donkeys, not cars, carry the goods. See the tanneries from a rooftop, eat at a family-run place inside the walls, and fly home from Fes.
+
+  ## The catch
+
+  The distances are long, so hire a driver or join a small group tour for the Sahara stretch rather than doing it on buses. The souks are full-on: agree prices before you buy anything, and expect to be steered towards a "cousin's shop". Spring and autumn are the sweet spots; summer in the desert is brutal.
+budget: Riads and mountain guesthouses are cheap, a tagine in a local place costs a few dollars, and the medinas are walkable. The big cost is the Sahara leg, so share a driver between two or more, or take a small-group desert tour from Marrakesh that drops you in Fes.
+daily_cost_usd: 65
+claims:
+  - text: The medina of Marrakesh has been a UNESCO World Heritage Site since 1985.
+    source_url: https://whc.unesco.org/en/list/331
+    checked_on: 2026-11-01
+  - text: Toubkal (4,167 m) is the highest peak in North Africa, usually climbed from Imlil over two days.
+    source_url: https://mountain-paths.com/jbel-toubkal-4167m-north-africas-highest-peak
+    checked_on: 2026-11-01
+  - text: The drive from Marrakesh to Merzouga is about nine to ten hours, usually split over two days.
+    source_url: https://local-morocco-tours.com/blog/marrakech-to-merzouga-route-guide.html
+    checked_on: 2026-11-01
+  - text: The Erg Chebbi dunes reach up to about 150 metres, the highest in Morocco.
+    source_url: https://malika-in-morocco.com/2436/travel-guide-to-merzouga
+    checked_on: 2026-11-01
+  - text: The medina of Fes has been a UNESCO World Heritage Site since 1981 and is one of the world's largest car-free urban areas.
+    source_url: https://whc.unesco.org/en/list/170
+    checked_on: 2026-11-01
+status: approved
+approved_on: 2026-11-01
