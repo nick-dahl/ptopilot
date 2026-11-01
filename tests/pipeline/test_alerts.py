@@ -170,8 +170,8 @@ def test_alerted_offers_still_appear_in_the_next_digest(make_ctx):
         assert s.get(Candidate, cid).state != "sent"
 
 
-def test_alerts_stage_runs_last():
-    assert list(runner.STAGES)[-1] == "alerts"
+def test_alerts_stage_runs_last_before_housekeeping():
+    assert list(runner.STAGES)[-2:] == ["alerts", "prune"]
     assert "alerts" in runner.CONTINUE_ON_FAILURE
 
 

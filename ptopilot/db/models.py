@@ -259,7 +259,8 @@ class TrackerRouteLink(Base):
 
 
 class PriceObservation(Base):
-    """Every price ever seen. Append-only: never update or delete rows."""
+    """Every price seen. Append-only: never update rows; only the prune stage deletes, by its retention
+    rule."""
 
     __tablename__ = "price_observations"
     __table_args__ = (
