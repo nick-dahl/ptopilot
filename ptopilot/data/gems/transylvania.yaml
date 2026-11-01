@@ -1,0 +1,47 @@
+slug: transylvania
+name: Transylvania
+country: "RO"
+airports: [OTP]
+styles: [culture, adventure, hiking_camping, food_wine]
+best_months: [6, 7, 8, 9]
+headline: Ten days through medieval Saxon towns, villages built around fortified churches and the Carpathian mountains, finishing on one of Europe's great mountain roads.
+body: |
+  Transylvania is all the old Europe you thought had been paved over: walled towns with painted houses, villages where haycarts still share the road, fortress churches that once held whole communities inside their walls, and wild mountains a short drive from everywhere. It's cheap, it's beautiful, and almost no one you know has been.
+
+  ## Days 1–3: Brașov and the mountains
+
+  Fly into **Bucharest** and head straight north into the hills to **Brașov**, a Saxon town under a forested mountain. Hike in the **Piatra Craiului** range from Zărnești, and see the castles at Bran and Râșnov early, before the tour buses.
+
+  ## Days 4–6: the Saxon villages
+
+  Drive into the rolling country of the **Saxon villages** and stay in a restored guesthouse in **Viscri** or **Biertan**. Seven of these villages and their fortified churches are a UNESCO World Heritage Site. Walk between villages, eat home cooking, and climb church towers that double as fortresses.
+
+  ## Day 7: Sighișoara
+
+  Spend a day in **Sighișoara**, a lived-in medieval citadel and another UNESCO site, all towers, steep stairs and coloured houses.
+
+  ## Days 8–9: Sibiu and the Transfăgărășan
+
+  Base yourself in **Sibiu**'s old town, then drive the **Transfăgărășan**, a road that switchbacks over the Făgăraș mountains to a glacial lake at the top.
+
+  ## Day 10: back to Bucharest
+
+  Drive south over the mountains to Bucharest for the flight home.
+
+  ## The catch
+
+  You need a car: the villages and mountains aren't on any useful bus route, and village roads can be rough. The Transfăgărășan is usually only open from around July to October because of snow, so check before you plan around it. And bring cash for village guesthouses and markets.
+budget: Village guesthouses with home-cooked dinners and town apartments are cheap, a hearty lunch in a local place costs a few dollars, and the hikes and villages are free. A shared hire car is the main cost and the only sensible way to see the region.
+daily_cost_usd: 60
+claims:
+  - text: The Villages with Fortified Churches in Transylvania, seven villages including Viscri and Biertan, are a UNESCO World Heritage Site.
+    source_url: https://whc.unesco.org/en/list/596
+    checked_on: 2026-11-01
+  - text: The Historic Centre of Sighișoara is a UNESCO World Heritage Site.
+    source_url: https://whc.unesco.org/en/list/902
+    checked_on: 2026-11-01
+  - text: The Transfăgărășan is usually closed by snow from late October until late June or early July, and climbs to the glacial Bâlea Lake.
+    source_url: https://en.wikipedia.org/wiki/Transf%C4%83g%C4%83r%C4%83%C8%99an
+    checked_on: 2026-11-01
+status: approved
+approved_on: 2026-11-01

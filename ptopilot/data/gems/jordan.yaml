@@ -1,0 +1,49 @@
+slug: jordan
+name: Jordan
+country: "JO"
+airports: [AMM]
+styles: [adventure, culture, hiking_camping]
+best_months: [3, 4, 10, 11]
+headline: Ten days that walk you into Petra by the back door, put you to sleep under the stars in Wadi Rum, and float you in the Dead Sea, in a country much bigger than its famous postcard.
+body: |
+  Most people know Jordan as one photograph of Petra's Treasury. The country around it is the surprise: a canyon reserve you hike down to a desert eco-lodge, a back-door trail into Petra that skips the crowds, and a red-sand valley where you sleep in a Bedouin camp under more stars than seems possible.
+
+  ## Days 1–2: Amman and Dana
+
+  Land in **Amman**, see the citadel and eat your first proper falafel, then drive south to **Dana**, a stone village on the rim of the Dana Biosphere Reserve. Hike down the Wadi Dana canyon to the desert at Feynan, a full day on foot.
+
+  ## Days 3–6: into Petra by the back door
+
+  Make your way to **Little Petra** and walk the trail over the hills that drops you into **Petra** at the Monastery, the back way in, before you ever see the crowds at the Treasury. Spend two full days inside: Petra, a UNESCO World Heritage Site since 1985, is far bigger than one day allows. If you have the time and the legs, hikers do the whole stretch from Dana to Petra as a five- or six-day guided trek on the Jordan Trail.
+
+  ## Days 7–8: Wadi Rum
+
+  Drive south to **Wadi Rum**, a UNESCO World Heritage Site since 2011: red sand, rock arches and canyons. Spend two nights in a Bedouin camp, where the usual package includes a jeep tour, dinner and a bed under the stars.
+
+  ## Days 9–10: the Dead Sea and home
+
+  Drive north along the Dead Sea Highway to float in the **Dead Sea**, then back to Amman for the flight home.
+
+  ## The catch
+
+  Summer is brutally hot: go in spring or autumn. Distances are long and buses are sparse, so rent a car or hire a driver. And buy the Jordan Pass before you fly: it covers Petra and other sites and includes your tourist visa if you stay long enough.
+budget: The Jordan Pass is the big saving, since it bundles your visa with Petra entry. Wadi Rum camps include dinner and a jeep tour in one price, and street food (falafel, hummus, shawarma) costs almost nothing. The real costs are the car and Petra-area hotels; share both.
+daily_cost_usd: 75
+claims:
+  - text: The Jordan Pass includes the tourist entry visa, for visitors who stay at least three nights.
+    source_url: https://www.jordanpass.jo/Contents/FAQs.aspx
+    checked_on: 2026-11-01
+  - text: Petra has been a UNESCO World Heritage Site since 1985.
+    source_url: https://whc.unesco.org/en/list/326
+    checked_on: 2026-11-01
+  - text: The Wadi Rum Protected Area has been a UNESCO World Heritage Site since 2011.
+    source_url: https://whc.unesco.org/en/list/1377
+    checked_on: 2026-11-01
+  - text: The Dana to Petra trek is usually walked over five or six days, ending through Little Petra into Petra by the back route.
+    source_url: https://www.mountainkingdoms.com/holiday/dana-trek-to-petra
+    checked_on: 2026-11-01
+  - text: Wadi Rum Bedouin camps commonly include a jeep tour, dinner and accommodation in one price.
+    source_url: https://www.twowanderingsoles.com/blog/jordan-pass
+    checked_on: 2026-11-01
+status: approved
+approved_on: 2026-11-01

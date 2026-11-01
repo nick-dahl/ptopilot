@@ -6,8 +6,7 @@ V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](do
 
 The owner wants the site to feel like a polished travel product before friends see it: the calm, data-first polish of Google Flights and Capital One Travel, and "the first website I want to go to when I'm daydreaming about how to spend my time off". The checklist in §2 follows these.
 
-- [ ] **First hidden-gems catalogue session (with the owner).** Write Lofoten and Ljubljana together as the style guide's reference examples, then draft about 10 more across trip styles for approval. Routine: `docs/gems/README.md`. Until then /gems shows "The first issue is on its way."
-- [ ] **Then the pre-invite checklist (§2).**
+- [ ] **The pre-invite checklist (§2).**
 
 ## 2. Before inviting friends
 
@@ -173,7 +172,8 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
   - the panel test matches "Related" anywhere on the page, and the snoozed-panel test accepts either of two strings.
 
 **Hidden gems (Plan 16)**
-- [ ] **Measure it:** after the first catalogue session and a few scans, check that gems are published weekly, priced, and that the fit pill reads right.
+- [ ] **Measure it:** now that the first catalogue is in, after a few scans check that gems are published weekly, priced, and that the fit pill reads right.
+- [ ] **Test isolation:** `pytest -k gem` fails 4 tests in `tests/test_gem_issues.py` (a leftover `nick@example.com` user from an earlier test); the full suite and the file alone pass.
 - [ ] **Catalogue and its check command:**
   - a trip-styles entry that isn't a list in a profile misbehaves (a word is read letter by letter, a number crashes), and repeated styles are quietly merged;
   - a missing catalogue folder (a typo in the folder setting or option) reads as an empty, valid catalogue, and `.yml` files are ignored without a word;
@@ -269,6 +269,7 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
 
 ## Done
 
+- [x] **First hidden-gems catalogue:** 11 approved ten-day trips (Lofoten, Slovenia, Morocco, Albania, Georgia, Asturias, the Kumano Kodo, Sri Lanka, Jordan, Transylvania, the Faroe Islands), written with the owner on 2026-10-31 and 2026-11-01; owner notes in `docs/gems/style-guide.md`.
 - [x] **Hidden gems:** a weekly magazine of off-the-beaten-path, affordable places matched to your trip styles, each with a live-checked fare and a "fits your dates" pill, a full guide with the facts we checked, and "Track this place". The catalogue is curated with the owner in working sessions, with no AI API (Plan 16; spec `docs/superpowers/specs/2026-10-31-ptopilot-hidden-gems-design.md`).
 - [x] **Site polish:** guided four-step onboarding; Google-Flights-style inputs everywhere (type-ahead airport chips, plain-language choices, a trip-length slider, the tap-calendar for days off) that save in place; a "reason you came" dashboard hero with a countdown and a once-per-deal Rare pop-up; Wikimedia cover photos with credits; a destination page with a hoverable price chart and a date grid; and a landing page that sells it (Plan 15; spec `docs/superpowers/specs/2026-10-30-ptopilot-site-polish-design.md`).
 - [x] **Related destinations:** each destination suggests up to 5 related places (curated look-alikes and airports within 65 km) to accept or dismiss on the destinations page; a light daily watch (free cached fares, at most 5 free live checks a day) surfaces a stunning, fitting fare under "Also worth a look" in the digest and in a "Related" panel on the destination page (Plan 14; spec `docs/superpowers/specs/2026-10-25-ptopilot-related-destinations-design.md`).

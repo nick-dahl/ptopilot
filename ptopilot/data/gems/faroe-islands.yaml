@@ -1,0 +1,49 @@
+slug: faroe-islands
+name: The Faroe Islands
+country: "FO"
+airports: [FAE]
+styles: [hiking_camping, islands, adventure]
+best_months: [6, 7, 8]
+headline: Ten days on eighteen islands in the North Atlantic, with cliffs, sea stacks, puffins and turf-roofed villages, and tunnels under the sea to get between them.
+body: |
+  The Faroes are Lofoten's wilder cousin: eighteen green islands of sheer cliffs and sea stacks halfway between Scotland and Iceland, where waterfalls drop straight into the ocean and the weather changes four times before lunch. It's dramatic in a way that photographs can't quite hold.
+
+  ## Days 1–3: Vágar and Mykines
+
+  Land on **Vágar** and stay a few nights near the airport island's best walks: the cliff path above the lake that seems to float over the sea, and the waterfall at Gásadalur that pours straight into the Atlantic. Take the small ferry to **Mykines** for the puffin colonies, if the sea lets the boat run.
+
+  ## Days 4–6: Streymoy and Eysturoy
+
+  Drive to **Tórshavn**, the tiny harbour capital, then under the sea to **Eysturoy** through a tunnel with a roundabout at the bottom, opened in 2020. Hike from the village of Gjógv and stay in a guesthouse by the gorge.
+
+  ## Days 7–9: the northern islands
+
+  Head north to **Kalsoy** for the walk out to the Kallur lighthouse, the view on every Faroe postcard, and explore the turf-roofed villages of the northern islands.
+
+  ## Day 10: home
+
+  Drive back to Vágar for the flight home.
+
+  ## The catch
+
+  Unlike Lofoten, wild camping isn't allowed: you camp at designated campsites only, or stay in guesthouses. Many of the best hikes cross private farmland and charge a fee, booked in advance. The weather can cancel ferries and close trails, so build in slack days. And this is one of the pricier trips in the catalogue; it's here because nowhere else looks like it.
+budget: Campsites are the cheapest way to sleep, and the subsea tunnels mean a hire car reaches most islands, so share one. Buy food from supermarkets and cook, budget for the hiking fees on the famous trails, and keep restaurant meals as a treat.
+daily_cost_usd: 110
+claims:
+  - text: The Faroe Islands are an archipelago of eighteen main islands in the North Atlantic, between Scotland and Iceland.
+    source_url: https://en.wikipedia.org/wiki/Faroe_Islands
+    checked_on: 2026-11-01
+  - text: Camping outside designated campsites is illegal in the Faroe Islands.
+    source_url: https://visitfaroeislands.com/en/plan-your-stay/accommodation/camping
+    checked_on: 2026-11-01
+  - text: Some popular hikes in the Faroe Islands cross private land and require a fee, booked in advance.
+    source_url: https://visitfaroeislands.com/en/see-do/activities/hiking/hiking-fees
+    checked_on: 2026-11-01
+  - text: The Eysturoy subsea tunnel, with a roundabout under the sea, opened in December 2020.
+    source_url: https://en.wikipedia.org/wiki/Eysturoyartunnilin
+    checked_on: 2026-11-01
+  - text: Mykines is reached by a small ferry whose service depends on the weather.
+    source_url: https://www.islands.com/1766959/situated-between-art-filled-underground-tunnels-connect-remote-dreamy-europe-faroe-islands-iceland-scotland
+    checked_on: 2026-11-01
+status: approved
+approved_on: 2026-11-01
