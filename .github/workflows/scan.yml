@@ -41,6 +41,8 @@ jobs:
           if [ -n "${{ inputs.date }}" ]; then args+=(--date "${{ inputs.date }}"); fi
           if [ -n "${{ inputs.stage }}" ]; then args+=(--stage "${{ inputs.stage }}"); fi
           python -m ptopilot.pipeline "${args[@]}"
-      - name: Report a cancelled run
-        if: cancelled()
+      # Covers cancels and the timeout-minutes kill. After an ordinary stage failure the pipeline has
+      # finished its stages, so `interrupted` finds no running rows and sends nothing.
+      - name: Report an interrupted run
+        if: ${{ !success() }}
         run: python -m ptopilot.pipeline interrupted
