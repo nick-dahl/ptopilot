@@ -1,7 +1,7 @@
 """The web app (spec §9): sign-in by emailed link, profile, dashboard, and the digest's snooze links.
 
-Server-rendered Jinja pages and plain HTML forms (POST, then redirect). The session cookie is signed
-and its email encrypted with SECRET_KEY and SameSite=Lax, which is what keeps other sites from submitting these forms.
+Server-rendered Jinja pages and plain HTML forms (POST, then redirect). The session cookie is signed,
+its email encrypted with SECRET_KEY, and SameSite=Lax keeps other sites from submitting these forms.
 Snooze links open a confirmation page and act only on POST: mail scanners pre-fetch links (GET), and
 a GET that changed state would snooze trackers nobody clicked.
 
