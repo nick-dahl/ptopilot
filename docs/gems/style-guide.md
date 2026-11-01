@@ -5,8 +5,9 @@ not widely known, and doable on a sensible budget. This guide is how a gem gets 
 it; the owner's notes at the bottom refine it, session by session.
 
 Reference examples: `ptopilot/data/gems/lofoten.yaml` (approved 2026-10-31, from the owner's own
-nine-day walk) is the reference for the voice and for a hiking-and-camping gem. Ljubljana is to be
-added as the city reference.
+nine-day walk) is the reference for the voice and for a hiking-and-camping gem.
+`ptopilot/data/gems/slovenia.yaml` (approved 2026-11-01, researched from sources) is the reference
+for a country-scale, day-by-day ten-day trip written about a place the owner hasn't been.
 
 ## The voice: a friend telling you how they did it
 
@@ -95,3 +96,7 @@ Each session appends the lesson from every rejected draft here, as a short rule 
   Lofoten on about $40 a day by living on cheap, calorie-dense supermarket staples; say what to
   buy, not just "groceries". Write the route as the owner walked it (trailhead to end point, the
   spur worth the detour, the villages that break it up), and name how you get home.
+- 2026-10-31 (Ljubljana, rejected): a gem is a whole vacation of about 10 days, not a city break.
+  Scope it as a country or region you'd build the trip around ("Slovenia", not "Ljubljana"), with a
+  day-by-day shape: where to start, the stretches in between, where to end. A single city belongs
+  inside a gem as one stop, never as the gem. Tone, research and the sourced claims were right.

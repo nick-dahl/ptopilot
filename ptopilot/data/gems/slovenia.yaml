@@ -1,0 +1,62 @@
+slug: slovenia
+name: Slovenia
+country: "SI"
+airports: [LJU]
+styles: [adventure, hiking_camping, culture, food_wine]
+best_months: [6, 7, 9]
+headline: Ten days that go from a car-free capital to Alpine lakes, an emerald river and a Venetian harbour town, with no drive longer than an afternoon.
+body: |
+  Slovenia packs a whole European holiday into a country smaller than New Jersey. In ten days you get a capital with real café life, lakes under the Julian Alps, a river so green it looks dyed, caves big enough to swallow a cathedral, and a harbour town on the Adriatic, with none of the drives longer than an afternoon. Most of your friends will have heard of Lake Bled and nothing else, which is exactly why it's worth going.
+
+  ## Days 1–2: Ljubljana
+
+  Land in **Ljubljana** and walk everything: the old town along the river has been car-free since 2007, so it's all cafés on the riverbank, bridges every few minutes and the castle on the hill. If you're there on a Friday from spring into October, eat at **Odprta kuhna** (Open Kitchen) on Pogačarjev trg, the best cheap dinner in town.
+
+  ## Days 3–4: Bled and Bohinj
+
+  Pick up a car or take the bus, about an hour to **Lake Bled**. See it early in the morning, then move on to **Lake Bohinj** half an hour further in, which is bigger, wilder and far quieter. You're now inside **Triglav National Park**, the country's only national park, and the hiking starts at the lakeshore.
+
+  ## Days 5–7: over Vršič into the Soča valley
+
+  Drive the **Vršič Pass**, Slovenia's highest road pass at 1,611 m and around 50 hairpins, down into the Trenta and **Soča valley**. This is the heart of the trip: walk the river's gorges, swim if you're brave, raft or kayak out of **Bovec**, and base yourself in a campsite or guesthouse along the water for three nights.
+
+  ## Day 8: the Karst
+
+  Cut south to the **Škocjan Caves**, a UNESCO World Heritage Site since 1986, where an underground river runs through a canyon you walk across on a bridge high above it. The Karst around it is also wine and cured-ham country, so stop for lunch on the way.
+
+  ## Days 9–10: Piran
+
+  Finish on the coast in **Piran**, a little Venetian-built town on a point in the Adriatic: swim off the rocks, eat grilled fish on the harbour, watch the sun go down over the sea. It's a couple of hours back to Ljubljana for the flight home.
+
+  ## The catch
+
+  You really want a car for the Alps and the Soča valley; buses get you to Bled and the coast, but not over Vršič. The pass closes in winter (roughly November to spring), so this trip is a summer-to-early-autumn one. And Bled in August is busy: get there early or stay in Bohinj.
+budget: Split a small rental car between two and it's the cheapest way to cover the Alps and the Soča valley. Sleep in campsites along the Soča and guesthouses elsewhere, eat burek and market food in Ljubljana and set lunches (malica) in the countryside, and save the splurge for fish in Piran. Day trips need no tickets beyond the cave entry.
+daily_cost_usd: 85
+claims:
+  - text: Slovenia (about 20,300 km²) is smaller than New Jersey (about 22,600 km²).
+    source_url: https://en.wikipedia.org/wiki/Slovenia
+    checked_on: 2026-10-31
+  - text: Ljubljana's city centre has been closed to motor traffic since 2007.
+    source_url: https://www.visitljubljana.com/en/visitors/sustainable-tourism-in-ljubljana/sustainable-mobility
+    checked_on: 2026-10-31
+  - text: Odprta kuhna (Open Kitchen) runs on Fridays on Pogačarjev trg from spring into October.
+    source_url: https://www.visitljubljana.com/en/visitors/events/events-in-ljubljana/open-kitchen
+    checked_on: 2026-10-31
+  - text: Lake Bled is about an hour from Ljubljana by bus.
+    source_url: https://www.inyourpocket.com/slovenia/bled/articles/getting-from-bled-to-ljubljana-train-bus-taxi-and
+    checked_on: 2026-10-31
+  - text: Triglav National Park is Slovenia's only national park, and the Soča valley lies within it.
+    source_url: https://www.soca-valley.com/en/attractions/nature/the-triglav-national-park/
+    checked_on: 2026-10-31
+  - text: The Vršič Pass is Slovenia's highest road pass at 1,611 m, with around 50 hairpin bends, and closes in winter.
+    source_url: https://en.wikipedia.org/wiki/Vr%C5%A1i%C4%8D_Pass
+    checked_on: 2026-10-31
+  - text: The Škocjan Caves have been a UNESCO World Heritage Site since 1986.
+    source_url: https://whc.unesco.org/en/list/390
+    checked_on: 2026-10-31
+  - text: The bus from Ljubljana to Piran takes about two to three hours.
+    source_url: https://www.kimkim.com/ab/ljubljana-to-piran
+    checked_on: 2026-10-31
+status: approved
+approved_on: 2026-11-01
