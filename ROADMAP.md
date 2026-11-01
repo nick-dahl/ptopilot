@@ -1,12 +1,12 @@
 # ptopilot Roadmap
 
-V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](docs/superpowers/specs/2026-10-16-ptopilot-design.md). V1 and Plans 7–16 are live. This page is the agenda: what's queued, what to settle before inviting friends, feature ideas, and the polish backlog from code reviews.
+V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](docs/superpowers/specs/2026-10-16-ptopilot-design.md). V1 and Plans 7–17 are live. This page is the agenda: what's queued, what to settle before inviting friends, feature ideas, and the polish backlog from code reviews.
 
 ## 1. Queued work, in order
 
 The owner wants the site to feel like a polished travel product before friends see it: the calm, data-first polish of Google Flights and Capital One Travel, and "the first website I want to go to when I'm daydreaming about how to spend my time off". The checklist in §2 follows these.
 
-- [ ] **The pre-invite checklist (§2).**
+- [ ] **The rest of the pre-invite checklist (§2):** the Resend domain (once the owner has bought one) and the signed-in check of the live planner.
 
 ## 2. Before inviting friends
 
@@ -171,6 +171,14 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
   - no test that a snoozed destination's related places aren't watched;
   - the panel test matches "Related" anywhere on the page, and the snoozed-panel test accepts either of two strings.
 
+**Pre-invite hardening (Plan 17)**
+- [ ] **Health email subject:** when the only sign of a killed run is the next day's "Interrupted earlier" line, the subject still says OK; add the interrupted stages to it. Confirm the `!success()` "Report an interrupted run" step fires the first time GitHub times a scan out.
+- [ ] **A local `pipeline run` during the GitHub scan** marks the live scan's stage interrupted (the sweep takes every "running" row); limit it to rows older than ~80 minutes.
+- [ ] **Digest selection is still one batch:** if one person's data breaks `build_digests`, nobody gets a digest (render, send and record are isolated per person).
+- [ ] **Digest recording:** `_record` retries only `SQLAlchemyError` (widen to `Exception`); type `deals`; tests should assert the missing `DigestSend` and unsent candidates after a record failure.
+- [ ] **Old session cookies** (plain `email` key) aren't cleared, just ignored; pop the key. `check_production` could move out of `main.py` so the app is built eagerly again.
+- [ ] **Small things:** a 59.6 s stage reads "60s"; `interrupted --dry-run` still marks rows; the no-splice workflow test should be a regex; test helper `_ids` in `test_prune.py` returns dates.
+
 **Hidden gems (Plan 16)**
 - [ ] **Measure it:** now that the first catalogue is in, after a few scans check that gems are published weekly, priced, and that the fit pill reads right.
 - [ ] **Test isolation:** `pytest -k gem` fails 4 tests in `tests/test_gem_issues.py` (a leftover `nick@example.com` user from an earlier test); the full suite and the file alone pass.
@@ -269,6 +277,7 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
 
 ## Done
 
+- [x] **Pre-invite hardening:** one person's digest failure never stops the others; a daily `prune` stage keeps price data until 90 days after the trip departs and never longer than 13 months; stage durations and reports of runs GitHub kills in the health email; read-only workflows with inputs passed via env; an encrypted session cookie, and production refuses to start without an https `APP_BASE_URL` (Plan 17).
 - [x] **First hidden-gems catalogue:** 11 approved ten-day trips (Lofoten, Slovenia, Morocco, Albania, Georgia, Asturias, the Kumano Kodo, Sri Lanka, Jordan, Transylvania, the Faroe Islands), written with the owner on 2026-10-31 and 2026-11-01; owner notes in `docs/gems/style-guide.md`.
 - [x] **Hidden gems:** a weekly magazine of off-the-beaten-path, affordable places matched to your trip styles, each with a live-checked fare and a "fits your dates" pill, a full guide with the facts we checked, and "Track this place". The catalogue is curated with the owner in working sessions, with no AI API (Plan 16; spec `docs/superpowers/specs/2026-10-31-ptopilot-hidden-gems-design.md`).
 - [x] **Site polish:** guided four-step onboarding; Google-Flights-style inputs everywhere (type-ahead airport chips, plain-language choices, a trip-length slider, the tap-calendar for days off) that save in place; a "reason you came" dashboard hero with a countdown and a once-per-deal Rare pop-up; Wikimedia cover photos with credits; a destination page with a hoverable price chart and a date grid; and a landing page that sells it (Plan 15; spec `docs/superpowers/specs/2026-10-30-ptopilot-site-polish-design.md`).
