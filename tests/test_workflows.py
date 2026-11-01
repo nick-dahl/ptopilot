@@ -46,3 +46,27 @@ def test_scan_workflow_offers_every_stage():
     workflow = yaml.safe_load((WORKFLOWS / "scan.yml").read_text(encoding="utf-8"))
     options = workflow[True]["workflow_dispatch"]["inputs"]["stage"]["options"]
     assert set(STAGES) <= set(options)
+
+
+# keepalive.yml commits and pushes a heartbeat file, so it alone needs write access.
+PERMISSION_EXCEPTIONS = {"keepalive.yml": {"contents": "write"}}
+
+
+def _workflows():
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        yield path.name, yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def test_every_workflow_is_read_only():
+    for name, workflow in _workflows():
+        expected = PERMISSION_EXCEPTIONS.get(name, {"contents": "read"})
+        assert workflow.get("permissions") == expected, name
+
+
+def test_no_workflow_splices_inputs_into_shell():
+    for name, workflow in _workflows():
+        for job in workflow["jobs"].values():
+            for step in job["steps"]:
+                run = step.get("run", "")
+                assert "${{ inputs." not in run, name
+                assert "${{ github.event.inputs." not in run, name

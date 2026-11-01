@@ -15,6 +15,8 @@ on:
 concurrency:
   group: scan
   cancel-in-progress: false
+permissions:
+  contents: read
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -28,6 +30,8 @@ jobs:
       EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
       SECRET_KEY: ${{ secrets.SECRET_KEY }}  # instant alerts' snooze links; must match the web app's
       APP_BASE_URL: ${{ vars.APP_BASE_URL }}  # empty = alerts without snooze links
+      RUN_DATE: ${{ inputs.date }}  # passed via env, never spliced into the shell script
+      RUN_STAGE: ${{ inputs.stage }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -38,8 +42,8 @@ jobs:
       - name: Run pipeline
         run: |
           args=(run)
-          if [ -n "${{ inputs.date }}" ]; then args+=(--date "${{ inputs.date }}"); fi
-          if [ -n "${{ inputs.stage }}" ]; then args+=(--stage "${{ inputs.stage }}"); fi
+          if [ -n "$RUN_DATE" ]; then args+=(--date "$RUN_DATE"); fi
+          if [ -n "$RUN_STAGE" ]; then args+=(--stage "$RUN_STAGE"); fi
           python -m ptopilot.pipeline "${args[@]}"
       # Covers cancels and the timeout-minutes kill. After an ordinary stage failure the pipeline has
       # finished its stages, so `interrupted` finds no running rows and sends nothing.
