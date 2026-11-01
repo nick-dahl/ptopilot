@@ -1,0 +1,46 @@
+slug: sri-lanka
+name: Sri Lanka
+country: "LK"
+airports: [CMB]
+styles: [rail, beach, culture, adventure]
+best_months: [12, 1, 2, 3]
+headline: Ten days from an ancient rock fortress through tea country on one of the world's great train rides to blue whales off the south coast.
+body: |
+  Sri Lanka fits a whole subcontinent into an island you can cross in a day. In ten days you climb an ancient rock fortress, ride a slow train through emerald tea estates, hike above the clouds in Ella, and finish on a palm-lined beach where blue whales pass offshore.
+
+  ## Days 1–3: the Cultural Triangle
+
+  Fly into **Colombo** and head inland to **Sigiriya**, the rock fortress rising out of the jungle, a UNESCO World Heritage Site since 1982. Climb it at dawn before the heat, then visit the cave temples of Dambulla nearby.
+
+  ## Day 4: Kandy
+
+  Move on to **Kandy**, the hill capital, with the Temple of the Tooth on its lake.
+
+  ## Days 5–7: the train to Ella
+
+  Take the train from Kandy to **Ella**, six to seven hours on the timetable and often longer, through tea estates, waterfalls and misty hills. Book a reserved seat ahead. In Ella, walk to the **Nine Arch Bridge**, about two kilometres from the village, climb Little Adam's Peak at sunrise, and visit a tea factory.
+
+  ## Days 8–10: the south coast
+
+  Drive down to the south coast around **Mirissa**: beaches, surf, and from November to April, boat trips out to see blue whales. Spend the last day in **Galle**'s old Dutch fort before the drive back to the airport.
+
+  ## The catch
+
+  Distances look short on the map but roads are slow: plan on a driver for the longer legs. The train is late more often than not, which is half its charm, but don't schedule anything tight after it. And this itinerary is a December-to-March trip, when the south coast is dry and calm.
+budget: Guesthouses are cheap and comfortable, rice and curry costs a couple of dollars, and the train is one of the best-value rides in the world. The big costs are entry fees at the cultural sites and a driver for the long legs; share the driver.
+daily_cost_usd: 55
+claims:
+  - text: The Ancient City of Sigiriya has been a UNESCO World Heritage Site since 1982.
+    source_url: https://whc.unesco.org/en/list/202
+    checked_on: 2026-11-01
+  - text: The Kandy–Ella train takes about six to seven hours on the timetable and can take longer with delays.
+    source_url: https://lizytravelstheworld.com/a-quick-guide-to-the-kandy-to-ella-train-in-sri-lanka/
+    checked_on: 2026-11-01
+  - text: The Nine Arch Bridge is about two kilometres' walk from Ella's centre.
+    source_url: https://lizytravelstheworld.com/a-quick-guide-to-the-kandy-to-ella-train-in-sri-lanka/
+    checked_on: 2026-11-01
+  - text: The whale-watching season off Mirissa runs from about November to April.
+    source_url: https://nomadicboys.com/whale-watching-mirissa/
+    checked_on: 2026-11-01
+status: approved
+approved_on: 2026-11-01

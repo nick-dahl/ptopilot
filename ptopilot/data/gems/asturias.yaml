@@ -1,0 +1,47 @@
+slug: asturias
+name: Asturias and the Picos de Europa
+country: "ES"
+airports: [OVD]
+styles: [hiking_camping, food_wine, beach, culture]
+best_months: [6, 7, 9]
+headline: Ten days in Spain's green north, from cider poured from over the bartender's head to a gorge walk through the Picos de Europa and empty beaches below the mountains.
+body: |
+  This is the Spain that most people never see: mountains that drop almost straight into the Atlantic, villages of stone and slate, and a food culture built on cider, cheese and stews rather than tapas and sangria. It's green because it rains, cool when the south is baking, and still far quieter than anywhere on the Mediterranean.
+
+  ## Days 1–2: Oviedo and Gijón
+
+  Fly into **Asturias airport** and start in **Oviedo**, then **Gijón**. Spend your evenings in a sidrería: natural cider is poured from high above the bartender's head into a glass held low, a tradition UNESCO added to its intangible heritage list in 2024. Order fabada (bean stew) and a bottle, and drink each pour in one go, as the locals do.
+
+  ## Days 3–4: Covadonga and the lakes
+
+  Drive east to **Cangas de Onís** and up to the **Lakes of Covadonga**, the original heart of the **Picos de Europa National Park**, Spain's first national park, created in 1918. Walk the loop between the two lakes and the high pastures above them.
+
+  ## Days 5–6: the Cares gorge
+
+  Walk the **Ruta del Cares** from Poncebos to Caín: about 11 to 12 km each way and three to four hours one way, on a path cut into the side of a gorge hundreds of metres above the river. It's the walk everyone remembers. Stay nearby in the Cabrales valley and try the blue cheese aged in mountain caves.
+
+  ## Days 7–9: the coast
+
+  Finish on the coast around **Llanes**: dozens of small coves and beaches with the mountains behind them, coastal walks along the cliffs, and fresh fish in the harbour. Swim if you're brave; the Atlantic here is bracing.
+
+  ## Day 10: home
+
+  It's an hour or so back to the airport for the flight home.
+
+  ## The catch
+
+  You need a car: buses reach the main towns but not the trailheads. The weather changes fast and it rains even in summer, so pack layers. And the Covadonga lakes road is restricted to buses at busy times, so check before you drive up.
+budget: Cider in a sidrería costs a few euros a bottle and a menú del día (set lunch) is the best-value meal in Spain. Stay in casas rurales (village guesthouses) and share a small hire car; the hikes are free.
+daily_cost_usd: 75
+claims:
+  - text: Asturian cider culture, including pouring from a height (escanciado), was added to UNESCO's intangible cultural heritage list in 2024.
+    source_url: https://ich.unesco.org/en/decisions/19.COM/7.B.7
+    checked_on: 2026-11-01
+  - text: The Picos de Europa National Park began in 1918 around the Lakes of Covadonga as Spain's first national park.
+    source_url: https://en.wikipedia.org/wiki/Picos_de_Europa_National_Park
+    checked_on: 2026-11-01
+  - text: The Ruta del Cares from Poncebos to Caín is about 11 to 12 km one way and takes about three to four hours.
+    source_url: https://www.turismoasturias.es/en/senderismo/rutas/montaneros/ruta-del-cares
+    checked_on: 2026-11-01
+status: approved
+approved_on: 2026-11-01

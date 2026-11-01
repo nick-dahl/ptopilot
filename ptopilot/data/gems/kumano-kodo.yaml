@@ -1,0 +1,49 @@
+slug: kumano-kodo
+name: The Kumano Kodo and the Kii Peninsula
+country: "JP"
+airports: [KIX]
+styles: [hiking_camping, culture]
+best_months: [4, 5, 10, 11]
+headline: Ten days of Japan that most visitors miss, a thousand-year-old pilgrimage walk through cedar forest between hot-spring villages, with your bag sent ahead each morning.
+body: |
+  Everyone goes to Tokyo and Kyoto. Far fewer walk the **Kumano Kodo**, the old pilgrimage routes through the mountains of the Kii Peninsula, and that's the point: mossy stone paths through cedar forest, tiny shrines every few kilometres, and a family inn with a hot bath and a huge dinner waiting at the end of every day.
+
+  ## Days 1–2: Kyoto
+
+  Fly into **Kansai** and take two days in Kyoto to settle in, eat well and get over the jet lag before you walk.
+
+  ## Day 3: Koyasan
+
+  Head up to **Koyasan**, the mountain monastery town, and spend the night in a temple: vegetarian monks' food for dinner and morning prayers before breakfast.
+
+  ## Days 4–7: the Nakahechi route
+
+  Get to **Tanabe** and start the **Nakahechi**, the main route, at Takijiri. It's about 38 to 40 km to **Kumano Hongu Taisha**, the grand shrine, usually walked over three or four days with nights in the villages along the way. Use the luggage shuttle between inns so you walk with just a day pack.
+
+  Finish at **Yunomine Onsen**, a hot-spring village just past the grand shrine, and soak in Tsuboyu, a tiny bath in the river that pilgrims have used for centuries.
+
+  ## Days 8–9: Nachi and the coast
+
+  Take the bus to **Kumano Nachi Taisha** and the great Nachi waterfall beside it, then down to the coast for a night by the sea.
+
+  ## Day 10: back to Osaka
+
+  The train runs back along the coast to Osaka for the flight home.
+
+  ## The catch
+
+  Inns along the trail have few rooms, so book months ahead, ideally through the local tourism bureau's booking system, which also arranges the luggage shuttle. The trail is steep in places and wet in June's rainy season. Spring and autumn are the times to go.
+budget: Inns along the route include dinner and breakfast, so you rarely pay for food separately on walking days, and the luggage shuttle costs little per stage. Japan's trains and buses are reliable but add up, so use regional passes where they fit.
+daily_cost_usd: 120
+claims:
+  - text: The Kumano Kodo is part of the UNESCO World Heritage Site "Sacred Sites and Pilgrimage Routes in the Kii Mountain Range", inscribed in 2004.
+    source_url: https://whc.unesco.org/en/list/1142
+    checked_on: 2026-11-01
+  - text: The Nakahechi route from Takijiri to Kumano Hongu Taisha is about 38 to 40 km, usually walked over three or four days.
+    source_url: https://www.insidekyoto.com/kumano-kodo-walking-trail-guide-with-maps
+    checked_on: 2026-11-01
+  - text: A luggage shuttle runs daily between accommodations along the Kumano Kodo booked through the local tourism bureau's system.
+    source_url: https://www.tb-kumano.jp/en/kumano-kodo/luggage-shuttle/
+    checked_on: 2026-11-01
+status: approved
+approved_on: 2026-11-01
