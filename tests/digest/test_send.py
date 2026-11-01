@@ -1,9 +1,13 @@
+from collections import Counter
+
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 
 from ptopilot.data import load_geo, load_seasons
 from ptopilot.db.models import Candidate, DigestSend
 from ptopilot.db.session import session_scope
 from ptopilot.digest import __main__ as cli
+from ptopilot.digest import send as send_module
 from ptopilot.digest.select import build_digests
 from ptopilot.digest.send import deliver
 from ptopilot.notify.email import EmailError
@@ -136,3 +140,66 @@ def test_tuning_digests_only_go_to_the_admin(clean_engine, monkeypatch):
     assert [to for to, _ in emailer.sent] == ["nick@example.com"]
     monkeypatch.delenv("ADMIN_EMAIL")
     assert cli.main(["send", "--date", str(RUN), "--min-level", "none"]) == 2  # refuses without an admin
+
+
+def two_deal_users(engine):
+    for email in ("nick@example.com", "friend@example.com"):
+        add_candidate(engine, add_tracker(engine, add_user(engine, email)), 600)
+
+
+def test_a_render_crash_skips_only_that_person(clean_engine, monkeypatch):
+    two_deal_users(clean_engine)
+    digests = built(clean_engine)
+    real_render = send_module.render
+
+    def flaky(digest, **kw):
+        if digest.user_id == digests[0].user_id:
+            raise RuntimeError("bad template data")
+        return real_render(digest, **kw)
+
+    monkeypatch.setattr(send_module, "render", flaky)
+    emailer = FakeEmailer()
+    counts = deliver(clean_engine, digests, RUN, emailer=emailer)
+    assert (counts["failed"], counts["sent"]) == (1, 1)
+    assert len(emailer.sent) == 1
+
+
+def test_a_record_failure_after_sending_keeps_going(clean_engine, monkeypatch):
+    two_deal_users(clean_engine)
+    digests = built(clean_engine)
+    real_record = send_module._record
+
+    def broken(engine, digest, deals):
+        if digest.user_id == digests[0].user_id:
+            raise OperationalError("insert", {}, Exception("connection lost"))
+        return real_record(engine, digest, deals)
+
+    monkeypatch.setattr(send_module, "_record", broken)
+    emailer = FakeEmailer()
+    counts = deliver(clean_engine, digests, RUN, emailer=emailer)
+    assert len(emailer.sent) == 2
+    assert (counts["record_failed"], counts["sent"]) == (1, 2)
+
+
+def test_a_record_failure_is_retried_once(clean_engine, monkeypatch):
+    add_candidate(clean_engine, add_tracker(clean_engine, add_user(clean_engine)), 600)
+    real_record, calls = send_module._record, []
+
+    def flaky(engine, digest, deals):
+        calls.append(1)
+        if len(calls) == 1:
+            raise OperationalError("insert", {}, Exception("connection lost"))
+        return real_record(engine, digest, deals)
+
+    monkeypatch.setattr(send_module, "_record", flaky)
+    counts = deliver(clean_engine, built(clean_engine), RUN, emailer=FakeEmailer())
+    assert "record_failed" not in counts and counts["sent"] == 1
+    assert len(sends(clean_engine)) == 1
+
+
+def test_digest_cli_exits_1_when_a_record_failed(clean_engine, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", TEST_URL)
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    monkeypatch.setattr(cli, "ResendEmailer", lambda key, sender: FakeEmailer())
+    monkeypatch.setattr(cli, "deliver", lambda *a, **kw: Counter(sent=1, record_failed=1))
+    assert cli.main(["send", "--date", str(RUN)]) == 1

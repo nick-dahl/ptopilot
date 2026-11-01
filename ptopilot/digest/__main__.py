@@ -2,7 +2,7 @@
 
 --preview writes each digest to DIR as HTML + text instead of emailing it (no database writes), which
 is the way to tune the layout. --min-level none includes trips that aren't deals yet. Exits 1 if any
-email failed to send, 2 if sending is requested but no emailer is configured.
+digest failed to send or to be recorded, 2 if sending is requested but no emailer is configured.
 """
 
 from __future__ import annotations
@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"digests for {today}: {len(digests)} built; {summary}")
     if args.preview:
         print(f"preview written to {args.preview.resolve()}")
-    return 1 if counts["failed"] else 0
+    return 1 if counts["failed"] or counts["record_failed"] else 0
 
 
 if __name__ == "__main__":
