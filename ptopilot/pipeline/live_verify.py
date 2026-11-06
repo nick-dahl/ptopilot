@@ -2,19 +2,24 @@
 
 Sources are tried in order (Google Flights first, SerpApi as fallback). A source that fails
 BREAKER_THRESHOLD times in a row is skipped for the rest of the run. Every attempt is recorded in
-`live_checks`, which lets a same-day re-run skip routes already checked (even ones with no flights) and
-caps budgeted sources (SerpApi) per day; the monthly cap lives in `source_budget`. Instant alerts' searches
+`live_checks`, which lets a run skip routes it already checked (even ones with no flights), lets first-check
+entries (deal/explore) skip routes already fresh today, and caps budgeted sources (SerpApi) per day; the
+monthly cap lives in `source_budget`. Audit entries are the
+routes only SerpApi has priced today: they are checked again, by free Google. Instant alerts' searches
 for the flight home are recorded too (purpose 'return'): they count toward the budgets, never as a route
 checked.
 Open-jaw queries go only to sources with `supports_open_jaw` (SerpApi); skipping a source that can't
 price them never counts toward its circuit breaker.
+The whole shortlist is worked in order. When Google (an unbudgeted source) fails or answers empty for much of
+the last BACKOFF_WINDOW attempts, pauses grow; when it does so for nearly all, the run stops and the next
+scan run carries on.
 Every option a source returns is stored as a verified observation; per-user filtering happens in `score`.
 """
 
 from __future__ import annotations
 
 import logging
-from collections import Counter
+from collections import Counter, deque
 from datetime import UTC, datetime, time, timedelta
 from decimal import Decimal
 
@@ -25,6 +30,7 @@ from ptopilot import config
 from ptopilot.db.models import LiveCheck, PriceObservation, RouteQuery, ShortlistEntry, SourceBudget
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext, StageFailed, StageSkipped
+from ptopilot.pipeline.freshness import fresh_on
 from ptopilot.pipeline.queries import month_of
 from ptopilot.sources.base import ExactQuery, ExactResult, ExactSearchSource, SourceUnavailable
 
@@ -191,43 +197,43 @@ def run(ctx: RunContext) -> dict[str, int]:
     if not ctx.live_sources:
         raise StageSkipped("no live sources configured")
     counts: Counter[str] = Counter()
+    run_start = ctx.stamp()
     with session_scope(ctx.engine) as s:
-        entries = (
-            s.execute(
-                select(RouteQuery)
-                .join(ShortlistEntry, ShortlistEntry.route_query_id == RouteQuery.id)
-                .where(ShortlistEntry.run_date == ctx.run_date)
-                .order_by(ShortlistEntry.rank)
+        rows = s.execute(
+            select(RouteQuery, ShortlistEntry.reason)
+            .join(ShortlistEntry, ShortlistEntry.route_query_id == RouteQuery.id)
+            .where(ShortlistEntry.run_date == ctx.run_date)
+            .order_by(ShortlistEntry.rank)
+        ).all()
+        entries = [rq for rq, _ in rows]
+        reasons = [reason for _, reason in rows]
+        # Fresh today (any source) before this run: first-check entries (deal/explore) that are already
+        # fresh need nothing. Audit and second-check entries are for exactly such routes, so they run anyway.
+        fresh = fresh_on(s, ctx.run_date)
+        # Checked since this stage started (any outcome): a repeat entry of one run must not hit Google twice.
+        checked = set(
+            s.scalars(
+                select(LiveCheck.route_query_id).where(
+                    LiveCheck.run_date == ctx.run_date,
+                    LiveCheck.purpose == "trip",
+                    LiveCheck.checked_at >= run_start,
+                )
             )
-            .scalars()
-            .all()
         )
-        # A re-run of the same day skips routes already checked successfully for this run date. A budgeted
-        # source's check (SerpApi, e.g. from seed_history) doesn't count for round trips: free Google still
-        # prices them, which is also what gives the health audit its fast-flights vs SerpApi pairs.
-        checked = {
-            rq_id
-            for rq_id, source, dest, ret in s.execute(
-                select(
-                    LiveCheck.route_query_id,
-                    LiveCheck.source,
-                    RouteQuery.dest_airport,
-                    RouteQuery.return_airport,
-                )
-                .join(RouteQuery, RouteQuery.id == LiveCheck.route_query_id)
-                .where(
-                    LiveCheck.run_date == ctx.run_date, LiveCheck.ok.is_(True), LiveCheck.purpose == "trip"
-                )
-            )
-            if source not in config.SOURCE_BUDGETS or ret != dest
-        }
+
+    def first_check_done(i: int) -> bool:
+        return reasons[i] in ("deal", "explore") and entries[i].id in fresh
 
     budget = Budget(ctx)
     # Open-jaw routes can only be priced by budgeted SerpApi, so round-trip fallbacks never spend
     # the calls those routes still need.
     pending_open_jaw = sum(
-        1 for rq in entries if rq.id not in checked and rq.return_airport != rq.dest_airport
+        1
+        for i, rq in enumerate(entries)
+        if rq.id not in checked and not first_check_done(i) and rq.return_airport != rq.dest_airport
     )
+    window: deque[bool] = deque(maxlen=config.BACKOFF_WINDOW)  # True = bad answer from an unbudgeted source
+    slowed = False
     consecutive_failures: Counter[str] = Counter()
     route_failures: Counter[str] = Counter()
     succeeded: set[str] = set()
@@ -235,8 +241,14 @@ def run(ctx: RunContext) -> dict[str, int]:
     started = ctx.clock()
     for i, rq in enumerate(entries):
         if rq.id in checked:
+            counts["checked_this_run"] += 1
+            continue
+        if first_check_done(i):
             counts["already_checked"] += 1
             continue
+        if len(window) == window.maxlen and sum(window) / len(window) >= config.BACKOFF_STOP_SHARE:
+            counts["backoff_stopped"] += len(entries) - i
+            break
         if ctx.clock() - started > config.LIVE_VERIFY_BUDGET_S:
             counts["out_of_time"] += len(entries) - i
             break
@@ -258,6 +270,8 @@ def run(ctx: RunContext) -> dict[str, int]:
         if not capable:  # e.g. open-jaw with SerpApi unconfigured or out of budget for today
             counts["no_open_jaw_source"] += 1
             continue
+        counts[{"second": "second_checks", "audit": "audits"}.get(reasons[i], "first_checks")] += 1
+        checked.add(rq.id)
         for src in capable:
             if not budget.allows(src.name):
                 disabled.add(src.name)
@@ -269,11 +283,14 @@ def run(ctx: RunContext) -> dict[str, int]:
                     counts[f"{src.name}_reserved_for_open_jaw"] += 1
                     continue
             budget.charge(src.name)
+            unbudgeted = src.name not in config.SOURCE_BUDGETS
             try:
                 result = src.exact_search(query)
             except SourceUnavailable as exc:
                 record_check(ctx, rq, src.name, ok=False, error=str(exc), route_specific=exc.route_specific)
                 log.warning("%s failed for %s: %s", src.name, query, exc)
+                if unbudgeted:
+                    window.append(True)
                 if exc.route_specific:  # this route's problem, not an outage: leave the breaker alone
                     counts[f"{src.name}_route_failed"] += 1
                     route_failures[src.name] += 1
@@ -293,17 +310,27 @@ def run(ctx: RunContext) -> dict[str, int]:
             counts["options_stored"] += store_options(ctx, rq, result)
             counts["history_points_stored"] += store_history(ctx, rq, result)
             record_check(ctx, rq, src.name, ok=True, options=len(result.options))
+            fresh.add(rq.id)
+            if unbudgeted:
+                window.append(not result.options)
             if not result.options:
                 counts["no_flights"] += 1
             break
         else:
             counts["all_sources_failed"] += 1
+        if len(window) == window.maxlen and sum(window) / len(window) >= config.BACKOFF_SLOW_SHARE:
+            slowed = True
+            counts["backoff_slowed"] = 1
+        elif len(window) == window.maxlen:
+            slowed = False
         if i < len(entries) - 1:
-            ctx.sleep(ctx.rng.uniform(*config.LIVE_DELAY_S))
+            pause = ctx.rng.uniform(*config.LIVE_DELAY_S)
+            ctx.sleep(pause * config.BACKOFF_PAUSE_FACTOR if slowed else pause)
 
     successes = sum(v for k, v in counts.items() if k.endswith("_ok"))
-    # Routes no configured source can price (open-jaw without SerpApi) were never attempted: not a failure.
-    pending = len(entries) - counts["already_checked"] - counts["no_open_jaw_source"]
-    if pending and not successes:
-        raise StageFailed(f"no live check succeeded for {pending} shortlisted routes: {dict(counts)}")
+    # Entries no configured source could price (open-jaw without SerpApi) were never attempted, nor were
+    # those the time budget, a tripped breaker or the back-off left over: only attempts count.
+    attempted = counts["first_checks"] + counts["second_checks"] + counts["audits"]
+    if attempted and not successes:
+        raise StageFailed(f"no live check succeeded for {attempted} shortlisted routes: {dict(counts)}")
     return dict(counts)

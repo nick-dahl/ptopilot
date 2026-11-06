@@ -57,6 +57,13 @@ RETURN_CHECKS_PER_DAY = 3
 # A source failing this many routes route-specifically with no success in the run has likely changed
 # format everywhere: stop using it for the rest of the run.
 ROUTE_FAILURE_LIMIT = 8
+# Back-off when Google pushes back: over the last BACKOFF_WINDOW attempts by an unbudgeted source, a failed
+# or empty answer is "bad". At BACKOFF_SLOW_SHARE bad the pauses grow by BACKOFF_PAUSE_FACTOR; at
+# BACKOFF_STOP_SHARE the run stops (the next scan run picks up the rest).
+BACKOFF_WINDOW = 20
+BACKOFF_SLOW_SHARE = 0.6
+BACKOFF_STOP_SHARE = 0.85
+BACKOFF_PAUSE_FACTOR = 2.0
 LIVE_VERIFY_BUDGET_S = 50 * 60  # stop starting live checks after this long so later stages still run
 LIVE_HORIZON_DAYS = 300  # Google Flights returns nothing ~10-11 months out; don't spend checks beyond this
 # History seeding (V2): Google's own daily prices from SerpApi round-trip results seed baselines.

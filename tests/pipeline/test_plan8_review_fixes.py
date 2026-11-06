@@ -1,13 +1,13 @@
 """Fixes from the Plan 8 whole-branch review: the audit gets real pairs, a seeded trip can't fake deals,
 a Google-wide format change stops after a few routes, and live_verify stays inside the job's time."""
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from itertools import count
 
 from sqlalchemy import select
 
 from ptopilot import config
-from ptopilot.db.models import RouteBaseline, RouteQuery
+from ptopilot.db.models import LiveCheck, RouteBaseline, RouteQuery, ShortlistEntry
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline import baselines, expand, live_verify, seed_history, shortlist
 from ptopilot.pipeline.health import audit_lines
@@ -46,6 +46,10 @@ def test_google_still_prices_seeded_trips_so_the_audit_gets_real_pairs(make_ctx,
     google = FakeLiveSource("google_flights", answering(option(1010)))
     ctx = shortlisted(make_ctx, live_sources=[google, seeding_serpapi()])
     seeded = seed_history.run(ctx)["seeded"]
+    with session_scope(ctx.engine) as s:  # fresh only via SerpApi: the shortlist lists them as audits
+        s.query(ShortlistEntry).update({"reason": "audit"})
+        # seeding ran in an earlier stage run: before this one starts (the clock is pinned to noon)
+        s.query(LiveCheck).update({"checked_at": datetime(RUN.year, RUN.month, RUN.day, 6, tzinfo=UTC)})
     live_verify.run(ctx)
     with session_scope(ctx.engine) as s:
         today = audit_lines(s, RUN)[0]
