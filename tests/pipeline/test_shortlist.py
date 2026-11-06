@@ -217,6 +217,18 @@ def test_promise_breaks_ties_within_the_same_wait(make_ctx):
     assert ids_in_order(ctx.engine) == [(deal, "deal"), (plain, "explore")]
 
 
+def test_promise_beats_check_time_within_the_same_day(make_ctx):
+    ctx, tid = bare(make_ctx)
+    plain = make_rq(ctx.engine, tid, date(2027, 5, 20), date(2027, 5, 28))  # checked earlier, no signal
+    deal = make_rq(ctx.engine, tid, *DEAL)
+    check(ctx.engine, plain, date(2027, 2, 28), datetime(2027, 2, 28, 6, 5, tzinfo=UTC))
+    check(ctx.engine, deal, date(2027, 2, 28), datetime(2027, 2, 28, 14, 30, tzinfo=UTC))
+    confident_baseline(ctx.engine)
+    add_observation(ctx.engine, *DEAL, 800, observed=RUN)
+    shortlist.run(ctx)
+    assert ids_in_order(ctx.engine) == [(deal, "deal"), (plain, "explore")]
+
+
 def test_fresh_today_goes_after_every_not_fresh_trip(make_ctx):
     ctx, tid = bare(make_ctx)
     soon = make_rq(ctx.engine, tid, RUN + timedelta(days=10), RUN + timedelta(days=18))  # hot: departs soon

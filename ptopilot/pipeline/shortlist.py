@@ -1,9 +1,10 @@
 """Stage `shortlist`: order every in-horizon trip for a live check (spec §7, Plan 18).
 
 Every route query departing within LIVE_HORIZON_DAYS is queued, in check order:
-1. Not fresh today (no ok trip check yet, from any source): longest waiting first, a trip never fresh
-   before everything, then the most promising. Reason `deal` when the cached price is at or below ~p35 of
-   a confident baseline (promise = deal strength x urgency x tracker priority), else `explore` (promise 0).
+1. Not fresh today (no ok trip check yet, from any source): longest waiting first, by the day of the last
+   fresh check (a trip never fresh goes before everything; checks seconds apart count as the same wait),
+   then the most promising. Reason `deal` when the cached price is at or below ~p35 of a confident
+   baseline (promise = deal strength x urgency x tracker priority), else `explore` (promise 0).
    Staleness looks only at checks before today, so a later run the same day orders the rest the same way.
 2. `audit`: round trips whose only fresh price today came from a budgeted source (SerpApi); a free Google
    check can still confirm or correct them.
@@ -18,7 +19,7 @@ are capped at what open-jaw-capable sources (SerpApi) can still price today.
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import UTC, date, timedelta
 from statistics import fmean, pstdev
 
 from sqlalchemy import delete, func, select
@@ -40,7 +41,7 @@ from ptopilot.pipeline.queries import (
     todays_route_queries,
 )
 
-NEVER = datetime.min
+NEVER = date.min
 UNLIMITED = 1_000_000  # open-jaw capacity of a source with no daily budget
 
 
@@ -145,7 +146,7 @@ def run(ctx: RunContext) -> dict[str, int]:
                 else:
                     counts["not_cheap"] += 1
             when = seen.get(rq.id)
-            key = (when.replace(tzinfo=None) if when else NEVER, -promise, rq.depart_date, rq.id)
+            key = (when.astimezone(UTC).date() if when else NEVER, -promise, rq.depart_date, rq.id)
             first.append((key, rq, reason, price))
 
         first.sort(key=lambda e: e[0])
