@@ -124,6 +124,8 @@ COMBO_MAX_SHOWN = 3
 COMBO_LEGS_PER_TRACKER = 5  # best eligible offers per destination considered by the search
 COMBO_MAX_TRACKERS = 12  # destinations searched: those whose best eligible offer saves the most
 
+# Candidate rows per upsert statement: psycopg caps one statement at 65,535 parameters (~17 a row).
+SCORE_UPSERT_CHUNK = 1000
 # Buy now or wait (Plan 13)
 TRIP_HISTORY_MIN = 10  # daily points for the exact trip before its own history is judged
 DURATION_MIN_DIPS = 2  # past dips needed to estimate how long a deal lasts

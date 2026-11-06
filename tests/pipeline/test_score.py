@@ -2,8 +2,9 @@ from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from types import SimpleNamespace
 
-from sqlalchemy import select
+from sqlalchemy import event, select
 
+from ptopilot import config
 from ptopilot.core.misery import Assessment
 from ptopilot.db.models import AlertSend, Candidate, PriceObservation, RouteBaseline, RouteQuery, Tracker
 from ptopilot.db.session import session_scope
@@ -340,3 +341,29 @@ def test_a_tracker_deactivated_mid_day_drops_out_without_expand(make_ctx):
         s.get(Tracker, first).active = False
     score.run(ctx)  # no expand: the morning's links are still there
     assert by_tracker() == {second: before[second]}
+
+
+def test_the_upsert_is_sent_in_chunks(make_ctx, monkeypatch):
+    monkeypatch.setattr(config, "SCORE_UPSERT_CHUNK", 2)
+    ctx = setup(make_ctx)
+    with session_scope(ctx.engine) as s:
+        trips = [
+            (rq.depart_date, rq.return_date) for rq in s.scalars(select(RouteQuery).order_by(RouteQuery.id))
+        ]
+    for trip in trips[:5]:
+        add_observation(ctx.engine, *trip, 900, observed=RUN)
+    inserts = []
+
+    def spy(conn, cursor, statement, *args):
+        if statement.lstrip().upper().startswith("INSERT INTO CANDIDATES"):
+            inserts.append(statement)
+
+    event.listen(ctx.engine, "before_cursor_execute", spy)
+    try:
+        assert score.run(ctx)["candidates"] == 5
+        first = {k: c.id for k, c in candidates(ctx.engine).items()}
+        assert len(first) == 5 and len(inserts) == 3  # 2 + 2 + 1 rows
+        score.run(ctx)
+        assert {k: c.id for k, c in candidates(ctx.engine).items()} == first
+    finally:
+        event.remove(ctx.engine, "before_cursor_execute", spy)

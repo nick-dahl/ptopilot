@@ -11,8 +11,8 @@ from collections import Counter, defaultdict
 from collections.abc import Callable, Sequence
 from datetime import date, timedelta
 
-from sqlalchemy import Date, cast, delete, func, select, tuple_
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import Date, Integer, any_, bindparam, cast, delete, func, select
+from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.orm import Session
 
 from ptopilot import config
@@ -130,30 +130,26 @@ def trip_series(s: Session, rq: RouteQuery, tracker_id: int, run_date: date) -> 
     return series
 
 
-_KEY = ("tracker_id", "route_query_id", "run_date", "evening_departure")
+_KEY = ("tracker_id", "route_query_id", "run_date", "evening_departure")  # the upsert's unique key
 
 
 def _store(s: Session, run_date: date, scored: list[dict]) -> None:
     """Upsert the scored rows on their unique key (never touching `id` or `state`), then drop the day's
-    candidates that this scoring no longer produced."""
-    if scored:
-        stmt = insert(Candidate).values(scored)
-        s.execute(
-            stmt.on_conflict_do_update(
-                index_elements=list(_KEY), set_={c: stmt.excluded[c] for c in scored[0] if c not in _KEY}
-            )
+    candidates that this scoring no longer produced.
+
+    Sent SCORE_UPSERT_CHUNK rows at a time: one statement carries ~17 parameters a row, and psycopg allows
+    65,535. The survivors' ids go back as a single array parameter for the same reason."""
+    kept: list[int] = []
+    for start in range(0, len(scored), config.SCORE_UPSERT_CHUNK):
+        chunk = scored[start : start + config.SCORE_UPSERT_CHUNK]
+        stmt = insert(Candidate).values(chunk)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=list(_KEY), set_={c: stmt.excluded[c] for c in chunk[0] if c not in _KEY}
         )
-    keys = [tuple(row[k] for k in _KEY) for row in scored]
+        kept += s.scalars(stmt.returning(Candidate.id)).all()
     stale = delete(Candidate).where(Candidate.run_date == run_date)
-    if keys:
-        stale = stale.where(
-            tuple_(
-                Candidate.tracker_id,
-                Candidate.route_query_id,
-                Candidate.run_date,
-                Candidate.evening_departure,
-            ).not_in(keys)
-        )
+    if kept:
+        stale = stale.where(~(Candidate.id == any_(bindparam("kept", kept, type_=ARRAY(Integer)))))
     s.execute(stale)
 
 
