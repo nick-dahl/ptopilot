@@ -1,12 +1,15 @@
-"""Stage `shortlist`: choose which route queries get a live check today (spec §7).
+"""Stage `shortlist`: order every in-horizon trip for a live check (spec §7, Plan 18).
 
-Two kinds of entry, deals first in check order:
-- deal: the cached price is at or below ~p35 of a confident baseline, ranked by
-  deal strength × urgency × tracker priority.
-- explore: routes with too little history (n < COLD_START_N) or no cached price at all, least
-  recently live-checked first (any outcome, from `live_checks`, so "no flights" counts as checked).
-  EXPLORATION_QUOTA slots are reserved for these so history keeps building even on days full of deals,
-  and exploration also takes any of the LIVE_CHECK_CAP slots that deals leave unused.
+Every route query departing within LIVE_HORIZON_DAYS is queued, in check order:
+1. Not fresh today (no ok trip check yet, from any source): longest waiting first, a trip never fresh
+   before everything, then the most promising. Reason `deal` when the cached price is at or below ~p35 of
+   a confident baseline (promise = deal strength x urgency x tracker priority), else `explore` (promise 0).
+   Staleness looks only at checks before today, so a later run the same day orders the rest the same way.
+2. `audit`: round trips whose only fresh price today came from a budgeted source (SerpApi); a free Google
+   check can still confirm or correct them.
+3. `second`: fresh trips that are hot, at most SECOND_CHECKS_PER_RUN: the last live price is a deal or near
+   one, the trip departs within SOON_DAYS, or its live prices swing (coefficient of variation >= VOLATILE_CV).
+   Near-deal first, then soonest, then most volatile.
 
 Departures more than LIVE_HORIZON_DAYS out are left alone: Google can't price them yet. Open-jaw routes
 are capped at what open-jaw-capable sources (SerpApi) can still price today.
@@ -15,16 +18,17 @@ are capped at what open-jaw-capable sources (SerpApi) can still price today.
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date, datetime
-from decimal import Decimal
+from datetime import datetime, timedelta
+from statistics import fmean, pstdev
 
 from sqlalchemy import delete, func, select
 
 from ptopilot import config
 from ptopilot.core.stats import z_score
-from ptopilot.db.models import LiveCheck, ShortlistEntry, Tracker, TrackerRouteLink
+from ptopilot.db.models import PriceObservation, RouteQuery, ShortlistEntry, Tracker, TrackerRouteLink
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext
+from ptopilot.pipeline.freshness import fresh_on, google_fresh_on, last_fresh
 from ptopilot.pipeline.live_verify import Budget
 from ptopilot.pipeline.queries import (
     cached_prices,
@@ -32,10 +36,12 @@ from ptopilot.pipeline.queries import (
     estimate,
     load_baselines,
     rq_baseline_key,
+    start_of,
     todays_route_queries,
 )
 
 NEVER = datetime.min
+UNLIMITED = 1_000_000  # open-jaw capacity of a source with no daily budget
 
 
 def urgency(days_until: int) -> float:
@@ -53,9 +59,45 @@ def open_jaw_capacity(ctx: RunContext) -> int:
         if src.supports_open_jaw:
             left = budget.remaining_today(src.name)
             if left is None:
-                return config.LIVE_CHECK_CAP
+                return UNLIMITED
             total += left
     return total
+
+
+def _live_prices(s, rqs: list[RouteQuery], run_date) -> dict:
+    """Each trip's verified live prices in the baseline window, oldest first."""
+    routes = {(rq.origin, rq.dest_airport, rq.return_airport) for rq in rqs}
+    prices: dict = {}
+    if not routes:
+        return prices
+    rows = s.scalars(
+        select(PriceObservation)
+        .where(
+            PriceObservation.verified.is_(True),
+            PriceObservation.observed_at >= start_of(run_date - timedelta(days=config.BASELINE_WINDOW_DAYS)),
+            PriceObservation.observed_at < start_of(run_date + timedelta(days=1)),
+        )
+        .order_by(PriceObservation.observed_at, PriceObservation.id)
+    )
+    for o in rows:
+        if (o.origin, o.dest_airport, o.return_airport) in routes and o.depart_date and o.return_date:
+            prices.setdefault(date_key(o), []).append(float(o.price))
+    return prices
+
+
+def _hot_rank(rq: RouteQuery, prices: list[float], baseline, run_date) -> tuple | None:
+    """Sort key if this fresh trip deserves a second check (near-deal, then soonest, then most volatile)."""
+    if prices and baseline is not None and baseline.n >= config.COLD_START_N:
+        z = z_score(prices[-1], baseline)
+        if z <= config.GOOD_DEAL_Z + config.NEAR_DEAL_Z_MARGIN:
+            return (0, z, rq.id)
+    if (rq.depart_date - run_date).days <= config.SOON_DAYS:
+        return (1, rq.depart_date, rq.id)
+    if len(prices) >= 2 and (mean := fmean(prices)) > 0:
+        cv = pstdev(prices) / mean
+        if cv >= config.VOLATILE_CV:
+            return (2, -cv, rq.id)
+    return None
 
 
 def run(ctx: RunContext) -> dict[str, int]:
@@ -73,84 +115,61 @@ def run(ctx: RunContext) -> dict[str, int]:
                 .group_by(TrackerRouteLink.route_query_id)
             ).all()
         )
-        # Only checks from before today: a same-day re-run must pick the same routes again.
-        last_checked = {
-            rq_id: when.replace(tzinfo=None)
-            for rq_id, when in s.execute(
-                select(LiveCheck.route_query_id, func.max(LiveCheck.checked_at))
-                .where(LiveCheck.run_date < ctx.run_date, LiveCheck.purpose == "trip")
-                .group_by(LiveCheck.route_query_id)
-            ).all()
-        }
+        in_horizon = [rq for rq in rqs if (rq.depart_date - ctx.run_date).days <= config.LIVE_HORIZON_DAYS]
+        counts["beyond_horizon"] = len(rqs) - len(in_horizon)
+        fresh, google_fresh = fresh_on(s, ctx.run_date), google_fresh_on(s, ctx.run_date)
+        # Only checks from before today: a same-day re-run must order the not-yet-fresh trips the same way.
+        seen = last_fresh(s, [rq.id for rq in in_horizon], before=start_of(ctx.run_date))
+        live = _live_prices(s, [rq for rq in in_horizon if rq.id in fresh], ctx.run_date)
 
-        deals: list[tuple[float, int, Decimal]] = []
-        explore: list[tuple[datetime, date, int, Decimal | None, bool]] = []
-        for rq in rqs:
-            if (rq.depart_date - ctx.run_date).days > config.LIVE_HORIZON_DAYS:
-                counts["beyond_horizon"] += 1
-                continue
+        first, audits, seconds = [], [], []  # (sort key, route query, reason, estimated price)
+        for rq in in_horizon:
             est = estimate(rq, exact, monthly)
+            price = est.price if est else None
             b = baselines.get(rq_baseline_key(rq))
-            if est is None or b is None or b.n < config.COLD_START_N:
-                seen = last_checked.get(rq.id, NEVER)
-                explore.append(
-                    (
-                        seen,
-                        rq.depart_date,
-                        rq.id,
-                        est.price if est else None,
-                        rq.return_airport != rq.dest_airport,
-                    )
-                )
+            if rq.id in fresh:
+                if rq.return_airport == rq.dest_airport and rq.id not in google_fresh:
+                    audits.append(((rq.depart_date, rq.id), rq, "audit", price))
+                elif hot := _hot_rank(rq, live.get(date_key(rq), []), b, ctx.run_date):
+                    seconds.append((hot, rq, "second", price))
                 continue
-            z = z_score(float(est.price), b)
-            if z > config.SHORTLIST_Z:
-                counts["not_cheap"] += 1
-                continue
-            weight = config.PRIORITY_WEIGHTS.get(best_priority.get(rq.id, 2), 0.8)
-            if date_key(rq) not in exact:
-                weight *= config.MONTH_ESTIMATE_WEIGHT
-            score = -z * urgency((rq.depart_date - ctx.run_date).days) * weight
-            deals.append((score, rq.id, est.price))
+            reason, promise = "explore", 0.0
+            if est is not None and b is not None and b.n >= config.COLD_START_N:
+                z = z_score(float(est.price), b)
+                if z <= config.SHORTLIST_Z:
+                    weight = config.PRIORITY_WEIGHTS.get(best_priority.get(rq.id, 2), 0.8)
+                    if date_key(rq) not in exact:
+                        weight *= config.MONTH_ESTIMATE_WEIGHT
+                    reason = "deal"
+                    promise = -z * urgency((rq.depart_date - ctx.run_date).days) * weight
+                else:
+                    counts["not_cheap"] += 1
+            when = seen.get(rq.id)
+            key = (when.replace(tzinfo=None) if when else NEVER, -promise, rq.depart_date, rq.id)
+            first.append((key, rq, reason, price))
 
-        explore.sort()
+        first.sort(key=lambda e: e[0])
+        audits.sort(key=lambda e: e[0])
+        seconds.sort(key=lambda e: e[0])
+        counts["second_overflow"] = max(0, len(seconds) - config.SECOND_CHECKS_PER_RUN)
+        queue = first + audits + seconds[: config.SECOND_CHECKS_PER_RUN]
+
         # Open-jaw routes nobody can price today would otherwise sit at the front of the queue every day.
-        room_for_open_jaw, kept = open_jaw_capacity(ctx), []
-        for item in explore:
-            if item[4]:
+        room_for_open_jaw, rank = open_jaw_capacity(ctx), 0
+        for _, rq, reason, price in queue:
+            if rq.return_airport != rq.dest_airport:
                 if room_for_open_jaw <= 0:
                     counts["open_jaw_unpriceable"] += 1
                     continue
                 room_for_open_jaw -= 1
-            kept.append(item)
-        explore = kept
-        deals.sort(key=lambda d: (-d[0], d[1]))
-        reserved = min(config.EXPLORATION_QUOTA, len(explore))
-        picked_deals = deals[: config.LIVE_CHECK_CAP - reserved]
-        picked_explore = explore[: config.LIVE_CHECK_CAP - len(picked_deals)]  # reserved + unused deal slots
-
-        rank = 0
-        for _, rq_id, price in picked_deals:
             rank += 1
+            counts[reason] += 1
             s.add(
                 ShortlistEntry(
-                    run_date=ctx.run_date, route_query_id=rq_id, rank=rank, reason="deal", est_price=price
+                    run_date=ctx.run_date, route_query_id=rq.id, rank=rank, reason=reason, est_price=price
                 )
             )
-        for _, _, rq_id, price, _ in picked_explore:
-            rank += 1
-            s.add(
-                ShortlistEntry(
-                    run_date=ctx.run_date, route_query_id=rq_id, rank=rank, reason="explore", est_price=price
-                )
-            )
-        counts.update(
-            {
-                "candidates": len(rqs),
-                "deal": len(picked_deals),
-                "explore": len(picked_explore),
-                "deal_overflow": len(deals) - len(picked_deals),
-                "explore_overflow": len(explore) - len(picked_explore),
-            }
-        )
+        counts["candidates"] = len(rqs)
+        for reason in ("deal", "explore", "audit", "second"):
+            counts[reason] += 0  # always reported, even at zero
     return dict(counts)

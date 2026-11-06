@@ -1,13 +1,22 @@
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
 
 from ptopilot import config
-from ptopilot.db.models import RouteBaseline, RouteQuery, ShortlistEntry
+from ptopilot.db.models import LiveCheck, RouteBaseline, RouteQuery, ShortlistEntry, TrackerRouteLink
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline import expand, shortlist
-from tests.pipeline.conftest import RUN, add_live_check, add_observation, add_tracker, add_user
+from tests.pipeline.conftest import (
+    RUN,
+    FakeLiveSource,
+    add_live_check,
+    add_observation,
+    add_tracker,
+    add_user,
+    answering,
+    option,
+)
 
 JUNE = date(2027, 6, 1)
 DEAL = (date(2027, 6, 12), date(2027, 6, 20))  # 9 days away -> "week" bucket
@@ -107,26 +116,6 @@ def test_departures_beyond_the_search_horizon_are_skipped(make_ctx, monkeypatch)
     assert all((dep - RUN).days <= 100 for _, _, (dep, _), _ in entries(ctx.engine))
 
 
-def test_exploration_fills_check_slots_that_deals_leave_unused(make_ctx, monkeypatch):
-    monkeypatch.setattr(config, "LIVE_CHECK_CAP", 3)
-    monkeypatch.setattr(config, "EXPLORATION_QUOTA", 2)
-    ctx = setup(make_ctx)
-    counts = shortlist.run(ctx)  # no history: 6 exploration candidates, no deals
-    assert (counts["explore"], counts["explore_overflow"]) == (3, 3)
-    assert len(entries(ctx.engine)) == 3
-
-
-def test_exploration_keeps_its_reserved_slots_when_deals_overflow(make_ctx, monkeypatch):
-    monkeypatch.setattr(config, "LIVE_CHECK_CAP", 3)
-    monkeypatch.setattr(config, "EXPLORATION_QUOTA", 1)
-    ctx = setup(make_ctx)
-    confident_baseline(ctx.engine)  # "week" trips only; the two 11-day trips stay exploration
-    add_observation(ctx.engine, *DEAL, 800, observed=RUN)  # June's cheapest: makes week trips look like deals
-    counts = shortlist.run(ctx)
-    assert (counts["deal"], counts["explore"]) == (2, 1)
-    assert [reason for _, reason, _, _ in entries(ctx.engine)] == ["deal", "deal", "explore"]
-
-
 def test_rerun_replaces_the_days_shortlist(make_ctx):
     ctx = setup(make_ctx)
     shortlist.run(ctx)
@@ -134,12 +123,168 @@ def test_rerun_replaces_the_days_shortlist(make_ctx):
     assert [rank for rank, *_ in entries(ctx.engine)] == [1, 2, 3, 4, 5, 6]
 
 
-def test_same_day_rerun_keeps_the_same_exploration_picks(make_ctx, monkeypatch):
-    monkeypatch.setattr(config, "EXPLORATION_QUOTA", 2)
+def test_same_day_rerun_keeps_the_not_yet_fresh_trips_in_the_same_order(make_ctx):
     ctx = setup(make_ctx)
     shortlist.run(ctx)
     first = [dates for _, _, dates, _ in entries(ctx.engine)]
-    for dep, ret in first:  # live_verify checked them earlier today
+    for dep, ret in first[:3]:  # live_verify checked the first three earlier today
         add_live_check(ctx.engine, dep, ret, run_date=RUN)
     shortlist.run(ctx)
-    assert [dates for _, _, dates, _ in entries(ctx.engine)] == first
+    # fresh trips drop out (cold, far away); the rest keep their order since staleness ignores today's checks
+    assert [dates for _, _, dates, _ in entries(ctx.engine)] == first[3:]
+
+
+# --- Plan 18: every in-horizon trip, in check order ---------------------------------------------------------
+
+
+def make_rq(engine, tracker_id, depart, ret, dest="LIS", return_airport=None) -> int:
+    with session_scope(engine) as s:
+        rq = RouteQuery(
+            origin="ORD",
+            dest_airport=dest,
+            return_airport=return_airport or dest,
+            depart_date=depart,
+            return_date=ret,
+        )
+        s.add(rq)
+        s.flush()
+        s.add(
+            TrackerRouteLink(
+                tracker_id=tracker_id,
+                route_query_id=rq.id,
+                run_date=RUN,
+                pto_cost=3,
+                days_away=9,
+                efficiency=1.0,
+                month=depart.month,
+                season_rating="good",
+            )
+        )
+        return rq.id
+
+
+def check(engine, rq_id, run_date, at, source="google_flights", ok=True):
+    with session_scope(engine) as s:
+        s.add(LiveCheck(run_date=run_date, route_query_id=rq_id, source=source, ok=ok, checked_at=at))
+
+
+def fresh_today(engine, rq_id, source="google_flights"):
+    check(engine, rq_id, RUN, datetime(2027, 3, 1, 6, tzinfo=UTC), source)
+
+
+def ids_in_order(engine):
+    with session_scope(engine) as s:
+        rows = s.execute(select(ShortlistEntry).order_by(ShortlistEntry.rank)).scalars()
+        return [(e.route_query_id, e.reason) for e in rows]
+
+
+def bare(make_ctx, **fields):
+    ctx = make_ctx(**fields)
+    return ctx, add_tracker(ctx.engine, add_user(ctx.engine))
+
+
+def test_every_in_horizon_trip_is_shortlisted(make_ctx):
+    ctx, tid = bare(make_ctx)
+    for i in range(200):
+        make_rq(ctx.engine, tid, RUN + timedelta(days=10 + i), RUN + timedelta(days=18 + i))
+    make_rq(ctx.engine, tid, RUN + timedelta(days=400), RUN + timedelta(days=408))
+    counts = shortlist.run(ctx)
+    got = ids_in_order(ctx.engine)
+    assert len(got) == 200 and all(reason != "second" for _, reason in got)
+    assert counts["beyond_horizon"] == 1
+
+
+def test_longest_waiting_goes_first(make_ctx):
+    ctx, tid = bare(make_ctx)
+    three = make_rq(ctx.engine, tid, date(2027, 5, 1), date(2027, 5, 9))
+    one = make_rq(ctx.engine, tid, date(2027, 5, 2), date(2027, 5, 10))
+    never = make_rq(ctx.engine, tid, date(2027, 5, 3), date(2027, 5, 11))
+    check(ctx.engine, three, date(2027, 2, 26), datetime(2027, 2, 26, 12, tzinfo=UTC))
+    check(ctx.engine, one, date(2027, 2, 28), datetime(2027, 2, 28, 12, tzinfo=UTC))
+    shortlist.run(ctx)
+    assert [i for i, _ in ids_in_order(ctx.engine)] == [never, three, one]
+
+
+def test_promise_breaks_ties_within_the_same_wait(make_ctx):
+    ctx, tid = bare(make_ctx)
+    plain = make_rq(ctx.engine, tid, date(2027, 5, 20), date(2027, 5, 28))  # departs first, no signal
+    deal = make_rq(ctx.engine, tid, *DEAL)
+    for rq_id in (plain, deal):
+        check(ctx.engine, rq_id, date(2027, 2, 28), datetime(2027, 2, 28, 12, tzinfo=UTC))
+    confident_baseline(ctx.engine)
+    add_observation(ctx.engine, *DEAL, 800, observed=RUN)  # z = -2
+    shortlist.run(ctx)
+    assert ids_in_order(ctx.engine) == [(deal, "deal"), (plain, "explore")]
+
+
+def test_fresh_today_goes_after_every_not_fresh_trip(make_ctx):
+    ctx, tid = bare(make_ctx)
+    soon = make_rq(ctx.engine, tid, RUN + timedelta(days=10), RUN + timedelta(days=18))  # hot: departs soon
+    waiting = [make_rq(ctx.engine, tid, date(2027, 7, d), date(2027, 7, d + 8)) for d in (1, 2)]
+    fresh_today(ctx.engine, soon)
+    shortlist.run(ctx)
+    assert ids_in_order(ctx.engine) == [(waiting[0], "explore"), (waiting[1], "explore"), (soon, "second")]
+
+
+def test_staleness_ignores_todays_own_checks(make_ctx):
+    ctx, tid = bare(make_ctx)
+    a = make_rq(ctx.engine, tid, date(2027, 7, 1), date(2027, 7, 9))
+    b = make_rq(ctx.engine, tid, date(2027, 7, 2), date(2027, 7, 10))
+    check(ctx.engine, a, date(2027, 2, 28), datetime(2027, 2, 28, 12, tzinfo=UTC))
+    check(ctx.engine, b, date(2027, 2, 20), datetime(2027, 2, 20, 12, tzinfo=UTC))
+    check(ctx.engine, a, RUN, datetime(2027, 3, 1, 6, tzinfo=UTC), ok=False)  # failed today: still not fresh
+    shortlist.run(ctx)
+    assert [i for i, _ in ids_in_order(ctx.engine)] == [b, a]
+
+
+def test_serpapi_only_round_trips_are_audited_before_second_checks(make_ctx):
+    serp = FakeLiveSource("serpapi", answering(option(900), source="serpapi"), supports_open_jaw=True)
+    ctx, tid = bare(make_ctx, live_sources=[serp])
+    waiting = make_rq(ctx.engine, tid, date(2027, 7, 1), date(2027, 7, 9))
+    serp_only = make_rq(ctx.engine, tid, date(2027, 7, 2), date(2027, 7, 10))
+    hot = make_rq(ctx.engine, tid, RUN + timedelta(days=5), RUN + timedelta(days=13))
+    # open-jaw priced by SerpApi today is never an audit (Google can't price it); hot, so a second check
+    jaw = make_rq(
+        ctx.engine, tid, RUN + timedelta(days=6), RUN + timedelta(days=14), dest="OPO", return_airport="SCQ"
+    )
+    fresh_today(ctx.engine, serp_only, "serpapi")
+    fresh_today(ctx.engine, hot)
+    fresh_today(ctx.engine, jaw, "serpapi")
+    shortlist.run(ctx)
+    assert ids_in_order(ctx.engine) == [
+        (waiting, "explore"),
+        (serp_only, "audit"),
+        (hot, "second"),
+        (jaw, "second"),
+    ]
+
+
+def test_second_checks_are_hot_and_capped(make_ctx):
+    ctx, tid = bare(make_ctx)
+    confident_baseline(ctx.engine)  # June, week bucket: median 1000, sigma 100
+    seen = date(2027, 2, 25)
+    near, soon, volatile, cold = [], [], [], []
+    for i in range(10):  # near a deal: last live price well under the baseline; cheapest first
+        dep = date(2027, 6, 1 + i)
+        ret = dep + timedelta(days=8)
+        near.append(make_rq(ctx.engine, tid, dep, ret))
+        add_observation(ctx.engine, dep, ret, 800 + 10 * i, observed=seen, verified=True)
+    for i in range(20):  # departing within SOON_DAYS
+        dep = RUN + timedelta(days=2 + i)
+        soon.append(make_rq(ctx.engine, tid, dep, dep + timedelta(days=8)))
+    for i in range(20):  # prices swinging more with i; no July baseline, so never near-deal
+        dep = date(2027, 7, 1 + i)
+        ret = dep + timedelta(days=8)
+        volatile.append(make_rq(ctx.engine, tid, dep, ret))
+        for price in (100, 100 + 10 * (i + 4)):
+            add_observation(ctx.engine, dep, ret, price, observed=seen, verified=True)
+    for i in range(10):  # nothing going on
+        dep = date(2027, 8, 1 + i)
+        cold.append(make_rq(ctx.engine, tid, dep, dep + timedelta(days=8)))
+    for rq_id in near + soon + volatile + cold:
+        fresh_today(ctx.engine, rq_id)
+    counts = shortlist.run(ctx)
+    got = ids_in_order(ctx.engine)
+    assert counts["second"] == 40 and all(reason == "second" for _, reason in got)
+    assert [i for i, _ in got] == near + soon + volatile[::-1][:10]
+    assert not {i for i, _ in got} & set(cold)

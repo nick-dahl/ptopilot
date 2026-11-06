@@ -32,8 +32,11 @@ BASELINE_WINDOW_DAYS = 60
 PRICE_KEEP_AFTER_DEPARTURE_DAYS = 90  # prune: observations for trips that departed longer ago go
 PRICE_KEEP_MAX_DAYS = 395  # prune: anything observed longer ago goes; about 13 months
 SHORTLIST_Z = -0.385  # z at the 35th percentile of a normal distribution
-LIVE_CHECK_CAP = 150  # a safety ceiling: every in-range route is checked daily (~70-140 for one traveler)
-EXPLORATION_QUOTA = 10  # slots reserved for routes with too little history or no cached price
+# Plan 18: every in-horizon trip is ordered for a fresh live price each day; a few hot ones get a second look.
+SECOND_CHECKS_PER_RUN = 40  # fresh trips re-checked per run when hot
+NEAR_DEAL_Z_MARGIN = 0.5  # hot: last live price within this of a good deal (z <= GOOD_DEAL_Z + margin)
+SOON_DAYS = 30  # hot: departing within this many days
+VOLATILE_CV = 0.15  # hot: coefficient of variation of the trip's live prices over BASELINE_WINDOW_DAYS
 PRIORITY_WEIGHTS = {1: 1.0, 2: 0.8, 3: 0.6}
 MONTH_ESTIMATE_WEIGHT = 0.5  # a month's cheapest fare is a weaker signal than a fare for the exact dates
 URGENCY = {"soon": 0.7, "sweet": 1.0, "far": 0.5}  # <30 days, 30-120 days, >120 days out

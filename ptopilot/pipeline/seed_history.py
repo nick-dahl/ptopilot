@@ -110,7 +110,7 @@ def run(ctx: RunContext) -> dict[str, int]:
     counts["keys_needing_seed"] = len(picks)
     budget = Budget(ctx)
     left = budget.remaining_today(src.name)
-    allowed = config.LIVE_CHECK_CAP if left is None else max(0, left - config.SEED_RESERVE_FOR_OPEN_JAW)
+    allowed = len(picks) if left is None else max(0, left - config.SEED_RESERVE_FOR_OPEN_JAW)
     failures = 0
     for i, (_, rq) in enumerate(picks):
         if allowed <= 0 or not budget.allows(src.name):

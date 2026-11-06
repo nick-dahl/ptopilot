@@ -1,11 +1,10 @@
-"""Every in-range route gets a live check each day: the cap is a safety ceiling, not a daily ration."""
+"""Every in-range route is queued for a live check each day: there is no cap."""
 
 from datetime import date
 from pathlib import Path
 
 import yaml
 
-from ptopilot import config
 from ptopilot.db.models import ShortlistEntry
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline import expand, shortlist
@@ -24,12 +23,8 @@ def test_more_than_forty_routes_are_all_shortlisted(make_ctx):
     counts = shortlist.run(ctx)
     with session_scope(ctx.engine) as s:
         picked = s.query(ShortlistEntry).count()
-    assert 40 < counts["candidates"] <= config.LIVE_CHECK_CAP
-    assert picked == counts["candidates"] and counts["explore_overflow"] == 0
-
-
-def test_the_cap_covers_a_full_year_of_trips():
-    assert config.LIVE_CHECK_CAP >= 150
+    assert counts["candidates"] > 40
+    assert picked == counts["candidates"] - counts["beyond_horizon"]
 
 
 def test_the_scan_job_has_time_for_the_wider_checks():
