@@ -189,7 +189,7 @@ def test_a_deal_or_explore_entry_fresh_by_now_is_skipped(make_ctx):
     first = listed(ctx.engine)[0][0]
     earlier_check(ctx.engine, first, 6, source="serpapi")  # any source
     counts = live_verify.run(ctx)
-    assert counts["already_checked"] == 1 and counts["first_checks"] == 5 and len(src.calls) == 5
+    assert counts["already_fresh"] == 1 and counts["first_checks"] == 5 and len(src.calls) == 5
 
 
 def test_an_audit_entry_is_checked_even_when_fresh(make_ctx):
@@ -200,7 +200,7 @@ def test_an_audit_entry_is_checked_even_when_fresh(make_ctx):
         s.query(ShortlistEntry).filter_by(route_query_id=first).update({"reason": "audit"})
     earlier_check(ctx.engine, first, 6, source="serpapi")
     counts = live_verify.run(ctx)
-    assert counts["audits"] == 1 and len(src.calls) == 6 and "already_checked" not in counts
+    assert counts["audits"] == 1 and len(src.calls) == 6 and "already_fresh" not in counts
 
 
 def long_shortlist(ctx, total=40):

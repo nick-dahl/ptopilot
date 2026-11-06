@@ -335,7 +335,7 @@ def test_a_return_row_does_not_count_as_an_outbound_check(make_ctx):
                 )
             )
     counts = live_verify.run(ctx)
-    assert "already_checked" not in counts and counts["google_flights_ok"] == 6
+    assert "already_fresh" not in counts and counts["google_flights_ok"] == 6
 
 
 def test_a_return_row_does_not_make_shortlist_treat_a_route_as_checked(make_ctx):

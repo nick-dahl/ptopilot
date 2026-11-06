@@ -244,7 +244,7 @@ def run(ctx: RunContext) -> dict[str, int]:
             counts["checked_this_run"] += 1
             continue
         if first_check_done(i):
-            counts["already_checked"] += 1
+            counts["already_fresh"] += 1
             continue
         if len(window) == window.maxlen and sum(window) / len(window) >= config.BACKOFF_STOP_SHARE:
             counts["backoff_stopped"] += len(entries) - i
