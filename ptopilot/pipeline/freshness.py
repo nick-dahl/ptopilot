@@ -15,8 +15,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from sqlalchemy import func, select
-from sqlalchemy.dialects.postgresql import distinct_on
+from sqlalchemy import Integer, any_, bindparam, func, select
+from sqlalchemy.dialects.postgresql import ARRAY, distinct_on
 from sqlalchemy.orm import Session
 
 from ptopilot import config
@@ -46,7 +46,11 @@ def known_unpriceable(s: Session, rq_ids: Iterable[int]) -> set[int]:
         return set()
     latest = (
         select(LiveCheck.route_query_id, LiveCheck.ok, LiveCheck.route_specific)
-        .where(LiveCheck.route_query_id.in_(ids), LiveCheck.purpose == "trip")
+        .where(
+            # one array parameter, however long the shortlist
+            LiveCheck.route_query_id == any_(bindparam("rq_ids", ids, type_=ARRAY(Integer))),
+            LiveCheck.purpose == "trip",
+        )
         .order_by(LiveCheck.route_query_id, LiveCheck.checked_at.desc(), LiveCheck.id.desc())
         .ext(distinct_on(LiveCheck.route_query_id))
     )

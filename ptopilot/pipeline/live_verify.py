@@ -10,10 +10,12 @@ for the flight home are recorded too (purpose 'return'): they count toward the b
 checked.
 Open-jaw queries go only to sources with `supports_open_jaw` (SerpApi); skipping a source that can't
 price them never counts toward its circuit breaker.
-The whole shortlist is worked in order. When Google (an unbudgeted source) fails or answers empty for much of
-the last BACKOFF_WINDOW attempts, pauses grow; when it does so for nearly all, the run stops and the next
-scan run carries on. A route-specific failure on a known-unpriceable trip (its latest check already failed
-that way) is expected: it counts toward neither the route breaker nor the back-off.
+The whole shortlist is worked in order. When Google (an unbudgeted source) fails, or answers empty for trips
+it priced within LIVE_EMPTY_LOOKBACK_DAYS, for much of the last BACKOFF_WINDOW attempts, pauses grow; when
+it does so for nearly all, the run stops and the next scan run carries on. Empty answers for trips that are
+habitually empty (far out, never priced) are not pushback. A route-specific failure on a known-unpriceable
+trip (its latest check already failed that way) is expected: it counts toward neither the route breaker nor
+the back-off.
 Every option a source returns is stored as a verified observation; per-user filtering happens in `score`.
 """
 
@@ -213,6 +215,21 @@ def run(ctx: RunContext) -> dict[str, int]:
         fresh = fresh_on(s, ctx.run_date)
         # As of this stage's start: a trip first failing in this run still counts as a warning sign.
         unpriceable = known_unpriceable(s, [rq.id for rq in entries])
+        # Priced by a free source lately: an empty answer for one of these now looks like pushback.
+        recently_priced = set(
+            s.scalars(
+                select(LiveCheck.route_query_id).where(
+                    LiveCheck.route_query_id.in_(
+                        select(ShortlistEntry.route_query_id).where(ShortlistEntry.run_date == ctx.run_date)
+                    ),
+                    LiveCheck.purpose == "trip",
+                    LiveCheck.ok.is_(True),
+                    LiveCheck.options > 0,
+                    LiveCheck.source.not_in(list(config.SOURCE_BUDGETS)),
+                    LiveCheck.checked_at >= run_start - timedelta(days=config.LIVE_EMPTY_LOOKBACK_DAYS),
+                )
+            )
+        )
         # Checked since this stage started (any outcome): a repeat entry of one run must not hit Google twice.
         checked = set(
             s.scalars(
@@ -318,9 +335,10 @@ def run(ctx: RunContext) -> dict[str, int]:
             record_check(ctx, rq, src.name, ok=True, options=len(result.options))
             fresh.add(rq.id)
             if unbudgeted:
-                window.append(not result.options)
+                window.append(not result.options and rq.id in recently_priced)
             if not result.options:
                 counts["no_flights"] += 1
+                counts[f"{src.name}_empty"] += 1
             break
         else:
             counts["all_sources_failed"] += 1

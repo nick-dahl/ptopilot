@@ -210,8 +210,9 @@ def test_an_audit_entry_is_checked_even_when_fresh(make_ctx):
     assert counts["audits"] == 1 and len(src.calls) == 6 and "already_fresh" not in counts
 
 
-def long_shortlist(ctx, total=40):
-    """Replace the shortlist with `total` explore entries (extra route queries are made up as needed)."""
+def long_shortlist(ctx, total=40, priced_days_ago=None):
+    """Replace the shortlist with `total` explore entries (extra route queries are made up as needed),
+    each with a priced Google check `priced_days_ago` (none when None)."""
     with session_scope(ctx.engine) as s:
         s.query(ShortlistEntry).delete()
         for n in range(total):
@@ -225,6 +226,18 @@ def long_shortlist(ctx, total=40):
             s.add(rq)
             s.flush()
             s.add(ShortlistEntry(run_date=RUN, route_query_id=rq.id, rank=n, reason="explore"))
+            if priced_days_ago is not None:
+                day = RUN - timedelta(days=priced_days_ago)
+                s.add(
+                    LiveCheck(
+                        run_date=day,
+                        route_query_id=rq.id,
+                        source="google_flights",
+                        ok=True,
+                        options=3,
+                        checked_at=datetime(day.year, day.month, day.day, 12, tzinfo=UTC),
+                    )
+                )
     return total
 
 
@@ -243,7 +256,7 @@ def test_backoff_slows_then_stops_when_google_refuses(make_ctx, monkeypatch):
 
     pauses = []
     ctx = shortlisted(make_ctx, live_sources=[FakeLiveSource("google_flights", respond)], sleep=pauses.append)
-    total = long_shortlist(ctx)
+    total = long_shortlist(ctx, priced_days_ago=1)  # empty answers on trips Google priced yesterday
     counts = live_verify.run(ctx)
     assert counts["backoff_slowed"] == 1
     assert pauses[:19] == [10.0] * 19 and set(pauses[19:]) == {10.0 * config.BACKOFF_PAUSE_FACTOR}
@@ -354,3 +367,28 @@ def test_known_unpriceable_failures_never_trip_the_route_breaker_or_back_off(mak
     counts = live_verify.run(ctx)
     assert counts["google_flights_ok"] == 3 and len(src.calls) == 28
     assert not {"google_flights_route_breaker_tripped", "backoff_slowed", "backoff_stopped"} & set(counts)
+
+
+def test_empty_answers_on_never_priced_trips_are_not_pushback(make_ctx):
+    src = FakeLiveSource("google_flights", answering())
+    ctx = shortlisted(make_ctx, live_sources=[src])
+    long_shortlist(ctx, total=30)  # far out, never priced: habitually empty
+    counts = live_verify.run(ctx)
+    assert len(src.calls) == 30 and counts["no_flights"] == 30
+    assert not {"backoff_slowed", "backoff_stopped"} & set(counts)
+
+
+def test_empty_answers_on_recently_priced_trips_stop_the_run(make_ctx):
+    src = FakeLiveSource("google_flights", answering())
+    ctx = shortlisted(make_ctx, live_sources=[src])
+    long_shortlist(ctx, total=30, priced_days_ago=1)
+    counts = live_verify.run(ctx)
+    assert len(src.calls) == 20 and counts["backoff_stopped"] == 10
+
+
+def test_a_priced_answer_older_than_the_lookback_does_not_make_empties_bad(make_ctx):
+    src = FakeLiveSource("google_flights", answering())
+    ctx = shortlisted(make_ctx, live_sources=[src])
+    long_shortlist(ctx, total=30, priced_days_ago=8)
+    counts = live_verify.run(ctx)
+    assert len(src.calls) == 30 and "backoff_stopped" not in counts
