@@ -5,6 +5,8 @@ source: a successful check that found no flights is still a fresh answer, and a 
 a Google one. Failed checks, and the return-leg searches of instant alerts, never count.
 `google_fresh_on` counts only unbudgeted sources, so SerpApi spend can be planned around what free Google
 already covered.
+A trip is *known unpriceable* when its latest trip check (any day, any source) failed for a reason about the
+route itself: it is still retried, but never ahead of trips that can be priced.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
 from ptopilot import config
@@ -34,6 +37,20 @@ def last_fresh(s: Session, rq_ids: Iterable[int], before: datetime | None = None
     if before is not None:
         stmt = stmt.where(LiveCheck.checked_at < before)
     return dict(s.execute(stmt).all())
+
+
+def known_unpriceable(s: Session, rq_ids: Iterable[int]) -> set[int]:
+    """Route queries whose latest trip check (any day, any source) failed with `route_specific`."""
+    ids = list(rq_ids)
+    if not ids:
+        return set()
+    latest = (
+        select(LiveCheck.route_query_id, LiveCheck.ok, LiveCheck.route_specific)
+        .where(LiveCheck.route_query_id.in_(ids), LiveCheck.purpose == "trip")
+        .order_by(LiveCheck.route_query_id, LiveCheck.checked_at.desc(), LiveCheck.id.desc())
+        .ext(distinct_on(LiveCheck.route_query_id))
+    )
+    return {rq_id for rq_id, ok, specific in s.execute(latest) if not ok and specific}
 
 
 def fresh_on(s: Session, day: date) -> set[int]:

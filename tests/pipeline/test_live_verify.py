@@ -5,7 +5,14 @@ import pytest
 from sqlalchemy import select
 
 from ptopilot import config
-from ptopilot.db.models import LiveCheck, PriceObservation, RouteQuery, ShortlistEntry, SourceBudget
+from ptopilot.db.models import (
+    LiveCheck,
+    PriceObservation,
+    RouteQuery,
+    ShortlistEntry,
+    SourceBudget,
+    TrackerRouteLink,
+)
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline import expand, live_verify, shortlist
 from ptopilot.pipeline.context import StageFailed, StageSkipped
@@ -249,3 +256,101 @@ def test_no_success_at_all_still_fails_the_stage(make_ctx):
     ctx = shortlisted(make_ctx, live_sources=[FakeLiveSource("google_flights", failing("429"))])
     with pytest.raises(StageFailed, match="no live check succeeded for 3 shortlisted"):
         live_verify.run(ctx)  # the breaker trips after 3, the rest were never attempted
+
+
+# --- final review: known-unpriceable trips, back-off on empties ---------------------------------------------
+
+
+def linked_trip(engine, tracker_id, n) -> int:
+    """A round trip linked to the tracker today, departing n days after 2027-07-01."""
+    with session_scope(engine) as s:
+        rq = RouteQuery(
+            origin="ORD",
+            dest_airport="LIS",
+            return_airport="LIS",
+            depart_date=date(2027, 7, 1) + timedelta(days=n),
+            return_date=date(2027, 7, 9) + timedelta(days=n),
+        )
+        s.add(rq)
+        s.flush()
+        s.add(
+            TrackerRouteLink(
+                tracker_id=tracker_id,
+                route_query_id=rq.id,
+                run_date=RUN,
+                pto_cost=3,
+                days_away=9,
+                efficiency=1.0,
+                month=7,
+                season_rating="good",
+            )
+        )
+        return rq.id
+
+
+def past_check(engine, rq_id, days_ago, ok=True, route_specific=False, options=1):
+    day = RUN - timedelta(days=days_ago)
+    with session_scope(engine) as s:
+        s.add(
+            LiveCheck(
+                run_date=day,
+                route_query_id=rq_id,
+                source="google_flights",
+                ok=ok,
+                options=options if ok else 0,
+                route_specific=route_specific,
+                checked_at=datetime(day.year, day.month, day.day, 12, tzinfo=UTC),
+                purpose="trip",
+            )
+        )
+
+
+def test_known_unpriceable_trips_neither_lead_nor_switch_google_off(make_ctx):
+    ctx = make_ctx()
+    tid = add_tracker(ctx.engine, add_user(ctx.engine))
+    unpriceable = [linked_trip(ctx.engine, tid, n) for n in range(10)]
+    normal = [linked_trip(ctx.engine, tid, 20 + n) for n in range(5)]
+    for rq_id in unpriceable:
+        past_check(ctx.engine, rq_id, 1, ok=False, route_specific=True)  # never priced, failed yesterday
+    for rq_id in normal:
+        past_check(ctx.engine, rq_id, 2)
+    bad_departures = {date(2027, 7, 1) + timedelta(days=n) for n in range(10)}
+
+    def respond(q):
+        if q.depart_date in bad_departures:
+            raise SourceUnavailable("unreadable page", route_specific=True)
+        return answering(option(700))(q)
+
+    src = FakeLiveSource("google_flights", respond)
+    ctx.live_sources = [src]
+    shortlist.run(ctx)
+    order = [rq_id for rq_id, _ in listed(ctx.engine)]
+    assert order[:5] == normal and set(order[5:]) == set(unpriceable)  # kept, retried, just not first
+    counts = live_verify.run(ctx)  # does not raise: the stage did not fail
+    assert counts["google_flights_ok"] == 5
+    assert "google_flights_route_breaker_tripped" not in counts
+    assert len(src.calls) == 15  # Google stayed on for every trip
+
+
+def test_known_unpriceable_failures_never_trip_the_route_breaker_or_back_off(make_ctx):
+    ctx = make_ctx()
+    tid = add_tracker(ctx.engine, add_user(ctx.engine))
+    unpriceable = [linked_trip(ctx.engine, tid, n) for n in range(25)]
+    normal = [linked_trip(ctx.engine, tid, 40 + n) for n in range(3)]
+    for rq_id in unpriceable:
+        past_check(ctx.engine, rq_id, 1, ok=False, route_specific=True)
+    with session_scope(ctx.engine) as s:  # ranked first anyway: live_verify must cope on its own
+        for rank, rq_id in enumerate(unpriceable + normal):
+            s.add(ShortlistEntry(run_date=RUN, route_query_id=rq_id, rank=rank, reason="explore"))
+    bad = {date(2027, 7, 1) + timedelta(days=n) for n in range(25)}
+
+    def respond(q):
+        if q.depart_date in bad:
+            raise SourceUnavailable("unreadable page", route_specific=True)
+        return answering(option(700))(q)
+
+    src = FakeLiveSource("google_flights", respond)
+    ctx.live_sources = [src]
+    counts = live_verify.run(ctx)
+    assert counts["google_flights_ok"] == 3 and len(src.calls) == 28
+    assert not {"google_flights_route_breaker_tripped", "backoff_slowed", "backoff_stopped"} & set(counts)

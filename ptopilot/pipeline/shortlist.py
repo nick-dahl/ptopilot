@@ -6,6 +6,8 @@ Every route query departing within LIVE_HORIZON_DAYS is queued, in check order:
    then the most promising. Reason `deal` when the cached price is at or below ~p35 of a confident
    baseline (promise = deal strength x urgency x tracker priority), else `explore` (promise 0).
    Staleness looks only at checks before today, so a later run the same day orders the rest the same way.
+   Known-unpriceable trips (latest check failed for a route-specific reason) go after every other
+   not-fresh trip: still retried, but they must never head every run (and trip Google's route breaker).
 2. `audit`: round trips whose only fresh price today came from a budgeted source (SerpApi); a free Google
    check can still confirm or correct them.
 3. `second`: fresh trips that are hot, at most SECOND_CHECKS_PER_RUN: the last live price is a deal or near
@@ -29,7 +31,7 @@ from ptopilot.core.stats import z_score
 from ptopilot.db.models import PriceObservation, RouteQuery, ShortlistEntry, Tracker, TrackerRouteLink
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext
-from ptopilot.pipeline.freshness import fresh_on, google_fresh_on, last_fresh
+from ptopilot.pipeline.freshness import fresh_on, google_fresh_on, known_unpriceable, last_fresh
 from ptopilot.pipeline.live_verify import Budget
 from ptopilot.pipeline.queries import (
     cached_prices,
@@ -121,6 +123,7 @@ def run(ctx: RunContext) -> dict[str, int]:
         fresh, google_fresh = fresh_on(s, ctx.run_date), google_fresh_on(s, ctx.run_date)
         # Only checks from before today: a same-day re-run must order the not-yet-fresh trips the same way.
         seen = last_fresh(s, [rq.id for rq in in_horizon], before=start_of(ctx.run_date))
+        unpriceable = known_unpriceable(s, [rq.id for rq in in_horizon if rq.id not in fresh])
         live = _live_prices(s, [rq for rq in in_horizon if rq.id in fresh], ctx.run_date)
 
         first, audits, seconds = [], [], []  # (sort key, route query, reason, estimated price)
@@ -146,7 +149,8 @@ def run(ctx: RunContext) -> dict[str, int]:
                 else:
                     counts["not_cheap"] += 1
             when = seen.get(rq.id)
-            key = (when.astimezone(UTC).date() if when else NEVER, -promise, rq.depart_date, rq.id)
+            stale_since = when.astimezone(UTC).date() if when else NEVER
+            key = (rq.id in unpriceable, stale_since, -promise, rq.depart_date, rq.id)
             first.append((key, rq, reason, price))
 
         first.sort(key=lambda e: e[0])

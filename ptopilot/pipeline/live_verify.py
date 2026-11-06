@@ -12,7 +12,8 @@ Open-jaw queries go only to sources with `supports_open_jaw` (SerpApi); skipping
 price them never counts toward its circuit breaker.
 The whole shortlist is worked in order. When Google (an unbudgeted source) fails or answers empty for much of
 the last BACKOFF_WINDOW attempts, pauses grow; when it does so for nearly all, the run stops and the next
-scan run carries on.
+scan run carries on. A route-specific failure on a known-unpriceable trip (its latest check already failed
+that way) is expected: it counts toward neither the route breaker nor the back-off.
 Every option a source returns is stored as a verified observation; per-user filtering happens in `score`.
 """
 
@@ -30,7 +31,7 @@ from ptopilot import config
 from ptopilot.db.models import LiveCheck, PriceObservation, RouteQuery, ShortlistEntry, SourceBudget
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline.context import RunContext, StageFailed, StageSkipped
-from ptopilot.pipeline.freshness import fresh_on
+from ptopilot.pipeline.freshness import fresh_on, known_unpriceable
 from ptopilot.pipeline.queries import month_of
 from ptopilot.sources.base import ExactQuery, ExactResult, ExactSearchSource, SourceUnavailable
 
@@ -210,6 +211,8 @@ def run(ctx: RunContext) -> dict[str, int]:
         # Fresh today (any source) before this run: first-check entries (deal/explore) that are already
         # fresh need nothing. Audit and second-check entries are for exactly such routes, so they run anyway.
         fresh = fresh_on(s, ctx.run_date)
+        # As of this stage's start: a trip first failing in this run still counts as a warning sign.
+        unpriceable = known_unpriceable(s, [rq.id for rq in entries])
         # Checked since this stage started (any outcome): a repeat entry of one run must not hit Google twice.
         checked = set(
             s.scalars(
@@ -289,10 +292,13 @@ def run(ctx: RunContext) -> dict[str, int]:
             except SourceUnavailable as exc:
                 record_check(ctx, rq, src.name, ok=False, error=str(exc), route_specific=exc.route_specific)
                 log.warning("%s failed for %s: %s", src.name, query, exc)
-                if unbudgeted:
+                expected = exc.route_specific and rq.id in unpriceable
+                if unbudgeted and not expected:
                     window.append(True)
                 if exc.route_specific:  # this route's problem, not an outage: leave the breaker alone
                     counts[f"{src.name}_route_failed"] += 1
+                    if expected:
+                        continue
                     route_failures[src.name] += 1
                     if src.name not in succeeded and route_failures[src.name] >= config.ROUTE_FAILURE_LIMIT:
                         disabled.add(src.name)  # every route failing: likely a format change, not routes
