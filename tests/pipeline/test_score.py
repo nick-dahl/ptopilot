@@ -1,11 +1,11 @@
-from datetime import date, datetime, time
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from types import SimpleNamespace
 
 from sqlalchemy import select
 
 from ptopilot.core.misery import Assessment
-from ptopilot.db.models import Candidate, PriceObservation, RouteBaseline, RouteQuery
+from ptopilot.db.models import AlertSend, Candidate, PriceObservation, RouteBaseline, RouteQuery, Tracker
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline import expand, score
 from ptopilot.pipeline.score import pick_option
@@ -261,3 +261,62 @@ def test_ruled_out_trips_are_counted_apart_from_candidates(make_ctx):
     counts = score.run(ctx)
     assert counts["candidates"] == 1 and counts["ruled_out"] == 1
     assert counts["verified"] == 1
+
+
+OTHER = (date(2027, 6, 11), date(2027, 6, 20))
+
+
+def test_rescoring_keeps_ids_and_sent_state(make_ctx):
+    ctx = setup(make_ctx)
+    baseline(ctx.engine)
+    live = {"verified": True, "stops": 1, "duration_min": 780}
+    add_observation(ctx.engine, *TRIP, 900, observed=RUN, **live)
+    add_observation(ctx.engine, *OTHER, 950, observed=RUN, **live)
+    score.run(ctx)
+    before = candidates(ctx.engine)
+    sent, alerted = before[TRIP], before[OTHER]
+    with session_scope(ctx.engine) as s:
+        s.get(Candidate, sent.id).state = "sent"
+        s.add(
+            AlertSend(
+                user_id=alerted.user_id, tracker_id=alerted.tracker_id, candidate_id=alerted.id, run_date=RUN
+            )
+        )
+    add_observation(ctx.engine, *TRIP, 820, observed=RUN, **live)
+    score.run(ctx)
+    after = candidates(ctx.engine)
+    assert {k: c.id for k, c in after.items()} == {k: c.id for k, c in before.items()}
+    assert after[TRIP].state == "sent" and after[OTHER].state == "new"
+    assert (after[TRIP].price, after[TRIP].z) == (820, -1.8)
+    assert before[TRIP].z != after[TRIP].z
+    with session_scope(ctx.engine) as s:
+        assert s.scalar(select(AlertSend.candidate_id)) == alerted.id
+
+
+def test_rescoring_drops_candidates_no_longer_produced(make_ctx):
+    ctx = setup(make_ctx)
+    add_observation(ctx.engine, *TRIP, 900, observed=RUN)
+    score.run(ctx)
+    assert TRIP in candidates(ctx.engine)
+    with session_scope(ctx.engine) as s:
+        for t in s.scalars(select(Tracker)):
+            t.active = False
+    expand.run(ctx)
+    score.run(ctx)
+    assert candidates(ctx.engine) == {}
+
+
+def test_rescoring_uses_every_live_price_of_the_day(make_ctx):
+    ctx = setup(make_ctx)
+    live = {"verified": True, "stops": 1, "duration_min": 780}
+    for hour, price in ((6, 700), (14, 900)):
+        with session_scope(ctx.engine) as s:
+            s.add(
+                PriceObservation(
+                    origin="ORD", dest_airport="LIS", return_airport="LIS", depart_date=TRIP[0],
+                    return_date=TRIP[1], month=JUNE, source="google_flights", price=Decimal(price),
+                    currency="USD", observed_at=datetime.combine(RUN, time(hour), UTC), **live,
+                )
+            )  # fmt: skip
+        score.run(ctx)
+    assert candidates(ctx.engine)[TRIP].price == 700

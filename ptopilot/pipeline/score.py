@@ -11,7 +11,8 @@ from collections import Counter, defaultdict
 from collections.abc import Callable, Sequence
 from datetime import date, timedelta
 
-from sqlalchemy import Date, cast, delete, func, select
+from sqlalchemy import Date, cast, delete, func, select, tuple_
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from ptopilot import config
@@ -129,11 +130,39 @@ def trip_series(s: Session, rq: RouteQuery, tracker_id: int, run_date: date) -> 
     return series
 
 
+_KEY = ("tracker_id", "route_query_id", "run_date", "evening_departure")
+
+
+def _store(s: Session, run_date: date, scored: list[dict]) -> None:
+    """Upsert the scored rows on their unique key (never touching `id` or `state`), then drop the day's
+    candidates that this scoring no longer produced."""
+    if scored:
+        stmt = insert(Candidate).values(scored)
+        s.execute(
+            stmt.on_conflict_do_update(
+                index_elements=list(_KEY), set_={c: stmt.excluded[c] for c in scored[0] if c not in _KEY}
+            )
+        )
+    keys = [tuple(row[k] for k in _KEY) for row in scored]
+    stale = delete(Candidate).where(Candidate.run_date == run_date)
+    if keys:
+        stale = stale.where(
+            tuple_(
+                Candidate.tracker_id,
+                Candidate.route_query_id,
+                Candidate.run_date,
+                Candidate.evening_departure,
+            ).not_in(keys)
+        )
+    s.execute(stale)
+
+
 def run(ctx: RunContext) -> dict[str, int]:
     counts: Counter[str] = Counter()
     catalog = AirportCatalog.load()
     with session_scope(ctx.engine) as s:
-        s.execute(delete(Candidate).where(Candidate.run_date == ctx.run_date))
+        # The day is scored up to three times; rows are updated in place so ids and `state` survive.
+        scored: list[dict] = []
         rqs = todays_route_queries(s, ctx.run_date)
         exact, _ = cached_prices(s, rqs, ctx.run_date)
         baselines = load_baselines(s)
@@ -215,8 +244,8 @@ def run(ctx: RunContext) -> dict[str, int]:
                     z_trip = z_score(float(price), own)
             z = None if ruled_out else conservative_z(z_route, z_trip)
             capped = not b or b.confidence == "low" or not is_verified
-            s.add(
-                Candidate(
+            scored.append(
+                dict(
                     user_id=user.id,
                     tracker_id=tracker.id,
                     route_query_id=rq.id,
@@ -253,4 +282,5 @@ def run(ctx: RunContext) -> dict[str, int]:
             counts["verified" if is_verified else "unverified"] += 1
             if z is not None:
                 counts[f"deal_{deal_level(z)}"] += 1
+        _store(s, ctx.run_date, scored)
     return dict(counts)
