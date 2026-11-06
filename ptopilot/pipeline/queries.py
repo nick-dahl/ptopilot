@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from ptopilot import config
 from ptopilot.core.stats import Baseline, length_bucket
-from ptopilot.db.models import PriceObservation, RouteBaseline, RouteQuery, TrackerRouteLink
+from ptopilot.db.models import PriceObservation, RouteBaseline, RouteQuery, Tracker, TrackerRouteLink
 
 Route = tuple[str, str, str]  # origin, dest_airport, return_airport
 DateKey = tuple[str, str, str, date, date]  # route + depart, return
@@ -43,9 +43,13 @@ def rq_baseline_key(rq: RouteQuery) -> BaselineKey:
     return baseline_key(rq.origin, rq.dest_airport, rq.return_airport, rq.depart_date, rq.return_date)
 
 
-def todays_route_queries(s: Session, run_date: date) -> list[RouteQuery]:
-    """Route queries any tracker wants on this run."""
+def todays_route_queries(s: Session, run_date: date, active_only: bool = False) -> list[RouteQuery]:
+    """Route queries any tracker wants on this run (only active trackers' with `active_only`)."""
     linked = select(TrackerRouteLink.route_query_id).where(TrackerRouteLink.run_date == run_date)
+    if active_only:  # a tracker paused since expand ran
+        linked = linked.join(Tracker, Tracker.id == TrackerRouteLink.tracker_id).where(
+            Tracker.active.is_(True)
+        )
     return list(s.scalars(select(RouteQuery).where(RouteQuery.id.in_(linked)).order_by(RouteQuery.id)))
 
 

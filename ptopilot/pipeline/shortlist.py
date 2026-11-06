@@ -14,6 +14,8 @@ Every route query departing within LIVE_HORIZON_DAYS is queued, in check order:
    one, the trip departs within SOON_DAYS, or its live prices swing (coefficient of variation >= VOLATILE_CV).
    Near-deal first, then soonest, then most volatile.
 
+Hot signals count one live price per check, its cheapest itinerary. Only active trackers' trips are queued.
+
 Departures more than LIVE_HORIZON_DAYS out are left alone: Google can't price them yet. Open-jaw routes
 are capped at what open-jaw-capable sources (SerpApi) can still price today.
 """
@@ -24,7 +26,8 @@ from collections import Counter
 from datetime import UTC, date, timedelta
 from statistics import fmean, pstdev
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import Integer, and_, any_, bindparam, delete, func, select
+from sqlalchemy.dialects.postgresql import ARRAY
 
 from ptopilot import config
 from ptopilot.core.stats import z_score
@@ -67,24 +70,42 @@ def open_jaw_capacity(ctx: RunContext) -> int:
     return total
 
 
-def _live_prices(s, rqs: list[RouteQuery], run_date) -> dict:
-    """Each trip's verified live prices in the baseline window, oldest first."""
-    routes = {(rq.origin, rq.dest_airport, rq.return_airport) for rq in rqs}
+def _live_prices(s, rq_ids: list[int], run_date) -> dict:
+    """Each listed trip's live price per check over the baseline window, oldest first.
+
+    A check stores every itinerary it found; only its cheapest is the trip's price at that moment."""
     prices: dict = {}
-    if not routes:
+    if not rq_ids:
         return prices
-    rows = s.scalars(
-        select(PriceObservation)
+    trip = (
+        PriceObservation.origin,
+        PriceObservation.dest_airport,
+        PriceObservation.return_airport,
+        PriceObservation.depart_date,
+        PriceObservation.return_date,
+    )
+    same_trip = and_(
+        RouteQuery.origin == PriceObservation.origin,
+        RouteQuery.dest_airport == PriceObservation.dest_airport,
+        RouteQuery.return_airport == PriceObservation.return_airport,
+        RouteQuery.depart_date == PriceObservation.depart_date,
+        RouteQuery.return_date == PriceObservation.return_date,
+    )
+    rows = s.execute(
+        select(*trip, func.min(PriceObservation.price))
+        .join(RouteQuery, same_trip)
         .where(
+            # one array parameter, however many trips are fresh
+            RouteQuery.id == any_(bindparam("rq_ids", rq_ids, type_=ARRAY(Integer))),
             PriceObservation.verified.is_(True),
             PriceObservation.observed_at >= start_of(run_date - timedelta(days=config.BASELINE_WINDOW_DAYS)),
             PriceObservation.observed_at < start_of(run_date + timedelta(days=1)),
         )
-        .order_by(PriceObservation.observed_at, PriceObservation.id)
+        .group_by(*trip, PriceObservation.observed_at)
+        .order_by(PriceObservation.observed_at)
     )
-    for o in rows:
-        if (o.origin, o.dest_airport, o.return_airport) in routes and o.depart_date and o.return_date:
-            prices.setdefault(date_key(o), []).append(float(o.price))
+    for *key, price in rows:
+        prices.setdefault(tuple(key), []).append(float(price))
     return prices
 
 
@@ -107,14 +128,14 @@ def run(ctx: RunContext) -> dict[str, int]:
     counts: Counter[str] = Counter()
     with session_scope(ctx.engine) as s:
         s.execute(delete(ShortlistEntry).where(ShortlistEntry.run_date == ctx.run_date))
-        rqs = todays_route_queries(s, ctx.run_date)
+        rqs = todays_route_queries(s, ctx.run_date, active_only=True)
         exact, monthly = cached_prices(s, rqs, ctx.run_date)
         baselines = load_baselines(s)
         best_priority = dict(
             s.execute(
                 select(TrackerRouteLink.route_query_id, func.min(Tracker.priority))
                 .join(Tracker, Tracker.id == TrackerRouteLink.tracker_id)
-                .where(TrackerRouteLink.run_date == ctx.run_date)
+                .where(TrackerRouteLink.run_date == ctx.run_date, Tracker.active.is_(True))
                 .group_by(TrackerRouteLink.route_query_id)
             ).all()
         )
@@ -124,7 +145,7 @@ def run(ctx: RunContext) -> dict[str, int]:
         # Only checks from before today: a same-day re-run must order the not-yet-fresh trips the same way.
         seen = last_fresh(s, [rq.id for rq in in_horizon], before=start_of(ctx.run_date))
         unpriceable = known_unpriceable(s, [rq.id for rq in in_horizon if rq.id not in fresh])
-        live = _live_prices(s, [rq for rq in in_horizon if rq.id in fresh], ctx.run_date)
+        live = _live_prices(s, [rq.id for rq in in_horizon if rq.id in fresh], ctx.run_date)
 
         first, audits, seconds = [], [], []  # (sort key, route query, reason, estimated price)
         for rq in in_horizon:

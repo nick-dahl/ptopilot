@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import select
 
 from ptopilot import config
-from ptopilot.db.models import LiveCheck, RouteBaseline, RouteQuery, ShortlistEntry, TrackerRouteLink
+from ptopilot.db.models import LiveCheck, RouteBaseline, RouteQuery, ShortlistEntry, Tracker, TrackerRouteLink
 from ptopilot.db.session import session_scope
 from ptopilot.pipeline import expand, shortlist
 from tests.pipeline.conftest import (
@@ -288,8 +288,8 @@ def test_second_checks_are_hot_and_capped(make_ctx):
         dep = date(2027, 7, 1 + i)
         ret = dep + timedelta(days=8)
         volatile.append(make_rq(ctx.engine, tid, dep, ret))
-        for price in (100, 100 + 10 * (i + 4)):
-            add_observation(ctx.engine, dep, ret, price, observed=seen, verified=True)
+        for day, price in enumerate((100, 100 + 10 * (i + 4))):  # two checks, a day apart
+            add_observation(ctx.engine, dep, ret, price, observed=seen + timedelta(days=day), verified=True)
     for i in range(10):  # nothing going on
         dep = date(2027, 8, 1 + i)
         cold.append(make_rq(ctx.engine, tid, dep, dep + timedelta(days=8)))
@@ -300,3 +300,35 @@ def test_second_checks_are_hot_and_capped(make_ctx):
     assert counts["second"] == 40 and all(reason == "second" for _, reason in got)
     assert [i for i, _ in got] == near + soon + volatile[::-1][:10]
     assert not {i for i, _ in got} & set(cold)
+
+
+# --- final review -------------------------------------------------------------------------------------------
+
+
+def test_hot_signals_use_the_cheapest_option_of_each_check(make_ctx):
+    ctx, tid = bare(make_ctx)
+    confident_baseline(ctx.engine)  # June, week bucket: median 1000, sigma 100
+    seen = date(2027, 2, 25)
+    one_check = make_rq(ctx.engine, tid, *DEAL)  # one check, two itineraries: 612 and 1180
+    for price in (612, 1180):
+        add_observation(ctx.engine, *DEAL, price, observed=seen, verified=True)
+    soon = make_rq(ctx.engine, tid, RUN + timedelta(days=5), RUN + timedelta(days=13))
+    spread = make_rq(ctx.engine, tid, date(2027, 7, 1), date(2027, 7, 9))  # no July baseline
+    for price in (100, 300):  # one check: a spread of itineraries is not a price swinging
+        add_observation(ctx.engine, date(2027, 7, 1), date(2027, 7, 9), price, observed=seen, verified=True)
+    for rq_id in (one_check, soon, spread):
+        fresh_today(ctx.engine, rq_id)
+    shortlist.run(ctx)
+    # near-deal on 612 ranks ahead of departing-soon; judged on 1180 it would only be "volatile", after it
+    assert ids_in_order(ctx.engine) == [(one_check, "second"), (soon, "second")]
+
+
+def test_trips_of_a_paused_tracker_are_not_queued(make_ctx):
+    ctx, tid = bare(make_ctx)
+    with session_scope(ctx.engine) as s:
+        user_id = s.get(Tracker, tid).user_id
+    paused = add_tracker(ctx.engine, user_id, code="OPO", active=False)
+    wanted = make_rq(ctx.engine, tid, date(2027, 7, 1), date(2027, 7, 9))
+    make_rq(ctx.engine, paused, date(2027, 7, 2), date(2027, 7, 10), dest="OPO")
+    shortlist.run(ctx)
+    assert ids_in_order(ctx.engine) == [(wanted, "explore")]
