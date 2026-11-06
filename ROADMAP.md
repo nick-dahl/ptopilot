@@ -1,6 +1,6 @@
 # ptopilot Roadmap
 
-V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](docs/superpowers/specs/2026-10-16-ptopilot-design.md). V1 and Plans 7–17 are live. This page is the agenda: what's queued, what to settle before inviting friends, feature ideas, and the polish backlog from code reviews.
+V1 scope and design: [`docs/superpowers/specs/2026-10-16-ptopilot-design.md`](docs/superpowers/specs/2026-10-16-ptopilot-design.md). V1 and Plans 7–18 are live. This page is the agenda: what's queued, what to settle before inviting friends, feature ideas, and the polish backlog from code reviews.
 
 ## 1. Queued work, in order
 
@@ -169,6 +169,13 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
   - the cap test checks kinds, not which five survive;
   - no test that a snoozed destination's related places aren't watched;
   - the panel test matches "Related" anywhere on the page, and the snoozed-panel test accepts either of two strings.
+
+**Adaptive polling (Plan 18)**
+- [ ] **One price per check (open from the final review):** `store_options` stamps each itinerary separately, so the second-check "near a deal" and "volatile" signals still read itinerary spread as price movement and fill all 40 slots. Stamp once per `store_options` call (and test through `store_options`, not helper timestamps).
+- [ ] **Watch the first week of health emails:** run start times (GitHub has been starting the 06:00 cron near 14:00 UTC), stage durations against `timeout-minutes: 75`, "Fresh today: N of N", and where back-off fires.
+- [ ] **Day price is the cheapest of the day, not the latest:** a second check showing a deal has gone can't retract it until tomorrow.
+- [ ] **Instant alerts' return checks** (`RETURN_CHECKS_PER_DAY = 3`) can be spent by the first run, so a deal found at 14:00 may not alert that day.
+- [ ] **Small things:** a SerpApi fallback failure on a Google-unpriceable trip counts it stale; `live_verify` counts a budget-skipped entry as attempted; the back-off is blind until 20 attempts and a frozen window can stop a run after Google is disabled; test name `test_rerun_skips_routes_already_checked_today` is stale; README schedule line has doubled parentheses; `LAST_RUN_HOUR_UTC` formatting; migration-adjacent formatting in `models.py`.
 
 **Pre-invite hardening (Plan 17)**
 - [ ] **Health email subject:** when the only sign of a killed run is the next day's "Interrupted earlier" line, the subject still says OK; add the interrupted stages to it. Confirm the `!success()` "Report an interrupted run" step fires the first time GitHub times a scan out.
