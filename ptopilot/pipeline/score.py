@@ -184,7 +184,7 @@ def run(ctx: RunContext) -> dict[str, int]:
             .join(RouteQuery, RouteQuery.id == TrackerRouteLink.route_query_id)
             .join(Tracker, Tracker.id == TrackerRouteLink.tracker_id)
             .join(User, User.id == Tracker.user_id)
-            .where(TrackerRouteLink.run_date == ctx.run_date)
+            .where(TrackerRouteLink.run_date == ctx.run_date, Tracker.active.is_(True))
             .order_by(TrackerRouteLink.id)
         ).all()
         for link, rq, tracker, user in rows:

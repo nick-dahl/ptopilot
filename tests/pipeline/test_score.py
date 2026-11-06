@@ -320,3 +320,23 @@ def test_rescoring_uses_every_live_price_of_the_day(make_ctx):
             )  # fmt: skip
         score.run(ctx)
     assert candidates(ctx.engine)[TRIP].price == 700
+
+
+def test_a_tracker_deactivated_mid_day_drops_out_without_expand(make_ctx):
+    ctx = make_ctx()
+    first = add_tracker(ctx.engine, add_user(ctx.engine))
+    second = add_tracker(ctx.engine, add_user(ctx.engine, email="ann@example.com"))
+    expand.run(ctx)
+    add_observation(ctx.engine, *TRIP, 900, observed=RUN)
+    score.run(ctx)
+
+    def by_tracker():
+        with session_scope(ctx.engine) as s:
+            return {c.tracker_id: c.id for c in s.scalars(select(Candidate))}
+
+    before = by_tracker()
+    assert set(before) == {first, second}
+    with session_scope(ctx.engine) as s:
+        s.get(Tracker, first).active = False
+    score.run(ctx)  # no expand: the morning's links are still there
+    assert by_tracker() == {second: before[second]}
