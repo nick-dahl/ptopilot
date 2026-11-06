@@ -117,9 +117,19 @@ def duration(seconds: float | None) -> str:
     return f"{minutes}m{rest:02d}s"
 
 
-def is_first_run(results: Sequence[StageResult]) -> bool:
-    """The day's first scan run is the one that ran `expand` (later runs skip it)."""
-    return any(r.stage == "expand" and r.status == "ok" for r in results)
+HEALTH_EMAIL = "health_email"  # pipeline_runs marker (not a stage): the day's full health email went out
+
+
+def _daily_email_due(s: Session, day: date, full_run: bool) -> bool:
+    """True for a full run while no health email has been delivered for this date."""
+    if not full_run:
+        return False
+    sent = s.scalar(
+        select(PipelineRun.id)
+        .where(PipelineRun.run_date == day, PipelineRun.stage == HEALTH_EMAIL, PipelineRun.status == "ok")
+        .limit(1)
+    )
+    return sent is None
 
 
 def _plural(n: int, noun: str) -> str:
@@ -171,14 +181,21 @@ def yesterday_lines(s: Session, day: date) -> tuple[list[str], int]:
 
 
 def build_report(
-    ctx: RunContext, results: Sequence[StageResult], interrupted: Sequence[PipelineRun] = ()
+    ctx: RunContext,
+    results: Sequence[StageResult],
+    interrupted: Sequence[PipelineRun] = (),
+    full_run: bool = True,
 ) -> tuple[str, str]:
-    """(subject, plain-text body); `interrupted` are stages an earlier, killed run left behind."""
+    """(subject, plain-text body); `interrupted` are stages an earlier, killed run left behind.
+
+    `full_run` is False for a manual `--stage` run, which never carries yesterday's warning."""
     failed = [r.stage for r in results if r.status == "failed"]
     subject = f"ptopilot scan {ctx.run_date}: " + (f"FAILED ({', '.join(failed)})" if failed else "OK")
     with session_scope(ctx.engine) as s:
         fresh_lines = freshness_lines(s, ctx.run_date, results)
-        old_lines, stale = yesterday_lines(s, ctx.run_date) if is_first_run(results) else ([], 0)
+        old_lines, stale = (
+            yesterday_lines(s, ctx.run_date) if _daily_email_due(s, ctx.run_date, full_run) else ([], 0)
+        )
     if stale:
         subject += f" — {stale} trips stale"
     lines = [subject, "", "Stages:"]
@@ -242,9 +259,12 @@ def interrupted_report(rows: Sequence[PipelineRun]) -> tuple[str, str]:
     return subject, "\n".join(lines)
 
 
-def _deliver(ctx: RunContext, subject: str, text: str) -> None:
+def _deliver(ctx: RunContext, subject: str, text: str) -> bool:
+    """Send the email when configured and not a dry run; True when it went out (a failed send raises)."""
     if ctx.emailer and ctx.admin_email and not ctx.dry_run:
         ctx.emailer.send(ctx.admin_email, subject, f"<pre>{html.escape(text)}</pre>", text)
+        return True
+    return False
 
 
 def _trouble(
@@ -266,11 +286,22 @@ def send_report(
     results: Sequence[StageResult],
     interrupted: Sequence[PipelineRun] = (),
     now: datetime | None = None,
+    full_run: bool = True,
 ) -> str:
-    """Email the report when configured and not a dry run (a later run only on trouble); return the text."""
-    subject, text = build_report(ctx, results, interrupted)
-    if is_first_run(results) or _trouble(ctx, results, interrupted, now or datetime.now(UTC)):
-        _deliver(ctx, subject, text)
+    """Email the report when configured and not a dry run; return the text.
+
+    The first full run's email that actually goes out each day (it carries yesterday's warning) is recorded
+    as a `health_email` marker; every other run emails only on trouble.
+    """
+    subject, text = build_report(ctx, results, interrupted, full_run)
+    with session_scope(ctx.engine) as s:
+        due = _daily_email_due(s, ctx.run_date, full_run)
+    if (due or _trouble(ctx, results, interrupted, now or datetime.now(UTC))) and _deliver(
+        ctx, subject, text
+    ):
+        if due:
+            with session_scope(ctx.engine) as s:
+                s.add(PipelineRun(run_date=ctx.run_date, stage=HEALTH_EMAIL, status="ok"))
     return text
 
 

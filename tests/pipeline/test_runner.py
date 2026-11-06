@@ -337,6 +337,17 @@ def test_freshness_check_lines_only_when_live_verify_ran(make_ctx):
     assert "Fresh today:" in text and "Checks this run" not in text and "Google:" not in text
 
 
+def _mark_emailed(engine):
+    with session_scope(engine) as s:
+        s.add(PipelineRun(run_date=RUN, stage="health_email", status="ok"))
+
+
+def _mark_emailed_off(engine):
+    with session_scope(engine) as s:
+        for row in s.scalars(select(PipelineRun).where(PipelineRun.stage == "health_email")):
+            s.delete(row)
+
+
 def test_first_run_warns_about_yesterday(make_ctx):
     ctx = _with_tracker(make_ctx)
     yesterday = RUN - timedelta(days=1)
@@ -345,9 +356,15 @@ def test_first_run_warns_about_yesterday(make_ctx):
     assert "12 trips had no live price yesterday (longest: 2 days)" in text
     assert subject == "ptopilot scan 2027-03-01: OK — 12 trips stale"
 
-    # a later run (no expand) neither warns nor changes the subject
+    # once the day's email went out, later runs neither warn nor change the subject
+    _mark_emailed(ctx.engine)
     subject, text = build_report(ctx, [runner.StageResult("live_verify", "ok", dict(LIVE_COUNTS))])
     assert "yesterday" not in text and subject == "ptopilot scan 2027-03-01: OK"
+
+    # a manual --stage run never carries it
+    _mark_emailed_off(ctx.engine)
+    _, text = build_report(ctx, [runner.StageResult("alerts", "ok")], full_run=False)
+    assert "yesterday" not in text
 
 
 def test_unpriceable_trips_are_listed_not_warned(make_ctx):
@@ -363,6 +380,7 @@ def test_later_runs_email_only_on_trouble(make_ctx):
     emailer = FakeEmailer()
     ctx = _with_tracker(make_ctx, emailer=emailer, admin_email="me@example.com")
     _add_trips(ctx.engine, RUN, total=5, fresh=5)
+    _mark_emailed(ctx.engine)  # the day's first email already went out
     later = [runner.StageResult("live_verify", "ok", dict(LIVE_COUNTS))]
     noon = datetime(2027, 3, 1, 14, tzinfo=UTC)
     night = datetime(2027, 3, 1, 22, 5, tzinfo=UTC)
@@ -384,5 +402,56 @@ def test_later_runs_email_only_on_trouble(make_ctx):
     send_report(ctx, later, now=night)
     assert len(emailer.sent) == 3
 
-    send_report(ctx, [runner.StageResult("expand", "ok")], now=noon)  # the first run always emails
+    # a manual --stage run is not the day's first email either
+    _mark_emailed_off(ctx.engine)
+    send_report(ctx, [runner.StageResult("alerts", "ok")], now=noon, full_run=False)
+    assert len(emailer.sent) == 3
+    send_report(ctx, [runner.StageResult("expand", "ok")], now=noon)  # the first full run always emails
     assert len(emailer.sent) == 4
+
+
+def test_a_dry_run_does_not_count_as_ran_today(make_ctx, monkeypatch):
+    calls = _fake_stages(monkeypatch)
+    runner.run_pipeline(make_ctx(dry_run=True))
+    assert {r.status for r in runs(make_ctx().engine).values()} == {"dry_run"}
+    calls.clear()
+    second = {r.stage: r for r in runner.run_pipeline(make_ctx())}
+    assert all(second[n].status == "ok" for n in runner.ONCE_A_DAY)
+    assert runner.ONCE_A_DAY <= set(calls)
+
+
+class FlakyEmailer(FakeEmailer):
+    fail = True
+
+    def send(self, to, subject, html, text):
+        if self.fail:
+            raise RuntimeError("resend is down")
+        return super().send(to, subject, html, text)
+
+
+def test_yesterday_warning_survives_a_crashed_first_run(make_ctx):
+    emailer = FlakyEmailer()
+    ctx = _with_tracker(make_ctx, emailer=emailer, admin_email="me@example.com")
+    _add_trips(ctx.engine, RUN - timedelta(days=1), total=5, fresh=2)
+    noon = datetime(2027, 3, 1, 14, tzinfo=UTC)
+    with pytest.raises(RuntimeError):
+        send_report(ctx, [runner.StageResult("expand", "ok")], now=datetime(2027, 3, 1, 6, tzinfo=UTC))
+    emailer.fail = False
+    send_report(ctx, [runner.StageResult("live_verify", "ok", dict(LIVE_COUNTS))], now=noon)
+    assert "3 trips had no live price yesterday" in emailer.sent[0][2]
+    assert emailer.sent[0][1].endswith("— 3 trips stale")
+
+
+def test_yesterday_warning_is_sent_once_per_day(make_ctx):
+    emailer = FakeEmailer()
+    ctx = _with_tracker(make_ctx, emailer=emailer, admin_email="me@example.com")
+    _add_trips(ctx.engine, RUN - timedelta(days=1), total=5, fresh=2)
+    send_report(ctx, [runner.StageResult("expand", "ok")], now=datetime(2027, 3, 1, 6, tzinfo=UTC))
+    assert len(emailer.sent) == 1
+    send_report(
+        ctx,
+        [runner.StageResult("live_verify", "ok", dict(LIVE_COUNTS))],
+        now=datetime(2027, 3, 1, 14, tzinfo=UTC),
+    )
+    assert len(emailer.sent) == 1
+    assert "health_email" not in runner.STAGES

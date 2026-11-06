@@ -96,7 +96,9 @@ def run_stage(ctx: RunContext, name: str) -> StageResult:
     result.seconds = monotonic() - started
     with session_scope(ctx.engine) as s:
         row = s.get(PipelineRun, run_id)
-        row.status, row.counts, row.error = result.status, result.counts, result.error
+        # A dry run's rows must never count as 'ran today' for the real run that follows.
+        row.status = "dry_run" if ctx.dry_run and result.status == "ok" else result.status
+        row.counts, row.error = result.counts, result.error
         row.finished_at = datetime.now(UTC)
     log.info("stage %s: %s %s %s", name, result.status, result.counts, result.error or "")
     return result

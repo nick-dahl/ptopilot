@@ -64,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
     rows = mark_interrupted(ctx.engine)
     results = run_pipeline(ctx, args.stage)
     try:
-        print(send_report(ctx, results, interrupted=rows))
+        print(send_report(ctx, results, interrupted=rows, full_run=args.stage is None))
     except EmailError as exc:
         log.error("health email not sent: %s", exc)
     return 1 if any(r.status == "failed" for r in results) else 0
