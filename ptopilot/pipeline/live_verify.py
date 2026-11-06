@@ -356,5 +356,7 @@ def run(ctx: RunContext) -> dict[str, int]:
     # those the time budget, a tripped breaker or the back-off left over: only attempts count.
     attempted = counts["first_checks"] + counts["second_checks"] + counts["audits"]
     if attempted and not successes:
-        raise StageFailed(f"no live check succeeded for {attempted} shortlisted routes: {dict(counts)}")
+        raise StageFailed(
+            f"no live check succeeded for {attempted} shortlisted routes: {dict(counts)}", counts=dict(counts)
+        )
     return dict(counts)

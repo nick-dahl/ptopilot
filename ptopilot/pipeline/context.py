@@ -29,7 +29,11 @@ class StageSkipped(Exception):
 
 
 class StageFailed(Exception):
-    """The stage could not do its job."""
+    """The stage could not do its job. `counts` are what it did get done, kept for the health email."""
+
+    def __init__(self, message: str = "", counts: dict[str, int] | None = None):
+        super().__init__(message)
+        self.counts = counts or {}
 
 
 @dataclass

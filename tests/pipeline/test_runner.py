@@ -314,7 +314,8 @@ LIVE_COUNTS = {
     "google_flights_ok": 100,
     "google_flights_failed": 3,
     "google_flights_route_failed": 1,
-    "no_flights": 27,
+    "google_flights_empty": 27,
+    "no_flights": 40,  # SerpApi's empties too: Google's empty share uses only its own
 }
 
 
@@ -455,3 +456,28 @@ def test_yesterday_warning_is_sent_once_per_day(make_ctx):
     )
     assert len(emailer.sent) == 1
     assert "health_email" not in runner.STAGES
+
+
+def test_failed_live_verify_still_reports_its_checks(make_ctx):
+    ctx = _with_tracker(make_ctx)
+    counts = {"first_checks": 3, "google_flights_failed": 3, "google_flights_breaker_tripped": 1}
+    _, text = build_report(ctx, [runner.StageResult("live_verify", "failed", counts, error="no live check")])
+    assert "Checks this run: 3 first, 0 second, 0 audit" in text
+    assert "Google: 100% failed, 0% empty" in text
+
+
+def test_a_failed_live_verify_keeps_its_counts(make_ctx):
+    ctx = make_ctx(live_sources=[FakeLiveSource("google_flights", failing("429"))])
+    add_tracker(ctx.engine, add_user(ctx.engine))
+    runner.run_stage(ctx, "expand")
+    runner.run_stage(ctx, "shortlist")
+    result = runner.run_stage(ctx, "live_verify")
+    assert result.status == "failed" and result.counts["google_flights_failed"] == 3
+    assert runs(ctx.engine)["live_verify"].counts["first_checks"] == 3
+
+
+def test_one_stale_trip_is_singular_in_the_subject(make_ctx):
+    ctx = _with_tracker(make_ctx)
+    _add_trips(ctx.engine, RUN - timedelta(days=1), total=3, fresh=2)
+    subject, _ = build_report(ctx, [runner.StageResult("expand", "ok")])
+    assert subject == "ptopilot scan 2027-03-01: OK — 1 trip stale"

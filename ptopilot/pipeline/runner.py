@@ -89,7 +89,7 @@ def run_stage(ctx: RunContext, name: str) -> StageResult:
     except StageSkipped as exc:
         result = StageResult(name, "skipped", error=str(exc))
     except StageFailed as exc:
-        result = StageResult(name, "failed", error=snippet(str(exc), 1000))
+        result = StageResult(name, "failed", exc.counts, error=snippet(str(exc), 1000))
     except Exception as exc:
         log.exception("stage %s crashed", name)
         result = StageResult(name, "failed", error=snippet(f"{type(exc).__name__}: {exc}", 1000))

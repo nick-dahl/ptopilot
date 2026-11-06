@@ -141,13 +141,15 @@ def _percent(part: int, whole: int) -> int:
 
 
 def freshness_lines(s: Session, day: date, results: Sequence[StageResult]) -> list[str]:
-    """Today's live-price coverage, and (when live_verify ran) what this run checked and how Google did."""
+    """Today's live-price coverage, and (when live_verify ran, ok or failed) what this run checked and how
+    Google did."""
     fresh = day_freshness(s, day)
     lines = [
         "Freshness:",
         f"  Fresh today: {fresh.fresh} of {fresh.in_horizon} in horizon ({len(fresh.not_fresh)} not yet)",
     ]
-    live = next((r for r in results if r.stage == "live_verify" and r.status == "ok"), None)
+    # A failed live_verify still reports what it tried: that is when the Google line matters most.
+    live = next((r for r in results if r.stage == "live_verify" and r.status in ("ok", "failed")), None)
     if live:
         c = live.counts
         lines.append(
@@ -156,7 +158,7 @@ def freshness_lines(s: Session, day: date, results: Sequence[StageResult]) -> li
         )
         ok = c.get("google_flights_ok", 0)
         failed = c.get("google_flights_failed", 0) + c.get("google_flights_route_failed", 0)
-        empty = _percent(c.get("no_flights", 0), ok)
+        empty = _percent(c.get("google_flights_empty", 0), ok)  # Google's own; no_flights counts SerpApi too
         google = f"  Google: {_percent(failed, failed + ok)}% failed, {empty}% empty"
         if c.get("backoff_stopped", 0):
             google += f", back-off: stopped ({c['backoff_stopped']} left)"
@@ -197,7 +199,7 @@ def build_report(
             yesterday_lines(s, ctx.run_date) if _daily_email_due(s, ctx.run_date, full_run) else ([], 0)
         )
     if stale:
-        subject += f" — {stale} trips stale"
+        subject += f" — {_plural(stale, 'trip')} stale"
     lines = [subject, "", "Stages:"]
     for r in results:
         detail = ", ".join(f"{k}={v}" for k, v in sorted(r.counts.items()))
