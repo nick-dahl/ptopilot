@@ -75,6 +75,9 @@ SEED_RETRY_DAYS = 30  # a key whose SerpApi result had no history is tried again
 SINGLE_TRIP_SHARE = 0.5
 SINGLE_TRIP_SIGMA_FLOOR_FRACTION = 0.08
 AUDIT_EQUAL_USD = 5  # fast-flights vs SerpApi prices this close count as equal in the health audit
+LAST_RUN_HOUR_UTC = (
+    22  # a scan run starting at or after this hour is the day's last: it emails if trips are unpriced
+)
 AUDIT_DAYS = 30  # the health audit's longer view covers this many run dates
 
 # Digest (spec §8)

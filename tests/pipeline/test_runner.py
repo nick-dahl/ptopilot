@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 import pytest
 from sqlalchemy import select
@@ -206,3 +206,183 @@ def test_interrupted_command_marks_and_emails(make_ctx, monkeypatch):
     assert len(emailer.sent) == 1
     to, subject, _ = emailer.sent[0]
     assert (to, subject) == ("me@example.com", "ptopilot scan 2027-02-28: INTERRUPTED (live_verify)")
+
+
+# --- Plan 18 Task 5: three runs a day ---------------------------------------------------------------
+
+
+def _fake_stages(monkeypatch):
+    calls = []
+    for name in runner.STAGES:
+        monkeypatch.setitem(runner.STAGES, name, lambda ctx, n=name: calls.append(n) or {})
+    return calls
+
+
+def test_once_a_day_stages_skip_on_a_later_run(make_ctx, monkeypatch):
+    calls = _fake_stages(monkeypatch)
+    ctx = make_ctx()
+    runner.run_pipeline(ctx)
+    calls.clear()
+
+    second = {r.stage: r for r in runner.run_pipeline(ctx)}
+
+    for name in runner.ONCE_A_DAY:
+        assert (second[name].status, second[name].error) == ("skipped", "already ran today")
+    assert "score" in calls and "live_verify" in calls
+    assert not set(calls) & runner.ONCE_A_DAY
+
+    calls.clear()
+    assert runner.run_pipeline(ctx, ["broad_scan"])[0].status == "ok"
+    assert calls == ["broad_scan"]
+
+
+def test_a_once_a_day_stage_that_failed_runs_again(make_ctx, monkeypatch):
+    calls = _fake_stages(monkeypatch)
+    monkeypatch.setitem(runner.STAGES, "gems", lambda ctx: 1 / 0)
+    ctx = make_ctx()
+    runner.run_pipeline(ctx)
+    monkeypatch.setitem(runner.STAGES, "gems", lambda ctx: calls.append("gems") or {})
+    assert {r.stage: r.status for r in runner.run_pipeline(ctx)}["gems"] == "ok"
+
+
+def _add_trips(engine, run_date, total, fresh, route_specific_misses=0, longest_ago=None, shift=0):
+    """`total` in-horizon route queries linked on run_date; the first `fresh` have an ok check that day."""
+    from ptopilot.db.models import LiveCheck, Tracker, TrackerRouteLink
+
+    with session_scope(engine) as s:
+        tracker_id = s.scalar(select(Tracker.id))
+        for i in range(total):
+            depart = run_date + timedelta(days=10 + i % 20)
+            rq = RouteQuery(
+                origin="ORD",
+                dest_airport="LIS",
+                return_airport="LIS",
+                depart_date=depart,
+                return_date=depart + timedelta(days=6 + shift + i // 20),
+            )
+            s.add(rq)
+            s.flush()
+            s.add(
+                TrackerRouteLink(
+                    tracker_id=tracker_id,
+                    route_query_id=rq.id,
+                    run_date=run_date,
+                    pto_cost=3,
+                    month=depart.month,
+                    season_rating="ok",
+                    days_away=7,
+                    efficiency=1.0,
+                )
+            )
+            if i < fresh:
+                s.add(LiveCheck(run_date=run_date, route_query_id=rq.id, source="google_flights", ok=True))
+            elif i < fresh + route_specific_misses:
+                s.add(
+                    LiveCheck(
+                        run_date=run_date,
+                        route_query_id=rq.id,
+                        source="google_flights",
+                        ok=False,
+                        route_specific=True,
+                    )
+                )
+            elif longest_ago is not None and i == total - 1:
+                # one older fresh price, so "longest wait" is measurable
+                s.add(
+                    LiveCheck(
+                        run_date=run_date - timedelta(days=longest_ago),
+                        route_query_id=rq.id,
+                        source="google_flights",
+                        ok=True,
+                        checked_at=datetime.combine(
+                            run_date - timedelta(days=longest_ago), time(12), tzinfo=UTC
+                        ),
+                    )
+                )
+
+
+def _with_tracker(make_ctx, **kw):
+    ctx = make_ctx(**kw)
+    add_tracker(ctx.engine, add_user(ctx.engine))
+    return ctx
+
+
+LIVE_COUNTS = {
+    "first_checks": 120,
+    "second_checks": 30,
+    "audits": 2,
+    "google_flights_ok": 100,
+    "google_flights_failed": 3,
+    "google_flights_route_failed": 1,
+    "no_flights": 27,
+}
+
+
+def test_health_report_shows_freshness(make_ctx):
+    ctx = _with_tracker(make_ctx)
+    _add_trips(ctx.engine, RUN, total=260, fresh=250)
+    _, text = build_report(ctx, [runner.StageResult("live_verify", "ok", dict(LIVE_COUNTS))])
+    assert "Fresh today: 250 of 260 in horizon (10 not yet)" in text
+    assert "Checks this run: 120 first, 30 second, 2 audit" in text
+    assert "Google: 4% failed, 27% empty" in text
+    assert "back-off" not in text
+
+    slowed = dict(LIVE_COUNTS, backoff_slowed=1)
+    _, text = build_report(ctx, [runner.StageResult("live_verify", "ok", slowed)])
+    assert "back-off: slowed" in text
+
+
+def test_freshness_check_lines_only_when_live_verify_ran(make_ctx):
+    _, text = build_report(_with_tracker(make_ctx), [runner.StageResult("expand", "ok")])
+    assert "Fresh today:" in text and "Checks this run" not in text and "Google:" not in text
+
+
+def test_first_run_warns_about_yesterday(make_ctx):
+    ctx = _with_tracker(make_ctx)
+    yesterday = RUN - timedelta(days=1)
+    _add_trips(ctx.engine, yesterday, total=15, fresh=3, longest_ago=2)
+    subject, text = build_report(ctx, [runner.StageResult("expand", "ok")])
+    assert "12 trips had no live price yesterday (longest: 2 days)" in text
+    assert subject == "ptopilot scan 2027-03-01: OK — 12 trips stale"
+
+    # a later run (no expand) neither warns nor changes the subject
+    subject, text = build_report(ctx, [runner.StageResult("live_verify", "ok", dict(LIVE_COUNTS))])
+    assert "yesterday" not in text and subject == "ptopilot scan 2027-03-01: OK"
+
+
+def test_unpriceable_trips_are_listed_not_warned(make_ctx):
+    ctx = _with_tracker(make_ctx)
+    _add_trips(ctx.engine, RUN - timedelta(days=1), total=10, fresh=7, route_specific_misses=3)
+    subject, text = build_report(ctx, [runner.StageResult("expand", "ok")])
+    assert "Google can't price 3 trips" in text
+    assert "no live price yesterday" not in text
+    assert subject == "ptopilot scan 2027-03-01: OK"
+
+
+def test_later_runs_email_only_on_trouble(make_ctx):
+    emailer = FakeEmailer()
+    ctx = _with_tracker(make_ctx, emailer=emailer, admin_email="me@example.com")
+    _add_trips(ctx.engine, RUN, total=5, fresh=5)
+    later = [runner.StageResult("live_verify", "ok", dict(LIVE_COUNTS))]
+    noon = datetime(2027, 3, 1, 14, tzinfo=UTC)
+    night = datetime(2027, 3, 1, 22, 5, tzinfo=UTC)
+
+    send_report(ctx, later, now=noon)
+    send_report(ctx, later, now=night)  # everything fresh: still quiet
+    assert emailer.sent == []
+
+    send_report(ctx, [*later, runner.StageResult("alerts", "failed", error="x")], now=noon)
+    assert len(emailer.sent) == 1
+    send_report(
+        ctx, [runner.StageResult("live_verify", "ok", dict(LIVE_COUNTS, backoff_stopped=4))], now=noon
+    )
+    assert len(emailer.sent) == 2
+
+    _add_trips(ctx.engine, RUN, total=3, fresh=0, shift=5)  # trips still without a price
+    send_report(ctx, later, now=noon)
+    assert len(emailer.sent) == 2
+    send_report(ctx, later, now=night)
+    assert len(emailer.sent) == 3
+
+    send_report(ctx, [runner.StageResult("expand", "ok")], now=noon)  # the first run always emails
+    assert len(emailer.sent) == 4

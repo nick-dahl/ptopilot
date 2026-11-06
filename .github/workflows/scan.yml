@@ -1,7 +1,9 @@
 name: scan
 on:
   schedule:
-    - cron: "0 6 * * *"  # daily, 06:00 UTC
+    - cron: "0 6 * * *"  # three runs a day (UTC): the first does the whole pipeline, the rest top up prices
+    - cron: "0 14 * * *"
+    - cron: "0 22 * * *"
   workflow_dispatch:
     inputs:
       date:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 from collections import Counter
 from collections.abc import Sequence
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from statistics import median
 
 from sqlalchemy import func, select
@@ -24,6 +24,7 @@ from ptopilot.db.models import (
 from ptopilot.db.session import session_scope
 from ptopilot.digest.render import date_range
 from ptopilot.pipeline.context import RunContext
+from ptopilot.pipeline.freshness import day_freshness
 from ptopilot.pipeline.queries import month_of, start_of
 from ptopilot.pipeline.runner import StageResult
 
@@ -116,12 +117,70 @@ def duration(seconds: float | None) -> str:
     return f"{minutes}m{rest:02d}s"
 
 
+def is_first_run(results: Sequence[StageResult]) -> bool:
+    """The day's first scan run is the one that ran `expand` (later runs skip it)."""
+    return any(r.stage == "expand" and r.status == "ok" for r in results)
+
+
+def _plural(n: int, noun: str) -> str:
+    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
+def _percent(part: int, whole: int) -> int:
+    return round(100 * part / whole) if whole else 0
+
+
+def freshness_lines(s: Session, day: date, results: Sequence[StageResult]) -> list[str]:
+    """Today's live-price coverage, and (when live_verify ran) what this run checked and how Google did."""
+    fresh = day_freshness(s, day)
+    lines = [
+        "Freshness:",
+        f"  Fresh today: {fresh.fresh} of {fresh.in_horizon} in horizon ({len(fresh.not_fresh)} not yet)",
+    ]
+    live = next((r for r in results if r.stage == "live_verify" and r.status == "ok"), None)
+    if live:
+        c = live.counts
+        lines.append(
+            f"  Checks this run: {c.get('first_checks', 0)} first, {c.get('second_checks', 0)} second,"
+            f" {c.get('audits', 0)} audit"
+        )
+        ok = c.get("google_flights_ok", 0)
+        failed = c.get("google_flights_failed", 0) + c.get("google_flights_route_failed", 0)
+        empty = _percent(c.get("no_flights", 0), ok)
+        google = f"  Google: {_percent(failed, failed + ok)}% failed, {empty}% empty"
+        if c.get("backoff_stopped", 0):
+            google += f", back-off: stopped ({c['backoff_stopped']} left)"
+        elif c.get("backoff_slowed", 0):
+            google += ", back-off: slowed"
+        lines.append(google)
+    return lines
+
+
+def yesterday_lines(s: Session, day: date) -> tuple[list[str], int]:
+    """(report lines, stale-trip count) about the previous run date; only the first run reports them."""
+    y = day_freshness(s, day - timedelta(days=1))
+    lines = []
+    if y.not_fresh:
+        wait = f"longest: {_plural(y.longest_wait_days, 'day')}"
+        lines.append(f"  {_plural(len(y.not_fresh), 'trip')} had no live price yesterday ({wait})")
+    if y.unpriceable:
+        lines.append(f"  Google can't price {_plural(len(y.unpriceable), 'trip')}")
+    if y.open_jaw_no_budget:
+        lines.append(f"  {_plural(len(y.open_jaw_no_budget), 'open-jaw trip')} waited for SerpApi budget")
+    return lines, len(y.not_fresh)
+
+
 def build_report(
     ctx: RunContext, results: Sequence[StageResult], interrupted: Sequence[PipelineRun] = ()
 ) -> tuple[str, str]:
     """(subject, plain-text body); `interrupted` are stages an earlier, killed run left behind."""
     failed = [r.stage for r in results if r.status == "failed"]
     subject = f"ptopilot scan {ctx.run_date}: " + (f"FAILED ({', '.join(failed)})" if failed else "OK")
+    with session_scope(ctx.engine) as s:
+        fresh_lines = freshness_lines(s, ctx.run_date, results)
+        old_lines, stale = yesterday_lines(s, ctx.run_date) if is_first_run(results) else ([], 0)
+    if stale:
+        subject += f" — {stale} trips stale"
     lines = [subject, "", "Stages:"]
     for r in results:
         detail = ", ".join(f"{k}={v}" for k, v in sorted(r.counts.items()))
@@ -131,6 +190,7 @@ def build_report(
             label = "reason" if r.status == "skipped" else "error"
             lines.append(f"  {'':<12} {label}: {r.error}")
     lines += [f"  Interrupted earlier: {row.run_date} {row.stage}" for row in interrupted]
+    lines += ["", *fresh_lines, *old_lines]
 
     with session_scope(ctx.engine) as s:
         deals = Counter(
@@ -187,12 +247,30 @@ def _deliver(ctx: RunContext, subject: str, text: str) -> None:
         ctx.emailer.send(ctx.admin_email, subject, f"<pre>{html.escape(text)}</pre>", text)
 
 
+def _trouble(
+    ctx: RunContext, results: Sequence[StageResult], interrupted: Sequence[PipelineRun], now: datetime
+) -> bool:
+    """Why a later run's report is worth an email: a failure, back-off, or unpriced trips at day's end."""
+    if interrupted or any(r.status == "failed" for r in results):
+        return True
+    if any(r.counts.get("backoff_slowed") or r.counts.get("backoff_stopped") for r in results):
+        return True
+    if now.hour >= config.LAST_RUN_HOUR_UTC:
+        with session_scope(ctx.engine) as s:
+            return bool(day_freshness(s, ctx.run_date).not_fresh)
+    return False
+
+
 def send_report(
-    ctx: RunContext, results: Sequence[StageResult], interrupted: Sequence[PipelineRun] = ()
+    ctx: RunContext,
+    results: Sequence[StageResult],
+    interrupted: Sequence[PipelineRun] = (),
+    now: datetime | None = None,
 ) -> str:
-    """Email the report when configured and not a dry run; always return the text."""
+    """Email the report when configured and not a dry run (a later run only on trouble); return the text."""
     subject, text = build_report(ctx, results, interrupted)
-    _deliver(ctx, subject, text)
+    if is_first_run(results) or _trouble(ctx, results, interrupted, now or datetime.now(UTC)):
+        _deliver(ctx, subject, text)
     return text
 
 

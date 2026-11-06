@@ -54,6 +54,9 @@ STAGES: dict[str, Callable[[RunContext], dict[str, int]]] = {
 CONTINUE_ON_FAILURE = frozenset(
     {"seed_history", "live_verify", "related", "gems", "photos", "alerts", "prune"}
 )
+# Stages whose work is for the whole day: after one ok run, the day's later scan runs skip them.
+ONCE_A_DAY = frozenset({"expand", "broad_scan", "seed_history", "related", "gems", "photos", "prune"})
+ALREADY_RAN = "already ran today"
 
 
 @dataclass
@@ -99,6 +102,19 @@ def run_stage(ctx: RunContext, name: str) -> StageResult:
     return result
 
 
+def _ran_today(ctx: RunContext, name: str) -> bool:
+    with session_scope(ctx.engine) as s:
+        return (
+            s.scalar(
+                select(PipelineRun.id)
+                .where(PipelineRun.run_date == ctx.run_date, PipelineRun.stage == name)
+                .where(PipelineRun.status == "ok")
+                .limit(1)
+            )
+            is not None
+        )
+
+
 def run_pipeline(ctx: RunContext, stages: Sequence[str] | None = None) -> list[StageResult]:
     names = list(stages or STAGES)
     unknown = [n for n in names if n not in STAGES]
@@ -106,6 +122,10 @@ def run_pipeline(ctx: RunContext, stages: Sequence[str] | None = None) -> list[S
         raise ValueError(f"unknown stage(s) {unknown}; choose from {list(STAGES)}")
     results: list[StageResult] = []
     for i, name in enumerate(names):
+        # A manual `--stage` run always runs what it names.
+        if stages is None and name in ONCE_A_DAY and _ran_today(ctx, name):
+            results.append(StageResult(name, "skipped", error=ALREADY_RAN))
+            continue
         result = run_stage(ctx, name)
         results.append(result)
         if result.status == "failed" and name not in CONTINUE_ON_FAILURE:

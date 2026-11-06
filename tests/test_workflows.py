@@ -70,3 +70,9 @@ def test_no_workflow_splices_inputs_into_shell():
                 run = step.get("run", "")
                 assert "${{ inputs." not in run, name
                 assert "${{ github.event.inputs." not in run, name
+
+
+def test_scan_runs_three_times_a_day():
+    workflow = yaml.safe_load((WORKFLOWS / "scan.yml").read_text(encoding="utf-8"))
+    crons = [entry["cron"] for entry in workflow[True]["schedule"]]
+    assert crons == ["0 6 * * *", "0 14 * * *", "0 22 * * *"]

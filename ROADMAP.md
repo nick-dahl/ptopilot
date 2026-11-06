@@ -32,7 +32,6 @@ The owner wants the site to feel like a polished travel product before friends s
 - [ ] **"I booked this" from the email**, not just the website.
 
 **From the V2 list**
-- [ ] **Adaptive polling:** check stable routes weekly, and volatile routes or departures within 90 days daily.
 - [ ] **Crowd and shoulder-season signal** in go-now: add tourist-volume data to the score.
 - [ ] **Per-user digest timezone and send-day preferences.**
 - [ ] **Multi-city trips with more than two legs.** Open-jaw (two legs) is done.
@@ -277,6 +276,7 @@ None of these is urgent. Items from Plans 1–6 come from those reviews and were
 
 ## Done
 
+- [x] **Adaptive polling:** every in-horizon trip gets a live price every day across three scan runs (06:00, 14:00, 22:00 UTC), longest-waiting first, hot trips get a second check, Google back-off, and freshness in the health email (Plan 18).
 - [x] **Pre-invite hardening:** one person's digest failure never stops the others; a daily `prune` stage keeps price data until 90 days after the trip departs and never longer than 13 months; stage durations and reports of runs GitHub kills in the health email; read-only workflows with inputs passed via env; an encrypted session cookie, and production refuses to start without an https `APP_BASE_URL` (Plan 17).
 - [x] **First hidden-gems catalogue:** 11 approved ten-day trips (Lofoten, Slovenia, Morocco, Albania, Georgia, Asturias, the Kumano Kodo, Sri Lanka, Jordan, Transylvania, the Faroe Islands), written with the owner on 2026-10-31 and 2026-11-01; owner notes in `docs/gems/style-guide.md`.
 - [x] **Hidden gems:** a weekly magazine of off-the-beaten-path, affordable places matched to your trip styles, each with a live-checked fare and a "fits your dates" pill, a full guide with the facts we checked, and "Track this place". The catalogue is curated with the owner in working sessions, with no AI API (Plan 16; spec `docs/superpowers/specs/2026-10-31-ptopilot-hidden-gems-design.md`).
