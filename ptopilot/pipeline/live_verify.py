@@ -169,6 +169,7 @@ def record_check(
     options: int = 0,
     error: str | None = None,
     purpose: str = "trip",
+    route_specific: bool = False,
 ):
     with session_scope(ctx.engine) as s:
         s.add(
@@ -181,6 +182,7 @@ def record_check(
                 error=error,
                 checked_at=ctx.stamp(),
                 purpose=purpose,
+                route_specific=route_specific,
             )
         )
 
@@ -270,7 +272,7 @@ def run(ctx: RunContext) -> dict[str, int]:
             try:
                 result = src.exact_search(query)
             except SourceUnavailable as exc:
-                record_check(ctx, rq, src.name, ok=False, error=str(exc))
+                record_check(ctx, rq, src.name, ok=False, error=str(exc), route_specific=exc.route_specific)
                 log.warning("%s failed for %s: %s", src.name, query, exc)
                 if exc.route_specific:  # this route's problem, not an outage: leave the breaker alone
                     counts[f"{src.name}_route_failed"] += 1

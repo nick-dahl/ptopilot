@@ -302,7 +302,7 @@ class ShortlistEntry(Base):
     __tablename__ = "shortlist_entries"
     __table_args__ = (
         UniqueConstraint("run_date", "route_query_id"),
-        CheckConstraint("reason IN ('deal', 'explore')", name="reason"),
+        CheckConstraint("reason IN ('deal', 'explore', 'audit', 'second')", name="reason"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -327,6 +327,9 @@ class LiveCheck(Base):
     error: Mapped[str | None] = mapped_column(Text)
     checked_at: Mapped[datetime] = created_at()
     purpose: Mapped[str] = mapped_column(String(8), server_default="trip")  # 'trip' / 'return' / 'dryret'
+    route_specific: Mapped[bool] = mapped_column(
+        server_default="false"
+    )  # failed on this route, not an outage
 
 
 class RouteBaseline(Base):
